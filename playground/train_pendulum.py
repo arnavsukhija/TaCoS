@@ -12,8 +12,8 @@ from source.envs.pendulum import PendulumEnv
 from source.wrappers.fixed_num_of_switches import FixedNumOfSwitchesWrapper
 
 if __name__ == "__main__":
-    wrapper = True
-    env = PendulumEnv()
+    wrapper = False
+    env = PendulumEnv(reward_source='dm-control')
     action_repeat = 1
 
     if wrapper:
@@ -25,11 +25,11 @@ if __name__ == "__main__":
                                         max_time_between_switches=50 * env.dt)
 
     else:
-        action_repeat = 20
+        action_repeat = 10
 
     optimizer = SAC(
         environment=env,
-        num_timesteps=200_000,
+        num_timesteps=100_000,
         episode_length=200,
         action_repeat=action_repeat,
         num_env_steps_between_updates=10,

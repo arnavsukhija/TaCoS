@@ -6,6 +6,8 @@ import jax.numpy as jnp
 from jaxtyping import Float, Array
 from functools import partial
 
+from source.utils.tolerance_reward import ToleranceReward
+
 
 @chex.dataclass
 class PendulumDynamicsParams:
@@ -25,9 +27,17 @@ class PendulumRewardParams:
 
 
 class PendulumEnv(Env):
-    def __init__(self):
+    def __init__(self, reward_source: str = 'gym'):
         self.dynamics_params = PendulumDynamicsParams()
         self.reward_params = PendulumRewardParams()
+        bound = 0.1
+        value_at_margin = 0.1
+        margin_factor = 10.0
+        self.reward_source = reward_source  # 'dm-control' or 'gym'
+        self.tolerance_reward = ToleranceReward(bounds=(0.0, bound),
+                                                margin=margin_factor * bound,
+                                                value_at_margin=value_at_margin,
+                                                sigmoid='long_tail')
 
     def reset(self,
               rng: jax.Array) -> State:
@@ -43,10 +53,20 @@ class PendulumEnv(Env):
         target_angle = self.reward_params.target_angle
         diff_th = theta - target_angle
         diff_th = ((diff_th + jnp.pi) % (2 * jnp.pi)) - jnp.pi
-        angle_cost = self.reward_params.angle_cost
-        control_cost = self.reward_params.control_cost
-        reward = -(angle_cost * diff_th ** 2 +
-                   0.1 * omega ** 2) - control_cost * u ** 2
+        reward = -(self.reward_params.angle_cost * diff_th ** 2 +
+                   0.1 * omega ** 2) - self.reward_params.control_cost * u ** 2
+        reward = reward.squeeze()
+        return reward
+
+    def dm_reward(self,
+                  x: Float[Array, 'observation_dim'],
+                  u: Float[Array, 'action_dim']) -> Float[Array, 'None']:
+        theta, omega = jnp.arctan2(x[1], x[0]), x[-1]
+        target_angle = self.reward_params.target_angle
+        diff_th = theta - target_angle
+        diff_th = ((diff_th + jnp.pi) % (2 * jnp.pi)) - jnp.pi
+        reward = self.tolerance_reward(jnp.sqrt(self.reward_params.angle_cost * diff_th ** 2 +
+                                       0.1 * omega ** 2)) - self.reward_params.control_cost * u ** 2
         reward = reward.squeeze()
         return reward
 
@@ -66,7 +86,13 @@ class PendulumEnv(Env):
         newthdot = thdot + dx[-1] * dt
         newthdot = jnp.clip(newthdot, -self.dynamics_params.max_speed, self.dynamics_params.max_speed)
         next_obs = jnp.asarray([jnp.cos(newth), jnp.sin(newth), newthdot]).reshape(-1)
-        next_reward = self.reward(x, action)
+        if self.reward_source == 'gym':
+            next_reward = self.reward(x, action)
+        elif self.reward_source == 'dm-control':
+            next_reward = self.dm_reward(x, action)
+        else:
+            raise NotImplementedError(f'Unknown reward source {self.reward_source}')
+
         next_state = State(pipeline_state=state.pipeline_state,
                            obs=next_obs,
                            reward=next_reward,

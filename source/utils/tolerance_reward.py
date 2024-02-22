@@ -104,11 +104,11 @@ class ToleranceReward:
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
-    bound = 0.1
+    bound = 0.05
     value_at_margin = 0.1
-    for margin_factor in [5, 10, 15, 20]:
+    for margin_factor in [5]:
         reward = ToleranceReward(bounds=(0.0, bound), margin=margin_factor * bound, value_at_margin=value_at_margin,
-                                 sigmoid='long_tail')
+                                 sigmoid='gaussian')
         x = jnp.linspace(0, 4, 1000)
 
         y = reward(x)
