@@ -191,7 +191,7 @@ if __name__ == "__main__":
         axs[2].set_xlabel('Time', fontsize=LABEL_SIZE)
         axs[2].set_ylabel('Instance reward', fontsize=LABEL_SIZE)
 
-        axs[3].plot(jnp.diff(all_ts)[:-1], label='Times for actions')
+        axs[3].plot(jnp.diff(all_ts), label='Times for actions')
         axs[3].set_xlabel('Action Steps', fontsize=LABEL_SIZE)
         axs[3].set_ylabel('Time for action', fontsize=LABEL_SIZE)
 
