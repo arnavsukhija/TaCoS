@@ -12,17 +12,17 @@ from source.envs.pendulum import PendulumEnv
 from source.wrappers.fixed_num_of_switches import FixedNumOfSwitchesWrapper
 
 if __name__ == "__main__":
-    wrapper = False
+    wrapper = True
     env = PendulumEnv(reward_source='dm-control')
     action_repeat = 1
 
     if wrapper:
-        num_switches = 10
+        num_switches = 40
         env = FixedNumOfSwitchesWrapper(env,
                                         num_integrator_steps=200,
                                         num_switches=num_switches,
                                         min_time_between_switches=1 * env.dt,
-                                        max_time_between_switches=50 * env.dt)
+                                        max_time_between_switches=20 * env.dt)
 
     else:
         action_repeat = 10
@@ -139,20 +139,68 @@ if __name__ == "__main__":
 
     if wrapper:
         horizon = num_switches
-        # TODO: make better plotting of the system
+        LEGEND_SIZE = 20
+        LABEL_SIZE = 20
+        TICKS_SIZE = 20
+
+        plt.rc('text', usetex=True)
+        plt.rc('text.latex', preamble=
+        r'\usepackage{amsmath}'
+        r'\usepackage{bm}'
+        r'\def\vx{{\bm{x}}}'
+        r'\def\vf{{\bm{f}}}')
+
+        import matplotlib as mpl
+
+        mpl.rcParams['xtick.labelsize'] = TICKS_SIZE
+        mpl.rcParams['ytick.labelsize'] = TICKS_SIZE
 
         x_last, trajectory = scan(step, state, None, length=horizon)
-        fig, axs = plt.subplots(nrows=1, ncols=4, figsize=(16, 4))
-        axs[0].plot(trajectory[0][:, :-2], label='Xs')
-        axs[0].legend()
-        axs[1].plot(trajectory[1][:, :-1], label='Us')
-        axs[1].legend()
-        axs[2].plot(trajectory[2], label='Rewards')
-        axs[2].legend()
-        axs[3].plot(trajectory[0][:, -2], label='Time to go')
-        axs[3].plot(trajectory[1][:, -1], label='Time for actions')
-        axs[3].legend()
-        plt.legend()
+        fig, axs = plt.subplots(nrows=1, ncols=4, figsize=(20, 4))
+        xs = trajectory[0][:, :-2]
+        us = trajectory[1][:, :-1]
+        rewards = trajectory[2]
+        times_to_go = trajectory[0][:, -2]
+        times_for_actions = trajectory[1][:, -1]
+
+        total_time = env.time_horizon
+        # All times are the times when we ended the actions
+        all_ts = total_time - times_to_go
+        all_ts = jnp.concatenate([jnp.array([0.0]), all_ts])
+
+        all_xs = jnp.concatenate([state.obs[:-2].reshape(1, -1), xs])
+
+        state_dict = {0: r'cos($\theta$)',
+                      1: r'sin($\theta$)',
+                      2: r'$\omega$'}
+
+        for i in range(3):
+            axs[0].plot(all_ts, all_xs[:, i], label=state_dict[i])
+
+        axs[0].set_xlabel('Time', fontsize=LABEL_SIZE)
+        axs[0].set_ylabel('State', fontsize=LABEL_SIZE)
+
+        axs[1].step(all_ts, jnp.concatenate([us, us[-1].reshape(1, -1)]), where='post', label=r'$u$')
+        axs[1].set_xlabel('Time', fontsize=LABEL_SIZE)
+        axs[1].set_ylabel('Action', fontsize=LABEL_SIZE)
+
+        integrated_rewards = rewards / jnp.diff(all_ts) * 0.05
+
+        axs[2].step(all_ts, jnp.concatenate([integrated_rewards, integrated_rewards[-1].reshape(1, )]),
+                    where='post', label='Rewards')
+        axs[2].set_xlabel('Time', fontsize=LABEL_SIZE)
+        axs[2].set_ylabel('Instance reward', fontsize=LABEL_SIZE)
+
+        axs[3].plot(jnp.diff(all_ts)[:-1], label='Times for actions')
+        axs[3].set_xlabel('Action Steps', fontsize=LABEL_SIZE)
+        axs[3].set_ylabel('Time for action', fontsize=LABEL_SIZE)
+
+        # axs[4].plot(times_to_go, label='Time to go')
+        # axs[3].plot(times_for_actions, label='Time for actions NORMALIZED')
+        for ax in axs:
+            ax.legend(fontsize=LEGEND_SIZE)
+        plt.tight_layout()
+        plt.savefig('pendulum.pdf')
         plt.show()
         print(f'Total reward: {jnp.sum(trajectory[2])}')
 
@@ -160,6 +208,7 @@ if __name__ == "__main__":
         horizon = 200
 
         num_steps = horizon // action_repeat
+
 
         def repeated_step(state, _):
             u = policy(state.obs)[0]
