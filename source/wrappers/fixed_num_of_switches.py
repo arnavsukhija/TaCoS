@@ -64,9 +64,19 @@ class FixedNumOfSwitchesWrapper(Env):
         def false_fn_action_time(t_lower, t_upper, pseudo_time_for_action):
             return ((t_upper - t_lower) / 2 * pseudo_time_for_action + (t_upper + t_lower) / 2).reshape(), False
 
-        time_for_action, done = cond(jnp.bitwise_or(t_upper <= t_lower, num_remaining_switches == 1),
+        time_for_action, done = cond(t_upper <= t_lower,
                                      true_fn_action_time, false_fn_action_time,
                                      t_lower, t_upper, pseudo_time_for_action)
+
+        def last_action_true_fn(time_for_action, done):
+            return time_to_go + EPS, True
+
+        def last_action_false_fn(time_for_action, done):
+            return time_for_action, done
+
+        time_for_action, done = cond(num_remaining_switches == 1,
+                                     last_action_true_fn, last_action_false_fn,
+                                     time_for_action, done)
 
         # Calculate how many steps we need to take with action
         elapsed_time = self.time_horizon - time_to_go
