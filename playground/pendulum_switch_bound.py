@@ -17,12 +17,12 @@ if __name__ == "__main__":
     action_repeat = 1
 
     if wrapper:
-        num_switches = 40
+        num_switches = 10
         env = FixedNumOfSwitchesWrapper(env,
                                         num_integrator_steps=200,
                                         num_switches=num_switches,
                                         min_time_between_switches=1 * env.dt,
-                                        max_time_between_switches=20 * env.dt)
+                                        max_time_between_switches=100 * env.dt)
 
     else:
         action_repeat = 10
@@ -60,46 +60,6 @@ if __name__ == "__main__":
         wandb_logging=False,
         return_best_model=True,
     )
-    # train_fn = functools.partial(ppo.train,
-    #                              num_timesteps=10_000_000,
-    #                              num_evals=20,
-    #                              reward_scaling=10,
-    #                              episode_length=200,
-    #                              normalize_observations=True,
-    #                              action_repeat=1,
-    #                              unroll_length=10,
-    #                              num_minibatches=32,
-    #                              num_updates_per_batch=4,
-    #                              discounting=0.97,
-    #                              learning_rate=3e-4,
-    #                              entropy_cost=1e-2,
-    #                              num_envs=2048,
-    #                              batch_size=1024,
-    #                              network_factory=functools.partial(ppo_networks.make_ppo_networks,
-    #                                                                policy_hidden_layer_sizes=(32,) * 4,
-    #                                                                value_hidden_layer_sizes=(256,) * 5,
-    #                                                                activation=jax.nn.swish),
-    #                              seed=1)
-
-    # train_fn = functools.partial(sac.train,
-    #                              num_timesteps=100_000,
-    #                              num_evals=20,
-    #                              reward_scaling=5,
-    #                              episode_length=200,
-    #                              normalize_observations=True,
-    #                              action_repeat=1,
-    #                              discounting=0.99,
-    #                              learning_rate=3e-4,
-    #                              num_envs=64,
-    #                              batch_size=128,
-    #                              grad_updates_per_step=64,
-    #                              max_devices_per_host=1,
-    #                              max_replay_size=2 ** 14,
-    #                              min_replay_size=2 ** 7,
-    #                              network_factory=functools.partial(sac_networks.make_sac_networks,
-    #                                                                hidden_layer_sizes=(256, 256),
-    #                                                                activation=jax.nn.swish),
-    #                              seed=1)
 
     xdata, ydata = [], []
     times = [datetime.now()]
@@ -200,7 +160,7 @@ if __name__ == "__main__":
         for ax in axs:
             ax.legend(fontsize=LEGEND_SIZE)
         plt.tight_layout()
-        plt.savefig('pendulum.pdf')
+        plt.savefig('pendulum_switch_bound.pdf')
         plt.show()
         print(f'Total reward: {jnp.sum(trajectory[2])}')
 
