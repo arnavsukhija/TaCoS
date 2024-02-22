@@ -40,12 +40,6 @@ class FixedNumOfSwitchesWrapper(Env):
         num_remaining_switches = jnp.array(self.num_switches)
         augmented_obs = jnp.concatenate([x0, time_to_go.reshape(1), num_remaining_switches.reshape(1)])
         augmented_state = state.replace(obs=augmented_obs)
-        # augmented_state = State(pipeline_state=state.pipeline_state,
-        #                         obs=augmented_obs,
-        #                         reward=state.reward,
-        #                         done=state.done,
-        #                         metrics=state.metrics,
-        #                         info=state.info)
         return augmented_state
 
     # @partial(jax.jit, static_argnums=0)
@@ -84,7 +78,6 @@ class FixedNumOfSwitchesWrapper(Env):
         next_elapsed_time = elapsed_time + time_for_action
         next_steps_passed = (next_elapsed_time // self.env.dt).astype(int)
         num_steps = next_steps_passed - steps_passed
-        # assert num_steps >= 1
 
         # Integrate dynamics forward for the num_steps
         state = state.replace(obs=obs, )
@@ -105,12 +98,17 @@ class FixedNumOfSwitchesWrapper(Env):
 
         next_state, total_reward, _ = final_val
 
+        # Done can come from running out of time, number of switches or since we overpassed the horizon
+        next_done = 1 - (1 - next_state.done) * (1 - done)
+
         # Prepare augmented obs
         next_time_to_go = (time_to_go - time_for_action).reshape(1)
         next_num_remaining_switches = (num_remaining_switches - 1).reshape(1)
         augmented_next_obs = jnp.concatenate([next_state.obs, next_time_to_go, next_num_remaining_switches])
 
-        augmented_next_state = next_state.replace(obs=augmented_next_obs, reward=total_reward)
+        augmented_next_state = next_state.replace(obs=augmented_next_obs,
+                                                  reward=total_reward,
+                                                  done=next_done)
         return augmented_next_state
 
     @property
@@ -133,8 +131,8 @@ if __name__ == '__main__':
     import jax.random as jr
     from jax import jit
 
-    env_name = 'inverted_pendulum'  # @param ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum', 'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d']
-    backend = 'generalized'  # @param ['generalized', 'positional', 'spring']
+    env_name = 'inverted_pendulum'
+    backend = 'generalized'
 
     env = envs.get_environment(env_name=env_name,
                                backend=backend)
