@@ -14,24 +14,26 @@ from source.envs.pendulum import PendulumEnv
 from source.wrappers.switching_cost import ConstantSwitchCost, SwitchCostWrapper
 
 if __name__ == "__main__":
-    wrapper = True
+    wrapper = False
     env = PendulumEnv(reward_source='dm-control')
     action_repeat = 1
+    episode_length = 80
+
 
     if wrapper:
         env = SwitchCostWrapper(env,
-                                num_integrator_steps=200,
+                                num_integrator_steps=episode_length,
                                 min_time_between_switches=1 * env.dt,
                                 max_time_between_switches=50 * env.dt,
                                 switch_cost=ConstantSwitchCost(value=jnp.array(0.1)))
 
     else:
-        action_repeat = 10
+        action_repeat = 7
 
     optimizer = SAC(
         environment=env,
-        num_timesteps=20_000,
-        episode_length=200,
+        num_timesteps=100_000,
+        episode_length=episode_length,
         action_repeat=action_repeat,
         num_env_steps_between_updates=10,
         num_envs=4,
@@ -173,7 +175,7 @@ if __name__ == "__main__":
         print(f'Total number of actions {len(us)}')
 
     else:
-        horizon = 200
+        horizon = episode_length
 
         num_steps = horizon // action_repeat
 
