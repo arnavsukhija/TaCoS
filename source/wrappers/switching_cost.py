@@ -1,14 +1,13 @@
 from abc import abstractmethod
 from functools import partial
-from typing import List
 
 import jax
 import jax.numpy as jnp
+import jax.tree_util as jtu
 from brax.envs.base import PipelineEnv, State, Env
 from jax import jit
 from jax.lax import cond, while_loop, scan
 from jaxtyping import Float, Array
-import jax.tree_util as jtu
 
 EPS = 1e-10
 
@@ -125,7 +124,7 @@ class SwitchCostWrapper(Env):
                                                   done=next_done)
         return augmented_next_state
 
-    def simulation_step(self, state: State, action: jax.Array) -> (State, List[State]):
+    def simulation_step(self, state: State, action: jax.Array) -> (State, State):
         obs, time_to_go = state.obs[:-1], state.obs[-1]
         u, pseudo_time_for_action = action[:-1], action[-1]
 
