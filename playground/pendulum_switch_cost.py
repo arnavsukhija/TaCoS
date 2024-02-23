@@ -14,11 +14,11 @@ from source.envs.pendulum import PendulumEnv
 from source.wrappers.switching_cost import ConstantSwitchCost, SwitchCostWrapper
 
 if __name__ == "__main__":
-    wrapper = False
+    wrapper = True
+    PLOT_TRUE_TRAJECTORIES = True
     env = PendulumEnv(reward_source='dm-control')
     action_repeat = 1
-    episode_length = 80
-
+    episode_length = 100
 
     if wrapper:
         env = SwitchCostWrapper(env,
@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     optimizer = SAC(
         environment=env,
-        num_timesteps=100_000,
+        num_timesteps=40_000,
         episode_length=episode_length,
         action_repeat=action_repeat,
         num_env_steps_between_updates=10,
@@ -92,16 +92,19 @@ if __name__ == "__main__":
         return pseudo_policy(obs, key_sample=jr.PRNGKey(0))
 
 
-    @jax.jit
+    # @jax.jit
     def step(state, _):
         u = policy(state.obs)[0]
-        next_state = env.step(state, u)
-        return next_state, (next_state.obs, u, next_state.reward)
+        print('Step')
+        print(f'Time to go {u[-1]}')
+        next_state, rest = env.simulation_step(state, u)
+        return next_state, (next_state.obs, u, next_state.reward, rest)
 
 
     state = env.reset(rng=jr.PRNGKey(0))
 
     if wrapper:
+        init_state = state
         LEGEND_SIZE = 20
         LABEL_SIZE = 20
         TICKS_SIZE = 20
@@ -119,11 +122,19 @@ if __name__ == "__main__":
         mpl.rcParams['ytick.labelsize'] = TICKS_SIZE
 
         trajectory = []
+        full_trajectories = []
         while not state.done:
             state, one_traj = step(state, None)
+            one_traj, full_trajectory = one_traj[:-1], one_traj[-1]
             trajectory.append(one_traj)
+            full_trajectories.append(full_trajectory)
 
         trajectory = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *trajectory)
+        full_trajectory = jtu.tree_map(lambda *xs: jnp.concatenate(xs), *full_trajectories)
+
+        xs_full_trajectory = jnp.concatenate([init_state.obs[:-1].reshape(1, -1), full_trajectory.obs, ])
+        rewards_full_trajectory = jnp.concatenate([init_state.reward.reshape(1, ), full_trajectory.reward])
+        ts_full_trajectory = jnp.linspace(0, env.time_horizon, episode_length)
 
         fig, axs = plt.subplots(nrows=1, ncols=4, figsize=(20, 4))
         xs = trajectory[0][:, :-1]
@@ -143,8 +154,14 @@ if __name__ == "__main__":
                       1: r'sin($\theta$)',
                       2: r'$\omega$'}
 
-        for i in range(3):
-            axs[0].plot(all_ts, all_xs[:, i], label=state_dict[i])
+        if PLOT_TRUE_TRAJECTORIES:
+            for i in range(3):
+                axs[0].plot(ts_full_trajectory, xs_full_trajectory[:, i], label=state_dict[i])
+            for h in all_ts:
+                axs[0].axvline(x=h, color='black', ls='--', alpha=0.4)
+        else:
+            for i in range(3):
+                axs[0].plot(all_ts, all_xs[:, i], label=state_dict[i])
 
         axs[0].set_xlabel('Time', fontsize=LABEL_SIZE)
         axs[0].set_ylabel('State', fontsize=LABEL_SIZE)
@@ -155,8 +172,13 @@ if __name__ == "__main__":
 
         integrated_rewards = rewards / jnp.diff(all_ts) * 0.05
 
-        axs[2].step(all_ts, jnp.concatenate([integrated_rewards, integrated_rewards[-1].reshape(1, )]),
-                    where='post', label='Rewards')
+        if PLOT_TRUE_TRAJECTORIES:
+            axs[2].plot(ts_full_trajectory, rewards_full_trajectory, label='Rewards')
+            for h in all_ts:
+                axs[2].axvline(x=h, color='black', ls='--', alpha=0.4)
+        else:
+            axs[2].step(all_ts, jnp.concatenate([integrated_rewards, integrated_rewards[-1].reshape(1, )]),
+                        where='post', label='Rewards')
         axs[2].set_xlabel('Time', fontsize=LABEL_SIZE)
         axs[2].set_ylabel('Instance reward', fontsize=LABEL_SIZE)
 
@@ -203,7 +225,6 @@ if __name__ == "__main__":
         axs[2].legend()
         plt.show()
         print(f'Total reward: {jnp.sum(trajectory[2])}')
-
 
     time_to_jit = times[1] - times[0]
     time_to_train = times[-1] - times[1]
