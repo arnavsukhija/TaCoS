@@ -7,7 +7,7 @@ from brax import envs
 from brax.training.agents.ppo import train as ppo
 from brax.training.agents.sac import train as sac
 
-from source.wrappers.fixed_num_of_switches import FixedNumOfSwitchesWrapper
+from source.wrappers.bounded_switches import FixedNumOfSwitchesWrapper
 
 env_name = 'inverted_pendulum'  # @param ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum', 'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d']
 backend = 'generalized'  # @param ['generalized', 'positional', 'spring']

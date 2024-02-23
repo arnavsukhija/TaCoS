@@ -9,7 +9,7 @@ from jax.lax import scan
 import jax.numpy as jnp
 
 from source.envs.pendulum import PendulumEnv
-from source.wrappers.fixed_num_of_switches import FixedNumOfSwitchesWrapper
+from source.wrappers.bounded_switches import FixedNumOfSwitchesWrapper
 
 if __name__ == "__main__":
     wrapper = False
