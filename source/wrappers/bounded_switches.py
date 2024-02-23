@@ -1,9 +1,8 @@
-from functools import partial
-
 import jax
 import jax.numpy as jnp
+import jax.tree_util as jtu
 from brax.envs.base import PipelineEnv, State, Env
-from jax.lax import cond, while_loop
+from jax.lax import cond, while_loop, scan
 
 EPS = 1e-10
 
@@ -111,6 +110,72 @@ class FixedNumOfSwitchesWrapper(Env):
                                                   done=next_done)
         return augmented_next_state
 
+    def simulation_step(self, state: State, action: jax.Array) -> (State, State):
+        obs, time_to_go, num_remaining_switches = state.obs[:-2], state.obs[-2], state.obs[-1]
+        u, pseudo_time_for_action = action[:-1], action[-1]
+
+        # Calculate the action time, i.e. Map pseudo_time_for_action from [-1, 1] to
+        # time [self.min_time_between_switches, time_to_go]
+        t_lower = self.min_time_between_switches
+        t_upper = jnp.minimum(time_to_go, self.max_time_between_switches)
+
+        def true_fn_action_time(t_lower, t_upper, pseudo_time_for_action):
+            return t_upper + EPS, True
+
+        def false_fn_action_time(t_lower, t_upper, pseudo_time_for_action):
+            return ((t_upper - t_lower) / 2 * pseudo_time_for_action + (t_upper + t_lower) / 2).reshape(), False
+
+        time_for_action, done = cond(t_upper <= t_lower,
+                                     true_fn_action_time, false_fn_action_time,
+                                     t_lower, t_upper, pseudo_time_for_action)
+
+        def last_action_true_fn(time_for_action, done):
+            return time_to_go + EPS, True
+
+        def last_action_false_fn(time_for_action, done):
+            return time_for_action, done
+
+        time_for_action, done = cond(num_remaining_switches == 1,
+                                     last_action_true_fn, last_action_false_fn,
+                                     time_for_action, done)
+
+        # Calculate how many steps we need to take with action
+        elapsed_time = self.time_horizon - time_to_go
+        steps_passed = (elapsed_time // self.env.dt).astype(int)
+        next_elapsed_time = elapsed_time + time_for_action
+        next_steps_passed = (next_elapsed_time // self.env.dt).astype(int)
+        num_steps = next_steps_passed - steps_passed
+
+        # Integrate dynamics forward for the num_steps
+        state = state.replace(obs=obs, )
+
+        @jax.jit
+        def scan_f(s, _):
+            n_s = self.env.step(s, u)
+            next_done = 1 - (1 - s.done) * (1 - n_s.done)
+            n_s = n_s.replace(done=next_done,
+                              reward=(1 - next_done) * n_s.reward)
+            return n_s, n_s
+
+        next_state, inner_part = scan(scan_f, state, xs=None, length=num_steps.astype(int))
+        inner_part_not_done = jtu.tree_map(lambda x: x[inner_part.done == 0], inner_part)
+
+        # Compute total reward
+        total_reward = jnp.sum(inner_part_not_done.reward)
+
+        # Done can come from running out of time, number of switches or since we overpassed the horizon
+        next_done = 1 - (1 - next_state.done) * (1 - done)
+
+        # Prepare augmented obs
+        next_time_to_go = (time_to_go - time_for_action).reshape(1)
+        next_num_remaining_switches = (num_remaining_switches - 1).reshape(1)
+        augmented_next_obs = jnp.concatenate([next_state.obs, next_time_to_go, next_num_remaining_switches])
+
+        augmented_next_state = next_state.replace(obs=augmented_next_obs,
+                                                  reward=total_reward,
+                                                  done=next_done)
+        return augmented_next_state, inner_part_not_done
+
     @property
     def observation_size(self) -> int:
         # +1 for time-to-go and +1 for num remaining switches
@@ -141,7 +206,7 @@ if __name__ == '__main__':
                                     num_integrator_steps=1000,
                                     num_switches=30,
                                     min_time_between_switches=env.dt,
-                                    max_time_between_switches=10 * env.dt,
+                                    # max_time_between_switches=10 * env.dt,
                                     discounting=1.0)
 
     key = jr.PRNGKey(42)
@@ -154,12 +219,12 @@ if __name__ == '__main__':
     time = jnp.array([0.0])
     augmented_action = jnp.concatenate([u, time]) if wrapper else u
 
-    state = env.step(state, augmented_action)
+    state, rest = env.simulation_step(state, augmented_action)
     jitted_step = jit(env.step)
 
-    import time
-
-    for i in range(10):
-        start_time = time.time()
-        state = jitted_step(state, augmented_action)
-        print(f'elapsed_time: {time.time() - start_time} sec')
+    # import time
+    #
+    # for i in range(10):
+    #     start_time = time.time()
+    #     state = jitted_step(state, augmented_action)
+    #     print(f'elapsed_time: {time.time() - start_time} sec')
