@@ -18,21 +18,23 @@ if __name__ == "__main__":
     env = PendulumEnv(reward_source='dm-control')
     action_repeat = 1
     episode_length = 100
+    discount_factor = 0.99
 
     if wrapper:
-        num_switches = 10
+        num_switches = 4
         env = FixedNumOfSwitchesWrapper(env,
                                         num_integrator_steps=episode_length,
                                         num_switches=num_switches,
+                                        discounting=discount_factor,
                                         min_time_between_switches=1 * env.dt,
                                         max_time_between_switches=50 * env.dt)
 
     else:
-        action_repeat = 10
+        action_repeat = 25
 
     optimizer = SAC(
         environment=env,
-        num_timesteps=40_000,
+        num_timesteps=200_000,
         episode_length=episode_length,
         action_repeat=action_repeat,
         num_env_steps_between_updates=10,
@@ -45,7 +47,7 @@ if __name__ == "__main__":
         wd_policy=0.,
         wd_q=0.,
         max_grad_norm=1e5,
-        discounting=0.99,
+        discounting=discount_factor,
         batch_size=32,
         num_evals=20,
         normalize_observations=True,
@@ -159,7 +161,7 @@ if __name__ == "__main__":
         if PLOT_TRUE_TRAJECTORIES:
             for i in range(3):
                 axs[0].plot(ts_full_trajectory, xs_full_trajectory[:, i], label=state_dict[i])
-            for h in all_ts:
+            for h in all_ts[:-1]:
                 axs[0].axvline(x=h, color='black', ls='--', alpha=0.4)
         else:
             for i in range(3):
@@ -176,7 +178,7 @@ if __name__ == "__main__":
 
         if PLOT_TRUE_TRAJECTORIES:
             axs[2].plot(ts_full_trajectory, rewards_full_trajectory, label='Rewards')
-            for h in all_ts:
+            for h in all_ts[:-1]:
                 axs[2].axvline(x=h, color='black', ls='--', alpha=0.4)
         else:
             axs[2].step(all_ts, jnp.concatenate([integrated_rewards, integrated_rewards[-1].reshape(1, )]),
@@ -203,6 +205,7 @@ if __name__ == "__main__":
 
         num_steps = horizon // action_repeat
 
+        ts = jnp.linspace(0, horizon * env.dt, num_steps + 1)
 
         def repeated_step(state, _):
             u = policy(state.obs)[0]
@@ -218,12 +221,19 @@ if __name__ == "__main__":
 
         x_last, trajectory = scan(repeated_step, state, None, length=num_steps)
 
+        rewards = trajectory[2]
+        us = trajectory[1]
+
         fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(16, 4))
-        axs[0].plot(trajectory[0], label='Xs')
+        axs[0].plot(ts, jnp.concatenate([state.obs.reshape(1, -1), trajectory[0]]), label='Xs')
         axs[0].legend()
-        axs[1].plot(trajectory[1], drawstyle='steps-post', label='Us')
+        # axs[1].plot(trajectory[1], drawstyle='steps-post', label='Us')
+        axs[1].step(ts, jnp.concatenate([us, us[-1].reshape(1, -1)]), where='post', label=r'$u$')
         axs[1].legend()
-        axs[2].plot(trajectory[2], label='Rewards')
+        integrated_rewards = rewards / jnp.diff(ts) * env.dt
+        axs[2].step(ts, jnp.concatenate([integrated_rewards, integrated_rewards[-1].reshape(1, )]),
+                    where='post', label='Rewards')
+        # axs[2].plot(trajectory[2], label='Rewards')
         axs[2].legend()
         plt.show()
         print(f'Total reward: {jnp.sum(trajectory[2])}')
