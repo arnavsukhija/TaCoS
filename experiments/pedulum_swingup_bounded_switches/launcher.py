@@ -16,17 +16,18 @@ general_configs = {
 }
 
 configs_wrapper = {'wrapper': [1, ],
-                   'num_switches': list(range(10, 31)),
+                   'num_switches': [6, 7, 8, 9, 35, 40, 45, 50],
                    } | general_configs
-configs_action_repeat = {'wrapper': [0, ],
-                         'action_repeat': [4, 5, 8, 10, 20],
-                         } | general_configs
+# configs_action_repeat = {'wrapper': [0, ],
+#                          'action_repeat': [4, 5, 8, 10, 20],
+#                          } | general_configs
 
 
 def main():
     command_list = []
 
-    flags_combinations = dict_permutations(configs_wrapper) + dict_permutations(configs_action_repeat)
+    flags_combinations = dict_permutations(configs_wrapper)
+    # flags_combinations = dict_permutations(configs_wrapper) + dict_permutations(configs_action_repeat)
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)
         command_list.append(cmd)
