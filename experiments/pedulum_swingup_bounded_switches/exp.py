@@ -146,12 +146,12 @@ def experiment(project_name: str,
         LABEL_SIZE = 20
         TICKS_SIZE = 20
 
-        plt.rc('text', usetex=True)
-        plt.rc('text.latex', preamble=
-        r'\usepackage{amsmath}'
-        r'\usepackage{bm}'
-        r'\def\vx{{\bm{x}}}'
-        r'\def\vf{{\bm{f}}}')
+        # plt.rc('text', usetex=True)
+        # plt.rc('text.latex', preamble=
+        # r'\usepackage{amsmath}'
+        # r'\usepackage{bm}'
+        # r'\def\vx{{\bm{x}}}'
+        # r'\def\vf{{\bm{f}}}')
 
         import matplotlib as mpl
 
