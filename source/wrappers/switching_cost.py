@@ -103,7 +103,7 @@ class SwitchCostWrapper(Env):
         def cond_integration_step(val):
             s, r, index = val
             # We continue if index is smaller that num_steps and we are not done
-            return jnp.bitwise_and(index < num_steps, jnp.bitwise_not(s.done.astype(jnp.bool)))
+            return jnp.bitwise_and(index < num_steps, jnp.bitwise_not(s.done.astype(bool)))
 
         init_val = (state, jnp.array(0.0), jnp.array(0))
         final_val = while_loop(cond_integration_step, body_integration_step, init_val)
