@@ -1,13 +1,13 @@
 import exp
 from experiments.util import generate_run_commands, generate_base_command, dict_permutations
 
-PROJECT_NAME = 'PendulumSwingUpBoundedSwitchesFeb26_12_19'
+PROJECT_NAME = 'PendulumSwingUpBoundedSwitchesFeb26_12_46'
 
 general_configs = {
     'project_name': [PROJECT_NAME],
     'episode_length': [200, ],
     'learning_discount_factor': [0.99, ],
-    'min_reps': [0, ],
+    'min_reps': [1, ],
     'max_reps': [50, ],
     'sac_train_steps': [200_000, ],
     'wandb_logging': [1, ],
