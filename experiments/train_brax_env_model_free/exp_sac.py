@@ -10,7 +10,7 @@ from jax.nn import swish
 from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 
 if __name__ == "__main__":
-    env_name = 'hopper'  # @param ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup',
+    env_name = 'humanoid'  # @param ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup',
                               # 'inverted_pendulum', 'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d']
     backend = 'generalized'   # @param ['generalized', 'positional', 'spring']
 
@@ -18,16 +18,16 @@ if __name__ == "__main__":
                                backend=backend)
     action_repeat = 5
     episode_length = 1000
-    discount_factor = 0.997
+    discount_factor = 0.99
 
     optimizer = SAC(
         environment=env,
-        num_timesteps=100_000,
+        num_timesteps=500_000,
         episode_length=episode_length,
         action_repeat=action_repeat,
-        num_env_steps_between_updates=10,
+        num_env_steps_between_updates=20,
         num_envs=16,
-        num_eval_envs=32,
+        num_eval_envs=4,
         lr_alpha=3e-4,
         lr_policy=3e-4,
         lr_q=3e-4,
@@ -43,7 +43,7 @@ if __name__ == "__main__":
         tau=0.005,
         min_replay_size=10 ** 2,
         max_replay_size=10 ** 5,
-        grad_updates_per_step=10 * 32,
+        grad_updates_per_step=20 * 32,
         deterministic_eval=True,
         init_log_alpha=0.,
         policy_hidden_layer_sizes=(32,) * 5,
