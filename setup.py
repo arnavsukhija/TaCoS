@@ -6,6 +6,7 @@ required = [
     'jax>=0.4.13',
     'brax',
     'wandb',
+    'pandas',
     'jaxtyping>=0.2.20',
     'matplotlib>=3.5.1',
     'mbpo @ git+https://github.com/lasgroup/Model-based-policy-optimizers.git',
