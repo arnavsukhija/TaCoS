@@ -44,13 +44,13 @@ ys_repeated_actions_std = np.array(grouped_repeated_actions['std'])
 # Plotting
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 8))
 
-ax.plot(xs_bounded_switches, ys_bounded_switches_mean, label='Bounded switches')
+ax.plot(xs_bounded_switches, ys_bounded_switches_mean, label='Optimized time between actions')
 ax.fill_between(xs_bounded_switches,
                 ys_bounded_switches_mean - 2 * ys_bounded_switches_std,
                 ys_bounded_switches_mean + 2 * ys_bounded_switches_std,
                 alpha=0.2)
 
-ax.plot(xs_repeated_actions, ys_repeated_actions_mean, label='Repeated actions')
+ax.plot(xs_repeated_actions, ys_repeated_actions_mean, label='Equidistant time between actions')
 ax.fill_between(xs_repeated_actions,
                 ys_repeated_actions_mean - 2 * ys_repeated_actions_std,
                 ys_repeated_actions_mean + 2 * ys_repeated_actions_std,
@@ -59,5 +59,8 @@ ax.fill_between(xs_repeated_actions,
 ax.set_xlabel('Number of applied actions', fontsize=LABEL_FONT_SIZE)
 ax.set_ylabel('Total reward', fontsize=LABEL_FONT_SIZE)
 ax.legend(fontsize=LEGEND_FONT_SIZE, loc='lower right')
+ax.set_title('Pendulum swing-up task [Duration=10seconds]',
+             fontsize=TITLE_FONT_SIZE)
 plt.tight_layout()
+plt.savefig('total_rewards_vs_num_switches.pdf')
 plt.show()
