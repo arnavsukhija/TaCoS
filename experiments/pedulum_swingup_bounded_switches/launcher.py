@@ -10,15 +10,15 @@ general_configs = {
     'min_reps': [0, ],
     'max_reps': [50, ],
     'sac_train_steps': [200_000, ],
-    'wandb_logging': [True, ],
-    'plot_progress': [False, ],
+    'wandb_logging': [1, ],
+    'plot_progress': [0, ],
     'training_seed': list(range(5)),
 }
 
-configs_wrapper = {'wrapper': [True, ],
+configs_wrapper = {'wrapper': [1, ],
                    'num_switches': list(range(10, 31)),
                    } | general_configs
-configs_action_repeat = {'wrapper': [False, ],
+configs_action_repeat = {'wrapper': [0, ],
                          'action_repeat': [4, 5, 8, 10, 20],
                          } | general_configs
 

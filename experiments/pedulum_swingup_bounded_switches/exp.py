@@ -291,7 +291,7 @@ def experiment(project_name: str,
 def main(args):
     experiment(
         project_name=args.project_name,
-        wrapper=args.wrapper,
+        wrapper=bool(args.wrapper),
         action_repeat=args.action_repeat,
         episode_length=args.episode_length,
         learning_discount_factor=args.learning_discount_factor,
@@ -299,8 +299,8 @@ def main(args):
         min_reps=args.min_reps,
         max_reps=args.max_reps,
         sac_train_steps=args.sac_train_steps,
-        wandb_logging=args.wandb_logging,
-        plot_progress=args.plot_progress,
+        wandb_logging=bool(args.wandb_logging),
+        plot_progress=bool(args.plot_progress),
         training_seed=args.training_seed,
     )
 
@@ -308,7 +308,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--project_name', type=str, default='PendulumWhenToControl')
-    parser.add_argument('--wrapper', type=bool, default=True)
+    parser.add_argument('--wrapper', type=int, default=1)
     parser.add_argument('--action_repeat', type=int, default=10)
     parser.add_argument('--episode_length', type=int, default=200)
     parser.add_argument('--learning_discount_factor', type=float, default=0.99)
@@ -316,8 +316,8 @@ if __name__ == '__main__':
     parser.add_argument('--min_reps', type=int, default=1)
     parser.add_argument('--max_reps', type=int, default=50)
     parser.add_argument('--sac_train_steps', type=int, default=40_000)
-    parser.add_argument('--wandb_logging', type=bool, default=True)
-    parser.add_argument('--plot_progress', type=bool, default=False)
+    parser.add_argument('--wandb_logging', type=int, default=1)
+    parser.add_argument('--plot_progress', type=int, default=0)
     parser.add_argument('--training_seed', type=int, default=43)
 
     args = parser.parse_args()
