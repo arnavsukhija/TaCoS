@@ -8,25 +8,26 @@ general_configs = {
     'episode_length': [200, ],
     'learning_discount_factor': [0.99, ],
     'min_reps': [1, ],
-    'max_reps': [50, ],
+    'max_reps': [20, ],
     'sac_train_steps': [200_000, ],
     'wandb_logging': [1, ],
     'plot_progress': [0, ],
     'training_seed': list(range(5)),
 }
 
-configs_wrapper = {'wrapper': [1, ],
-                   'num_switches': [6, 7, 8, 9, 35, 40, 45, 50],
-                   } | general_configs
-# configs_action_repeat = {'wrapper': [0, ],
-#                          'action_repeat': [4, 5, 8, 10, 20],
-#                          } | general_configs
+# configs_wrapper = {'wrapper': [1, ],
+#                    'num_switches': [35, 40, 45, 50],
+#                    } | general_configs
+configs_action_repeat = {'wrapper': [0, ],
+                         'action_repeat': [25],
+                         } | general_configs
 
 
 def main():
     command_list = []
 
-    flags_combinations = dict_permutations(configs_wrapper)
+    flags_combinations = dict_permutations(configs_action_repeat)
+    # flags_combinations = dict_permutations(configs_wrapper)
     # flags_combinations = dict_permutations(configs_wrapper) + dict_permutations(configs_action_repeat)
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)
