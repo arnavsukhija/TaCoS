@@ -6,7 +6,7 @@ PROJECT_NAME = 'SingleGPUTestFeb27_15_44'
 general_configs = {
     'env_name': ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
                  'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d'],
-    'backend': ['generalized', 'positional', 'spring'],
+    'backend': ['generalized', ],
     'project_name': [PROJECT_NAME],
     'num_timesteps': [1_000_000, ],
 }
