@@ -56,11 +56,12 @@ ax.fill_between(xs_repeated_actions,
                 ys_repeated_actions_mean + 2 * ys_repeated_actions_std,
                 alpha=0.2)
 
+ax.set_xlim(0, 35)
 ax.set_xlabel('Number of applied actions', fontsize=LABEL_FONT_SIZE)
 ax.set_ylabel('Total reward', fontsize=LABEL_FONT_SIZE)
 ax.legend(fontsize=LEGEND_FONT_SIZE, loc='lower right')
 ax.set_title('Pendulum swing-down task [Duration=15seconds]',
              fontsize=TITLE_FONT_SIZE)
 plt.tight_layout()
-plt.savefig('total_rewards_vs_num_switches.pdf')
+plt.savefig('pendulum_swing_down_total_rewards_vs_num_switches.pdf')
 plt.show()

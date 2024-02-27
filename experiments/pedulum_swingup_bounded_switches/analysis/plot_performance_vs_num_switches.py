@@ -58,6 +58,7 @@ ax.fill_between(xs_repeated_actions,
 
 ax.set_xlabel('Number of applied actions', fontsize=LABEL_FONT_SIZE)
 ax.set_ylabel('Total reward', fontsize=LABEL_FONT_SIZE)
+ax.set_xlim(5, 35)
 ax.legend(fontsize=LEGEND_FONT_SIZE, loc='lower right')
 ax.set_title('Pendulum swing-up task [Duration=10seconds]',
              fontsize=TITLE_FONT_SIZE)
