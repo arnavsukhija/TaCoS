@@ -19,19 +19,20 @@ ENTITY = 'trevenl'
 def experiment(env_name: str = 'inverted_pendulum',
                backend: str = 'generalized',
                project_name: str = 'GPUSpeedTest',
-               num_timesteps: int = 1_000_000):
+               num_timesteps: int = 1_000_000,
+               action_repeat: int = 1):
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
                         'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d']
     assert backend in ['generalized', 'positional', 'spring']
     env = envs.get_environment(env_name=env_name,
                                backend=backend)
 
-    action_repeat = 1
     episode_length = 1000
     discount_factor = 0.99
 
     config = dict(env_name=env_name,
-                  backend=backend)
+                  backend=backend,
+                  action_repeat=action_repeat)
 
     wandb.init(
         project=project_name,
@@ -98,12 +99,14 @@ def experiment(env_name: str = 'inverted_pendulum',
         return pseudo_policy(obs, key_sample=jr.PRNGKey(0))
 
     @jax.jit
-    def step(state, _):
+    def repeated_step(state):
         u = policy(state.obs)[0]
-        print('Step')
-        print(f'Time to go {u[-1]}')
-        next_state = env.step(state, u)
-        return next_state
+        traj = []
+        for i in range(action_repeat):
+            state = env.step(state, u)
+            traj.append(state)
+
+        return state, traj
 
     time_to_jit = times[1] - times[0]
     time_to_train = times[-1] - times[1]
@@ -114,13 +117,11 @@ def experiment(env_name: str = 'inverted_pendulum',
     state = env.reset(rng=jr.PRNGKey(0))
     trajectory = []
     trajectory.append(state)
-    rewards = []
     for i in range(episode_length):
-        state = step(state, None)
-        trajectory.append(state)
-        rewards.append(state.reward)
+        state, traj = repeated_step(state)
+        trajectory += traj
 
-    total_reward = sum(rewards)
+    total_reward = sum([s.reward for s in trajectory])
     wandb.log({'total_reward': total_reward})
 
     # Save trajectory rather than rendered video
@@ -148,7 +149,8 @@ def main(args):
     experiment(env_name=args.env_name,
                backend=args.backend,
                project_name=args.project_name,
-               num_timesteps=args.num_timesteps)
+               num_timesteps=args.num_timesteps,
+               action_repeat=args.action_repeat)
 
 
 if __name__ == '__main__':
@@ -157,6 +159,7 @@ if __name__ == '__main__':
     parser.add_argument('--backend', type=str, default='generalized')
     parser.add_argument('--project_name', type=str, default='GPUSpeedTest')
     parser.add_argument('--num_timesteps', type=int, default=40_000)
+    parser.add_argument('--action_repeat', type=int, default=2)
 
     args = parser.parse_args()
     main(args)

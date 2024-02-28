@@ -1,14 +1,23 @@
 import exp
-from experiments.util import generate_run_commands, generate_base_command, dict_permutations
+from experiments.util import generate_run_commands, generate_base_command, dict_permutations, available_gpus
 
-PROJECT_NAME = 'SingleGPUTestFeb27_15_44'
+PROJECT_NAME = 'SingleGPUTestFeb28_14_00'
+
+# general_configs = {
+#     'env_name': ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
+#                  'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d'],
+#     'backend': ['generalized', ],
+#     'project_name': [PROJECT_NAME],
+#     'num_timesteps': [1_000_000, ],
+# }
+
 
 general_configs = {
-    'env_name': ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
-                 'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d'],
+    'env_name': ['ant', 'halfcheetah', 'hopper'],
     'backend': ['generalized', ],
     'project_name': [PROJECT_NAME],
     'num_timesteps': [1_000_000, ],
+    'action_repeat': [2, 4, 5, 8, 10]
 }
 
 
