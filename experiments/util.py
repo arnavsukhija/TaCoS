@@ -5,7 +5,7 @@ import json
 import multiprocessing
 import os
 import sys
-from typing import Dict, Optional, Any, List
+from typing import Dict, Optional, Any, List, NamedTuple
 
 import jax.numpy as jnp
 import numpy as np
@@ -17,6 +17,25 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 RESULT_DIR = os.path.join(BASE_DIR, 'results')
 
+"""Available GPUs"""
+
+
+class GPU(NamedTuple):
+    name: str
+    gpu_memory: int  # In GBs
+
+
+available_gpus = {
+    0: GPU(name='gtx_1080_ti', gpu_memory=11),
+    1: GPU(name='rtx_2080_ti', gpu_memory=11),
+    2: GPU(name='rtx_3090', gpu_memory=24),
+    3: GPU(name='rtx_4090', gpu_memory=24),
+    4: GPU(name='titan_rtx', gpu_memory=24),
+    5: GPU(name='quadro_rtx_6000', gpu_memory=24),
+    6: GPU(name='v100', gpu_memory=32),
+    7: GPU(name='a100-pcie-40gb', gpu_memory=40),
+    8: GPU(name='a100_80gb', gpu_memory=80),
+}
 
 """ Async executor """
 
@@ -96,10 +115,16 @@ def generate_base_command(module, flags: Optional[Dict[str, Any]] = None, unbuff
     return base_cmd
 
 
-def generate_run_commands(command_list: List[str], output_file_list: Optional[List[str]] = None,
-                          num_cpus: int = 1, num_gpus: int = 0,
-                          dry: bool = False, mem: int = 2 * 1028, duration: str = '3:59:00',
-                          mode: str = 'local', prompt: bool = True) -> None:
+def generate_run_commands(command_list: List[str],
+                          output_file_list: Optional[List[str]] = None,
+                          num_cpus: int = 1,
+                          num_gpus: int = 0,
+                          gpu: GPU | None = None,
+                          dry: bool = False,
+                          mem: int = 2 * 1028,
+                          duration: str = '3:59:00',
+                          mode: str = 'local',
+                          prompt: bool = True) -> None:
     if mode == 'euler':
         cluster_cmds = []
         bsub_cmd = 'sbatch ' + \
@@ -107,7 +132,9 @@ def generate_run_commands(command_list: List[str], output_file_list: Optional[Li
                    f'--mem-per-cpu={mem} ' + \
                    f'--cpus-per-task {num_cpus} '
 
-        if num_gpus > 0:
+        if num_gpus > 0 and gpu is not None:
+            bsub_cmd += f'--gpus={gpu.name}:{num_gpus} '
+        elif num_gpus > 0:
             bsub_cmd += f'-G {num_gpus} --gres=gpumem:10240m '
 
         assert output_file_list is None or len(command_list) == len(output_file_list)
