@@ -14,7 +14,6 @@ general_configs = {
 
 def main():
     command_list = []
-
     flags_combinations = dict_permutations(general_configs)
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)

@@ -1,18 +1,15 @@
 import argparse
 import datetime
 from datetime import datetime
-import imageio
 
+import imageio
 import jax
 import jax.random as jr
 import matplotlib.pyplot as plt
-import mediapy
 import wandb
 from brax import envs
 from jax.nn import swish
 from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
-import jax.tree_util as jtu
-import jax.numpy as jnp
 
 ENTITY = 'trevenl'
 
