@@ -117,7 +117,7 @@ def experiment(env_name: str = 'inverted_pendulum',
     state = env.reset(rng=jr.PRNGKey(0))
     trajectory = []
     trajectory.append(state)
-    for i in range(episode_length):
+    for i in range(episode_length // action_repeat):
         state, traj = repeated_step(state)
         trajectory += traj
 
