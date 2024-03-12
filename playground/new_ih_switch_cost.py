@@ -134,7 +134,8 @@ if __name__ == "__main__":
 
         xs_full_trajectory = jnp.concatenate([init_state.obs[:-1].reshape(1, -1), full_trajectory.obs, ])
         rewards_full_trajectory = jnp.concatenate([init_state.reward.reshape(1, ), full_trajectory.reward])
-        ts_full_trajectory = jnp.linspace(0, env.time_horizon, episode_length)
+        # ts_full_trajectory = jnp.linspace(0, env.time_horizon, episode_length)
+        ts_full_trajectory = jnp.arange(0, xs_full_trajectory.shape[0]) * env.env.dt
 
         fig, axs = plt.subplots(nrows=1, ncols=4, figsize=(20, 4))
         xs = trajectory[0][:, :-1]
@@ -193,7 +194,7 @@ if __name__ == "__main__":
         plt.tight_layout()
         plt.savefig('pendulum_switch_cost.pdf')
         plt.show()
-        print(f'Total reward: {jnp.sum(trajectory[2])}')
+        print(f'Total reward: {jnp.sum(rewards_full_trajectory[:episode_length])}')
         print(f'Total number of actions {len(us)}')
 
     else:
