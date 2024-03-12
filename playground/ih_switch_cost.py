@@ -18,15 +18,15 @@ if __name__ == "__main__":
     PLOT_TRUE_TRAJECTORIES = True
     env = PendulumEnv(reward_source='dm-control')
     action_repeat = 1
-    episode_length = 200
+    episode_length = 100
     time_as_part_of_state = True
 
     if wrapper:
         env = IHSwitchCostWrapper(env,
                                   num_integrator_steps=episode_length,
                                   min_time_between_switches=1 * env.dt,
-                                  max_time_between_switches=20 * env.dt,
-                                  switch_cost=ConstantSwitchCost(value=jnp.array(0.1)),
+                                  max_time_between_switches=30 * env.dt,
+                                  switch_cost=ConstantSwitchCost(value=jnp.array(1.0)),
                                   time_as_part_of_state=time_as_part_of_state)
 
     else:
