@@ -11,28 +11,30 @@ import jax.tree_util as jtu
 from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 
 from source.envs.pendulum import PendulumEnv
-from source.wrappers.debug_ih_switching_cost import ConstantSwitchCost, IHSwitchCostWrapper
+from source.wrappers.ih_switching_cost import ConstantSwitchCost, IHSwitchCostWrapper
 
 if __name__ == "__main__":
     wrapper = True
     PLOT_TRUE_TRAJECTORIES = True
     env = PendulumEnv(reward_source='dm-control')
     action_repeat = 1
-    episode_length = 100
+    episode_length = 200
+    time_as_part_of_state = True
 
     if wrapper:
         env = IHSwitchCostWrapper(env,
                                   num_integrator_steps=episode_length,
                                   min_time_between_switches=1 * env.dt,
-                                  max_time_between_switches=50 * env.dt,
-                                  switch_cost=ConstantSwitchCost(value=jnp.array(0.1)))
+                                  max_time_between_switches=20 * env.dt,
+                                  switch_cost=ConstantSwitchCost(value=jnp.array(0.1)),
+                                  time_as_part_of_state=time_as_part_of_state)
 
     else:
         action_repeat = 7
 
     optimizer = SAC(
         environment=env,
-        num_timesteps=200_000,
+        num_timesteps=100_000,
         episode_length=episode_length,
         action_repeat=action_repeat,
         num_env_steps_between_updates=10,
@@ -123,16 +125,19 @@ if __name__ == "__main__":
 
         trajectory = []
         full_trajectories = []
+        all_states = []
         while not state.done:
             state, one_traj = step(state, None)
             one_traj, full_trajectory = one_traj[:-1], one_traj[-1]
             trajectory.append(one_traj)
             full_trajectories.append(full_trajectory)
+            all_states.append(state)
 
         trajectory = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *trajectory)
         full_trajectory = jtu.tree_map(lambda *xs: jnp.concatenate(xs), *full_trajectories)
+        all_states = jtu.tree_map(lambda *xs: jnp.stack(xs), *all_states)
 
-        xs_full_trajectory = jnp.concatenate([init_state.obs[:-1].reshape(1, -1), full_trajectory.obs, ])
+        xs_full_trajectory = jnp.concatenate([init_state.obs[:3].reshape(1, -1), full_trajectory.obs, ])
         rewards_full_trajectory = jnp.concatenate([init_state.reward.reshape(1, ), full_trajectory.reward])
         # ts_full_trajectory = jnp.linspace(0, env.time_horizon, episode_length)
         ts_full_trajectory = jnp.arange(0, xs_full_trajectory.shape[0]) * env.env.dt
@@ -141,12 +146,15 @@ if __name__ == "__main__":
         xs = trajectory[0][:, :-1]
         us = trajectory[1][:, :-1]
         rewards = trajectory[2]
-        times_to_go = trajectory[0][:, -1]
+        if time_as_part_of_state:
+            times = trajectory[0][:, -1]
+        else:
+            times = all_states.pipeline_state.time
         times_for_actions = trajectory[1][:, -1]
 
         total_time = env.time_horizon
         # All times are the times when we ended the actions
-        all_ts = total_time - times_to_go
+        all_ts = times
         all_ts = jnp.concatenate([jnp.array([0.0]), all_ts])
 
         all_xs = jnp.concatenate([state.obs[:-1].reshape(1, -1), xs])

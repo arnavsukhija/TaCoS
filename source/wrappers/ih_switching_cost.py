@@ -15,7 +15,7 @@ EPS = 1e-10
 
 class AugmentedPipelineState(NamedTuple):
     pipeline_state: base.State
-    time_to_go: Float[Array, 'None']
+    time: Float[Array, 'None']
 
 
 class SwitchCost:
@@ -45,7 +45,8 @@ class IHSwitchCostWrapper(Env):
                  min_time_between_switches: float,
                  max_time_between_switches: float | None = None,
                  switch_cost: SwitchCost = ConstantSwitchCost(value=jnp.array(1.0)),
-                 discounting: float = 0.99
+                 discounting: float = 0.99,
+                 time_as_part_of_state: bool = False
                  ):
         self.env = env
         self.num_integrator_steps = num_integrator_steps
@@ -58,6 +59,7 @@ class IHSwitchCostWrapper(Env):
             max_time_between_switches = self.time_horizon
         self.max_time_between_switches = max_time_between_switches
         self.discounting = discounting
+        self.time_as_part_of_state = time_as_part_of_state
 
     def reset(self, rng: jax.Array) -> State:
         """
@@ -65,35 +67,40 @@ class IHSwitchCostWrapper(Env):
          (state, time-to-go)
         """
         state = self.env.reset(rng)
-        x0 = state.obs
-        time_to_go = self.time_horizon
-        augmented_obs = jnp.concatenate([x0, time_to_go.reshape(1)])
-        augmented_pipeline_state = AugmentedPipelineState(pipeline_state=state.pipeline_state,
-                                                          time_to_go=time_to_go)
-        augmented_state = state.replace(obs=augmented_obs,
-                                        pipeline_state=augmented_pipeline_state)
+        time = jnp.array(0.0)
+        if self.time_as_part_of_state:
+            augmented_obs = jnp.concatenate([state.obs, time.reshape(1)])
+            augmented_state = state.replace(obs=augmented_obs)
+        else:
+            augmented_pipeline_state = AugmentedPipelineState(pipeline_state=state.pipeline_state,
+                                                              time=time)
+            augmented_state = state.replace(pipeline_state=augmented_pipeline_state)
         return augmented_state
 
     def step(self, state: State, action: jax.Array) -> State:
-        obs, time_to_go = state.obs[:-1], state.obs[-1]
         u, pseudo_time_for_action = action[:-1], action[-1]
-        env_pipeline_state = state.pipeline_state.pipeline_state
-        time_to_go = state.pipeline_state.time_to_go
+        if self.time_as_part_of_state:
+            obs, time = state.obs[:-1], state.obs[-1]
+        else:
+            env_pipeline_state = state.pipeline_state.pipeline_state
+            time = state.pipeline_state.time
 
         # Calculate the action time, i.e. Map pseudo_time_for_action from [-1, 1] to
-        # time [self.min_time_between_switches, time_to_go]
+        # time [self.min_time_between_switches, self.max_time_between_switches]
         t_lower = self.min_time_between_switches
         t_upper = self.max_time_between_switches
 
         time_for_action = ((t_upper - t_lower) / 2 * pseudo_time_for_action + (t_upper + t_lower) / 2).reshape()
-        done = time_for_action >= time_to_go
+        done = time_for_action >= self.time_horizon - time
 
         # Calculate how many steps we need to take with action
-        num_steps = jnp.minimum(time_for_action, time_to_go) // self.env.dt
+        num_steps = jnp.minimum(time_for_action, self.time_horizon - time) // self.env.dt
 
         # Integrate dynamics forward for the num_steps
-        state = state.replace(obs=obs,
-                              pipeline_state=env_pipeline_state)
+        if self.time_as_part_of_state:
+            state = state.replace(obs=obs)
+        else:
+            state = state.replace(pipeline_state=env_pipeline_state)
 
         def body_integration_step(val):
             s, r, index = val
@@ -114,25 +121,31 @@ class IHSwitchCostWrapper(Env):
         next_done = 1 - (1 - next_state.done) * (1 - done)
 
         # Add switch cost to the total reward
-        total_reward = total_reward - self.switch_cost(state=obs, action=u)
+        total_reward = total_reward - self.switch_cost(state=state.obs, action=u)
 
         # Prepare augmented obs
-        next_time_to_go = (time_to_go - time_for_action).reshape(1)
-        augmented_next_obs = jnp.concatenate([next_state.obs, next_time_to_go])
-
-        augmented_pipeline_state = AugmentedPipelineState(
-            pipeline_state=next_state.pipeline_state,
-            time_to_go=next_time_to_go.reshape()
-        )
-        augmented_next_state = next_state.replace(obs=augmented_next_obs,
-                                                  reward=total_reward,
-                                                  done=next_done,
-                                                  pipeline_state=augmented_pipeline_state)
-        return augmented_next_state
+        next_time = (time + time_for_action).reshape(1)
+        if self.time_as_part_of_state:
+            augmented_next_obs = jnp.concatenate([next_state.obs, next_time])
+            augmented_next_state = next_state.replace(obs=augmented_next_obs,
+                                                      reward=total_reward,
+                                                      done=next_done)
+            return augmented_next_state
+        else:
+            augmented_pipeline_state = AugmentedPipelineState(pipeline_state=next_state.pipeline_state,
+                                                              time=next_time.reshape())
+            augmented_next_state = next_state.replace(reward=total_reward,
+                                                      done=next_done,
+                                                      pipeline_state=augmented_pipeline_state)
+            return augmented_next_state
 
     def simulation_step(self, state: State, action: jax.Array) -> (State, State):
-        obs, time_to_go = state.obs[:-1], state.obs[-1]
         u, pseudo_time_for_action = action[:-1], action[-1]
+        if self.time_as_part_of_state:
+            obs, time = state.obs[:-1], state.obs[-1]
+        else:
+            env_pipeline_state = state.pipeline_state.pipeline_state
+            time = state.pipeline_state.time
 
         # Calculate the action time, i.e. Map pseudo_time_for_action from [-1, 1] to
         # time [self.min_time_between_switches, time_to_go]
@@ -140,13 +153,16 @@ class IHSwitchCostWrapper(Env):
         t_upper = self.max_time_between_switches
 
         time_for_action = ((t_upper - t_lower) / 2 * pseudo_time_for_action + (t_upper + t_lower) / 2).reshape()
-        done = time_for_action >= time_to_go
+        done = time_for_action >= self.time_horizon - time
 
         # Calculate how many steps we need to take with action
-        num_steps = jnp.minimum(time_for_action, time_to_go) // self.env.dt
+        num_steps = jnp.minimum(time_for_action, self.time_horizon - time) // self.env.dt
 
         # Integrate dynamics forward for the num_steps
-        state = state.replace(obs=obs)
+        if self.time_as_part_of_state:
+            state = state.replace(obs=obs)
+        else:
+            state = state.replace(pipeline_state=env_pipeline_state)
 
         @jax.jit
         def scan_f(s, _):
@@ -165,22 +181,31 @@ class IHSwitchCostWrapper(Env):
         next_done = 1 - (1 - next_state.done) * (1 - done)
 
         # Add switch cost to the total reward
-        total_reward = total_reward - self.switch_cost(state=obs, action=u)
+        total_reward = total_reward - self.switch_cost(state=state.obs, action=u)
 
         # Prepare augmented obs
-        next_time_to_go = (time_to_go - time_for_action).reshape(1)
-        augmented_next_obs = jnp.concatenate([next_state.obs, next_time_to_go])
-
-        augmented_next_state = next_state.replace(obs=augmented_next_obs,
-                                                  reward=total_reward,
-                                                  done=next_done)
-        return augmented_next_state, inner_part_not_done
+        next_time = (time + time_for_action).reshape(1)
+        if self.time_as_part_of_state:
+            augmented_next_obs = jnp.concatenate([next_state.obs, next_time])
+            augmented_next_state = next_state.replace(obs=augmented_next_obs,
+                                                      reward=total_reward,
+                                                      done=next_done)
+            return augmented_next_state, inner_part_not_done
+        else:
+            augmented_pipeline_state = AugmentedPipelineState(pipeline_state=next_state.pipeline_state,
+                                                              time=next_time.reshape())
+            augmented_next_state = next_state.replace(reward=total_reward,
+                                                      done=next_done,
+                                                      pipeline_state=augmented_pipeline_state)
+            return augmented_next_state, inner_part_not_done
 
     @property
     def observation_size(self) -> int:
         # +1 for time-to-go and +1 for num remaining switches
-        return self.env.observation_size + 1
-
+        if self.time_as_part_of_state:
+            return self.env.observation_size + 1
+        else:
+            return self.env.observation_size
     @property
     def action_size(self) -> int:
         # +1 for time that we apply action for
