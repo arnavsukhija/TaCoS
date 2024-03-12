@@ -158,7 +158,7 @@ if __name__ == "__main__":
         if PLOT_TRUE_TRAJECTORIES:
             for i in range(3):
                 axs[0].plot(ts_full_trajectory, xs_full_trajectory[:, i], label=state_dict[i])
-            for h in all_ts:
+            for h in all_ts[:-1]:
                 axs[0].axvline(x=h, color='black', ls='--', alpha=0.4)
         else:
             for i in range(3):
@@ -175,7 +175,7 @@ if __name__ == "__main__":
 
         if PLOT_TRUE_TRAJECTORIES:
             axs[2].plot(ts_full_trajectory, rewards_full_trajectory, label='Rewards')
-            for h in all_ts:
+            for h in all_ts[:-1]:
                 axs[2].axvline(x=h, color='black', ls='--', alpha=0.4)
         else:
             axs[2].step(all_ts, jnp.concatenate([integrated_rewards, integrated_rewards[-1].reshape(1, )]),
