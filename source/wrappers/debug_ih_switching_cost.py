@@ -78,12 +78,7 @@ class IHSwitchCostWrapper(Env):
         done = time_for_action >= time_to_go
 
         # Calculate how many steps we need to take with action
-        # elapsed_time = self.time_horizon - time_to_go
-        # steps_passed = (elapsed_time // self.env.dt).astype(int)
-        # next_elapsed_time = elapsed_time + time_for_action
-        # next_steps_passed = (next_elapsed_time // self.env.dt).astype(int)
-        # num_steps = next_steps_passed - steps_passed
-        num_steps = time_for_action // self.env.dt
+        num_steps = jnp.minimum(time_for_action, time_to_go) // self.env.dt
 
         # Integrate dynamics forward for the num_steps
         state = state.replace(obs=obs)
@@ -131,12 +126,7 @@ class IHSwitchCostWrapper(Env):
         done = time_for_action >= time_to_go
 
         # Calculate how many steps we need to take with action
-        # elapsed_time = self.time_horizon - time_to_go
-        # steps_passed = (elapsed_time // self.env.dt).astype(int)
-        # next_elapsed_time = elapsed_time + time_for_action
-        # next_steps_passed = (next_elapsed_time // self.env.dt).astype(int)
-        # num_steps = next_steps_passed - steps_passed
-        num_steps = time_for_action // self.env.dt
+        num_steps = jnp.minimum(time_for_action, time_to_go) // self.env.dt
 
 
         # Integrate dynamics forward for the num_steps
