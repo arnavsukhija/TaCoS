@@ -4,12 +4,18 @@ from functools import partial
 import jax
 import jax.numpy as jnp
 import jax.tree_util as jtu
-from brax.envs.base import PipelineEnv, State, Env
+from brax.envs.base import PipelineEnv, State, Env, base
 from jax import jit
 from jax.lax import cond, while_loop, scan
 from jaxtyping import Float, Array
+from typing import NamedTuple
 
 EPS = 1e-10
+
+
+class AugmentedPipelineState(NamedTuple):
+    pipeline_state: base.State
+    time_to_go: Float[Array, 'None']
 
 
 class SwitchCost:
@@ -62,12 +68,17 @@ class IHSwitchCostWrapper(Env):
         x0 = state.obs
         time_to_go = self.time_horizon
         augmented_obs = jnp.concatenate([x0, time_to_go.reshape(1)])
-        augmented_state = state.replace(obs=augmented_obs)
+        augmented_pipeline_state = AugmentedPipelineState(pipeline_state=state.pipeline_state,
+                                                          time_to_go=time_to_go)
+        augmented_state = state.replace(obs=augmented_obs,
+                                        pipeline_state=augmented_pipeline_state)
         return augmented_state
 
     def step(self, state: State, action: jax.Array) -> State:
         obs, time_to_go = state.obs[:-1], state.obs[-1]
         u, pseudo_time_for_action = action[:-1], action[-1]
+        env_pipeline_state = state.pipeline_state.pipeline_state
+        time_to_go = state.pipeline_state.time_to_go
 
         # Calculate the action time, i.e. Map pseudo_time_for_action from [-1, 1] to
         # time [self.min_time_between_switches, time_to_go]
@@ -81,7 +92,8 @@ class IHSwitchCostWrapper(Env):
         num_steps = jnp.minimum(time_for_action, time_to_go) // self.env.dt
 
         # Integrate dynamics forward for the num_steps
-        state = state.replace(obs=obs)
+        state = state.replace(obs=obs,
+                              pipeline_state=env_pipeline_state)
 
         def body_integration_step(val):
             s, r, index = val
@@ -108,9 +120,14 @@ class IHSwitchCostWrapper(Env):
         next_time_to_go = (time_to_go - time_for_action).reshape(1)
         augmented_next_obs = jnp.concatenate([next_state.obs, next_time_to_go])
 
+        augmented_pipeline_state = AugmentedPipelineState(
+            pipeline_state=next_state.pipeline_state,
+            time_to_go=next_time_to_go.reshape()
+        )
         augmented_next_state = next_state.replace(obs=augmented_next_obs,
                                                   reward=total_reward,
-                                                  done=next_done)
+                                                  done=next_done,
+                                                  pipeline_state=augmented_pipeline_state)
         return augmented_next_state
 
     def simulation_step(self, state: State, action: jax.Array) -> (State, State):
@@ -127,7 +144,6 @@ class IHSwitchCostWrapper(Env):
 
         # Calculate how many steps we need to take with action
         num_steps = jnp.minimum(time_for_action, time_to_go) // self.env.dt
-
 
         # Integrate dynamics forward for the num_steps
         state = state.replace(obs=obs)
@@ -187,11 +203,11 @@ if __name__ == '__main__':
                                backend=backend)
 
     env = IHSwitchCostWrapper(env,
-                            num_integrator_steps=1000,
-                            min_time_between_switches=env.dt,
-                            # max_time_between_switches=10 * env.dt,
-                            switch_cost=ConstantSwitchCost(value=jnp.array(1.0)),
-                            discounting=1.0)
+                              num_integrator_steps=1000,
+                              min_time_between_switches=env.dt,
+                              # max_time_between_switches=10 * env.dt,
+                              switch_cost=ConstantSwitchCost(value=jnp.array(1.0)),
+                              discounting=1.0)
 
     key = jr.PRNGKey(42)
     key, subkey = jr.split(key)
