@@ -11,15 +11,21 @@ import jax.tree_util as jtu
 from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 
 from source.envs.pendulum import PendulumEnv
+from source.envs.pendulum_swing_down import PendulumEnv as PendulumEnvSwingDown
 from source.wrappers.ih_switching_cost import ConstantSwitchCost, IHSwitchCostWrapper
 
 if __name__ == "__main__":
     wrapper = True
     PLOT_TRUE_TRAJECTORIES = True
-    env = PendulumEnv(reward_source='dm-control')
+    swing_up = False
     action_repeat = 1
-    episode_length = 100
+    episode_length = 500
     time_as_part_of_state = True
+
+    if swing_up:
+        env = PendulumEnv(reward_source='dm-control')
+    else:
+        env = PendulumEnvSwingDown(reward_source='dm-control')
 
     if wrapper:
         env = IHSwitchCostWrapper(env,
@@ -32,13 +38,15 @@ if __name__ == "__main__":
     else:
         action_repeat = 7
 
+    num_env_steps_between_updates = 10
+    num_envs = 32
     optimizer = SAC(
         environment=env,
         num_timesteps=100_000,
         episode_length=episode_length,
         action_repeat=action_repeat,
-        num_env_steps_between_updates=10,
-        num_envs=4,
+        num_env_steps_between_updates=num_env_steps_between_updates,
+        num_envs=num_envs,
         num_eval_envs=32,
         lr_alpha=3e-4,
         lr_policy=3e-4,
@@ -55,7 +63,7 @@ if __name__ == "__main__":
         tau=0.005,
         min_replay_size=10 ** 2,
         max_replay_size=10 ** 5,
-        grad_updates_per_step=10 * 4,
+        grad_updates_per_step=num_env_steps_between_updates * num_envs,
         deterministic_eval=True,
         init_log_alpha=0.,
         policy_hidden_layer_sizes=(64, 64),
