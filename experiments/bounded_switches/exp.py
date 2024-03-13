@@ -28,6 +28,7 @@ def experiment(env_name: str = 'inverted_pendulum',
                learning_discount_factor: int = 0.99,
                min_reps: int = 1,
                max_reps: int = 50,
+               seed: int = 0
                ):
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
                         'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d']
@@ -41,7 +42,8 @@ def experiment(env_name: str = 'inverted_pendulum',
                   num_switches=num_switches,
                   learning_discount_factor=learning_discount_factor,
                   min_reps=min_reps,
-                  max_reps=max_reps)
+                  max_reps=max_reps,
+                  seed=seed)
 
     wandb.init(
         project=project_name,
@@ -105,7 +107,7 @@ def experiment(env_name: str = 'inverted_pendulum',
         plt.show()
 
     print('Before inference')
-    policy_params, metrics = optimizer.run_training(key=jr.PRNGKey(0), progress_fn=progress)
+    policy_params, metrics = optimizer.run_training(key=jr.PRNGKey(seed), progress_fn=progress)
     print('After inference')
 
     # Now we plot the evolution
@@ -224,6 +226,7 @@ def main(args):
                learning_discount_factor=args.learning_discount_factor,
                min_reps=args.min_reps,
                max_reps=args.max_reps,
+               seed=args.seed
                )
 
 
@@ -235,9 +238,10 @@ if __name__ == '__main__':
     parser.add_argument('--num_timesteps', type=int, default=40_000)
     parser.add_argument('--episode_length', type=int, default=200)
     parser.add_argument('--num_switches', type=int, default=50)
-    parser.add_argument('--learning_discount_factor', type=int, default=0.99)
+    parser.add_argument('--learning_discount_factor', type=float, default=0.99)
     parser.add_argument('--min_reps', type=int, default=1)
     parser.add_argument('--max_reps', type=int, default=20)
+    parser.add_argument('--seed', type=int, default=20)
 
     args = parser.parse_args()
     main(args)
