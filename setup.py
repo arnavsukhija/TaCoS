@@ -14,7 +14,7 @@ required = [
 
 extras = {}
 setup(
-    name='when_to_control',
+    name='wtc',
     version='0.0.1',
     license="MIT",
     packages=find_packages(),
