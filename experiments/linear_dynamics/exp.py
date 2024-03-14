@@ -9,8 +9,8 @@ import wandb
 from jax.nn import swish
 from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 
-from source.envs.linear_dynamics import LinearDynamicsBoundedSwitches
-from source.utils.create_system_matrix import create_marginally_stable_matrix
+from wtc.envs.linear_dynamics import LinearDynamicsBoundedSwitches
+from wtc.utils.create_system_matrix import create_marginally_stable_matrix
 
 PLOT_TRUE_TRAJECTORIES = True
 ENTITY = 'trevenl'

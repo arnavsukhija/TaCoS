@@ -14,7 +14,7 @@ from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 import jax.tree_util as jtu
 import jax.numpy as jnp
 
-from source.wrappers.bounded_switches import FixedNumOfSwitchesWrapper
+from wtc.wrappers.bounded_switches import FixedNumOfSwitchesWrapper
 
 ENTITY = 'trevenl'
 

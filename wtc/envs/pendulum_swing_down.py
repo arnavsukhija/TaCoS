@@ -6,7 +6,7 @@ import jax.numpy as jnp
 from jaxtyping import Float, Array
 from functools import partial
 
-from source.utils.tolerance_reward import ToleranceReward
+from wtc.utils.tolerance_reward import ToleranceReward
 
 
 @chex.dataclass
@@ -23,7 +23,7 @@ class PendulumDynamicsParams:
 class PendulumRewardParams:
     control_cost: chex.Array = struct.field(default_factory=lambda: jnp.array(0.02))
     angle_cost: chex.Array = struct.field(default_factory=lambda: jnp.array(1.0))
-    target_angle: chex.Array = struct.field(default_factory=lambda: jnp.array(0.0))
+    target_angle: chex.Array = struct.field(default_factory=lambda: jnp.array(jnp.pi))
 
 
 class PendulumEnv(Env):
@@ -42,7 +42,7 @@ class PendulumEnv(Env):
     def reset(self,
               rng: jax.Array) -> State:
         return State(pipeline_state=None,
-                     obs=jnp.array([-1.0, 0.0, 0.0]),
+                     obs=jnp.array([1.0, 0.0, 0.0]),
                      reward=jnp.array(0.0),
                      done=jnp.array(0.0), )
 
@@ -50,8 +50,7 @@ class PendulumEnv(Env):
                x: Float[Array, 'observation_dim'],
                u: Float[Array, 'action_dim']) -> Float[Array, 'None']:
         theta, omega = jnp.arctan2(x[1], x[0]), x[-1]
-        target_angle = self.reward_params.target_angle
-        diff_th = theta - target_angle
+        diff_th = theta - self.reward_params.target_angle
         diff_th = ((diff_th + jnp.pi) % (2 * jnp.pi)) - jnp.pi
         reward = -(self.reward_params.angle_cost * diff_th ** 2 +
                    0.1 * omega ** 2) - self.reward_params.control_cost * u ** 2
@@ -62,8 +61,7 @@ class PendulumEnv(Env):
                   x: Float[Array, 'observation_dim'],
                   u: Float[Array, 'action_dim']) -> Float[Array, 'None']:
         theta, omega = jnp.arctan2(x[1], x[0]), x[-1]
-        target_angle = self.reward_params.target_angle
-        diff_th = theta - target_angle
+        diff_th = theta - self.reward_params.target_angle
         diff_th = ((diff_th + jnp.pi) % (2 * jnp.pi)) - jnp.pi
         reward = self.tolerance_reward(jnp.sqrt(self.reward_params.angle_cost * diff_th ** 2 +
                                        0.1 * omega ** 2)) - self.reward_params.control_cost * u ** 2

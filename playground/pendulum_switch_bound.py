@@ -10,8 +10,8 @@ import jax.numpy as jnp
 import jax.tree_util as jtu
 from jax import jit
 
-from source.envs.pendulum import PendulumEnv
-from source.wrappers.bounded_switches import FixedNumOfSwitchesWrapper
+from wtc.envs.pendulum import PendulumEnv
+from wtc.wrappers.bounded_switches import FixedNumOfSwitchesWrapper
 
 if __name__ == "__main__":
     wrapper = True

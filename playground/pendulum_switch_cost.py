@@ -10,8 +10,8 @@ from jax.nn import swish
 import jax.tree_util as jtu
 from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 
-from source.envs.pendulum import PendulumEnv
-from source.wrappers.switching_cost import ConstantSwitchCost, SwitchCostWrapper
+from wtc.envs.pendulum import PendulumEnv
+from wtc.wrappers.switching_cost import ConstantSwitchCost, SwitchCostWrapper
 
 if __name__ == "__main__":
     wrapper = True

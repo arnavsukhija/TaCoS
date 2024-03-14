@@ -7,7 +7,7 @@ from jax.scipy.integrate import trapezoid
 from jax.scipy.linalg import expm
 from jaxtyping import Float, Array, Int
 
-from source.utils.tolerance_reward import ToleranceReward
+from wtc.utils.tolerance_reward import ToleranceReward
 
 EPS = 1e-10
 
@@ -150,7 +150,7 @@ class LinearDynamicsBoundedSwitches(Env):
 
 
 if __name__ == '__main__':
-    from source.utils.create_system_matrix import create_marginally_stable_matrix
+    from wtc.utils.create_system_matrix import create_marginally_stable_matrix
     import jax.random as jr
     import time
 

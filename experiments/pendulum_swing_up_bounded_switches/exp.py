@@ -11,8 +11,8 @@ from jax.lax import scan
 from jax.nn import swish
 from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 
-from source.envs.pendulum import PendulumEnv
-from source.wrappers.bounded_switches import FixedNumOfSwitchesWrapper
+from wtc.envs.pendulum import PendulumEnv
+from wtc.wrappers.bounded_switches import FixedNumOfSwitchesWrapper
 
 PLOT_TRUE_TRAJECTORIES = True
 ENTITY = 'trevenl'

@@ -10,10 +10,10 @@ import jax.numpy as jnp
 import jax.tree_util as jtu
 from jax import jit
 
-from source.wrappers.switching_cost import ConstantSwitchCost, SwitchCostWrapper
+from wtc.wrappers.switching_cost import ConstantSwitchCost, SwitchCostWrapper
 
-from source.envs.pendulum_swing_down import PendulumEnv
-from source.wrappers.bounded_switches import FixedNumOfSwitchesWrapper
+from wtc.envs.pendulum_swing_down import PendulumEnv
+from wtc.wrappers.bounded_switches import FixedNumOfSwitchesWrapper
 
 if __name__ == "__main__":
     wrapper = True
