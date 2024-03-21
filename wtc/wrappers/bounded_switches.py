@@ -37,7 +37,7 @@ class FixedNumOfSwitchesWrapper(Env):
         x0 = state.obs
         time_to_go = self.time_horizon
         num_remaining_switches = jnp.array(self.num_switches)
-        augmented_obs = jnp.concatenate([x0, time_to_go.reshape(1), num_remaining_switches.reshape(1)])
+        augmented_obs = jnp.concatenate([x0, jnp.array(time_to_go).reshape(1), num_remaining_switches.reshape(1)])
         augmented_state = state.replace(obs=augmented_obs)
         return augmented_state
 
