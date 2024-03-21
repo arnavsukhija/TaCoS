@@ -1,14 +1,14 @@
 from abc import abstractmethod
 from functools import partial
+from typing import NamedTuple
 
 import jax
 import jax.numpy as jnp
 import jax.tree_util as jtu
 from brax.envs.base import PipelineEnv, State, Env, base
 from jax import jit
-from jax.lax import cond, while_loop, scan
+from jax.lax import while_loop, scan
 from jaxtyping import Float, Array
-from typing import NamedTuple
 
 EPS = 1e-10
 
@@ -115,8 +115,7 @@ class IHSwitchCostWrapper(Env):
 
         init_val = (state, jnp.array(0.0), jnp.array(0))
         final_val = while_loop(cond_integration_step, body_integration_step, init_val)
-
-        next_state, total_reward, _ = final_val
+        next_state, total_reward, index = final_val
 
         next_done = 1 - (1 - next_state.done) * (1 - done)
 
@@ -206,6 +205,7 @@ class IHSwitchCostWrapper(Env):
             return self.env.observation_size + 1
         else:
             return self.env.observation_size
+
     @property
     def action_size(self) -> int:
         # +1 for time that we apply action for
@@ -214,6 +214,10 @@ class IHSwitchCostWrapper(Env):
     @property
     def backend(self) -> str:
         return self.env.backend
+
+    @property
+    def dt(self):
+        return self.env.dt
 
 
 if __name__ == '__main__':
