@@ -116,7 +116,6 @@ class IHSwitchCostWrapper(Env):
         init_val = (state, jnp.array(0.0), jnp.array(0))
         final_val = while_loop(cond_integration_step, body_integration_step, init_val)
         next_state, total_reward, index = final_val
-
         next_done = 1 - (1 - next_state.done) * (1 - done)
 
         # Add switch cost to the total reward
