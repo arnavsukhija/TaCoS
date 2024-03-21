@@ -5,6 +5,7 @@ from setuptools import setup, find_packages
 required = [
     'jax>=0.4.13',
     'brax',
+    'chex',
     'wandb',
     'pandas',
     'jaxtyping>=0.2.20',
