@@ -10,9 +10,8 @@ from jax.nn import swish
 import jax.tree_util as jtu
 from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 
-from wtc.envs.pendulum import PendulumEnv
-from wtc.envs.pendulum_swing_down import PendulumEnv as PendulumEnvSwingDown
 from wtc.envs.rccar import RCCar, plot_rc_trajectory
+from wtc.utils import continuous_to_discrete_discounting, discrete_to_continuous_discounting
 
 from wtc.wrappers.ih_switching_cost import ConstantSwitchCost, IHSwitchCostWrapper
 
@@ -23,17 +22,23 @@ if __name__ == "__main__":
     action_repeat = 1
     episode_length = 100
     time_as_part_of_state = True
+    discrete_discounting = 0.99
 
     env = RCCar(margin_factor=20)
 
+    continuous_discounting = discrete_to_continuous_discounting(discrete_discounting=discrete_discounting,
+                                                                dt=env.dt)
 
     if wrapper:
+        min_time_between_switches = 1 * env.dt
+        max_time_between_switches = 30 * env.dt
         env = IHSwitchCostWrapper(env,
                                   num_integrator_steps=episode_length,
-                                  min_time_between_switches=1 * env.dt,
-                                  max_time_between_switches=30 * env.dt,
+                                  min_time_between_switches=min_time_between_switches,
+                                  max_time_between_switches=max_time_between_switches,
                                   switch_cost=ConstantSwitchCost(value=jnp.array(1.0)),
-                                  time_as_part_of_state=time_as_part_of_state)
+                                  time_as_part_of_state=time_as_part_of_state,
+                                  discounting=discrete_discounting)
 
     else:
         action_repeat = 1
@@ -72,6 +77,11 @@ if __name__ == "__main__":
         critic_activation=swish,
         wandb_logging=False,
         return_best_model=True,
+        non_equidistant_time=True,
+        continuous_discounting=continuous_discounting,
+        min_time_between_switches=min_time_between_switches,
+        max_time_between_switches=max_time_between_switches,
+
     )
 
     xdata, ydata = [], []
