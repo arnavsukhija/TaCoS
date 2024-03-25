@@ -1,41 +1,45 @@
 import datetime
 from datetime import datetime
 
+import jax
+import jax.numpy as jnp
 import jax.random as jr
 import matplotlib.pyplot as plt
-from jax.nn import swish
-from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 from jax.lax import scan
-import jax.numpy as jnp
+from jax.nn import swish
 import jax.tree_util as jtu
-from jax import jit
+from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 
+from wtc.envs.pendulum import PendulumEnv
+from wtc.envs.pendulum_swing_down import PendulumEnv as PendulumEnvSwingDown
 from wtc.envs.rccar import RCCar, plot_rc_trajectory
-from wtc.wrappers.bounded_switches import FixedNumOfSwitchesWrapper
+
+from wtc.wrappers.ih_switching_cost import ConstantSwitchCost, IHSwitchCostWrapper
 
 if __name__ == "__main__":
     wrapper = True
     PLOT_TRUE_TRAJECTORIES = True
-    env = RCCar(margin_factor=20)
+    swing_up = True
     action_repeat = 1
     episode_length = 100
-    discount_factor = 0.99
-    num_switches = 5
-    min_reps = 1
-    max_reps = 100
+    time_as_part_of_state = True
+
+    env = RCCar(margin_factor=20)
+
 
     if wrapper:
+        env = IHSwitchCostWrapper(env,
+                                  num_integrator_steps=episode_length,
+                                  min_time_between_switches=1 * env.dt,
+                                  max_time_between_switches=30 * env.dt,
+                                  switch_cost=ConstantSwitchCost(value=jnp.array(1.0)),
+                                  time_as_part_of_state=time_as_part_of_state)
+
+    else:
         action_repeat = 1
-        env = FixedNumOfSwitchesWrapper(env,
-                                        num_integrator_steps=episode_length,
-                                        num_switches=num_switches,
-                                        discounting=discount_factor,
-                                        min_time_between_switches=min_reps * env.dt,
-                                        max_time_between_switches=max_reps * env.dt)
 
     num_env_steps_between_updates = 10
     num_envs = 32
-
     optimizer = SAC(
         environment=env,
         num_timesteps=100_000,
@@ -51,7 +55,7 @@ if __name__ == "__main__":
         wd_policy=0.,
         wd_q=0.,
         max_grad_norm=1e5,
-        discounting=discount_factor,
+        discounting=0.99,
         batch_size=32,
         num_evals=20,
         normalize_observations=True,
@@ -98,22 +102,11 @@ if __name__ == "__main__":
         return pseudo_policy(obs, key_sample=jr.PRNGKey(0))
 
 
-    # Evaluation; we make a new env without discounting for the evaluation
-
-    env = RCCar(margin_factor=20)
-    if wrapper:
-        action_repeat = 1
-        env = FixedNumOfSwitchesWrapper(env,
-                                        num_integrator_steps=episode_length,
-                                        num_switches=num_switches,
-                                        discounting=1.0,
-                                        min_time_between_switches=min_reps * env.dt,
-                                        max_time_between_switches=max_reps * env.dt)
-
-
+    # @jax.jit
     def step(state, _):
         u = policy(state.obs)[0]
-        # print(f'Step, Time to go {u[-1]}'')
+        print('Step')
+        print(f'Time to go {u[-1]}')
         next_state, rest = env.simulation_step(state, u)
         return next_state, (next_state.obs, u, next_state.reward, rest)
 
@@ -122,7 +115,6 @@ if __name__ == "__main__":
 
     if wrapper:
         init_state = state
-        horizon = num_switches
         LEGEND_SIZE = 20
         LABEL_SIZE = 20
         TICKS_SIZE = 20
@@ -141,32 +133,39 @@ if __name__ == "__main__":
 
         trajectory = []
         full_trajectories = []
+        all_states = []
         while not state.done:
             state, one_traj = step(state, None)
             one_traj, full_trajectory = one_traj[:-1], one_traj[-1]
             trajectory.append(one_traj)
             full_trajectories.append(full_trajectory)
+            all_states.append(state)
 
         trajectory = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *trajectory)
         full_trajectory = jtu.tree_map(lambda *xs: jnp.concatenate(xs), *full_trajectories)
+        all_states = jtu.tree_map(lambda *xs: jnp.stack(xs), *all_states)
 
-        xs_full_trajectory = jnp.concatenate([init_state.obs[:-2].reshape(1, -1), full_trajectory.obs, ])
+        xs_full_trajectory = jnp.concatenate([init_state.obs[:-1].reshape(1, -1), full_trajectory.obs, ])
         rewards_full_trajectory = jnp.concatenate([init_state.reward.reshape(1, ), full_trajectory.reward])
-        ts_full_trajectory = jnp.linspace(0, env.time_horizon, episode_length)
+        # ts_full_trajectory = jnp.linspace(0, env.time_horizon, episode_length)
+        ts_full_trajectory = jnp.arange(0, xs_full_trajectory.shape[0]) * env.env.dt
 
         fig, axs = plt.subplots(nrows=1, ncols=4, figsize=(20, 4))
-        xs = trajectory[0][:, :-2]
+        xs = trajectory[0][:, :-1]
         us = trajectory[1][:, :-1]
         rewards = trajectory[2]
-        times_to_go = trajectory[0][:, -2]
+        if time_as_part_of_state:
+            times = trajectory[0][:, -1]
+        else:
+            times = all_states.pipeline_state.time
         times_for_actions = trajectory[1][:, -1]
 
         total_time = env.time_horizon
         # All times are the times when we ended the actions
-        all_ts = total_time - times_to_go
+        all_ts = times
         all_ts = jnp.concatenate([jnp.array([0.0]), all_ts])
 
-        all_xs = jnp.concatenate([state.obs[:-2].reshape(1, -1), xs])
+        all_xs = jnp.concatenate([state.obs[:-1].reshape(1, -1), xs])
 
         state_dict = {0: r'cos($\theta$)',
                       1: r'sin($\theta$)',
@@ -197,7 +196,6 @@ if __name__ == "__main__":
         else:
             axs[2].step(all_ts, jnp.concatenate([integrated_rewards, integrated_rewards[-1].reshape(1, )]),
                         where='post', label='Rewards')
-
         axs[2].set_xlabel('Time', fontsize=LABEL_SIZE)
         axs[2].set_ylabel('Instance reward', fontsize=LABEL_SIZE)
 
@@ -210,9 +208,10 @@ if __name__ == "__main__":
         for ax in axs:
             ax.legend(fontsize=LEGEND_SIZE)
         plt.tight_layout()
-        plt.savefig('rc_car_10_actions.pdf')
+        plt.savefig('pendulum_switch_cost.pdf')
         plt.show()
-        print(f'Total reward: {jnp.sum(trajectory[2])}')
+        print(f'Total reward: {jnp.sum(rewards_full_trajectory[:episode_length])}')
+        print(f'Total number of actions {len(us)}')
 
         fig, axs = plot_rc_trajectory(xs_full_trajectory, encode_angle=True)
         fig.savefig('rc_car_trajectory.pdf')
@@ -220,46 +219,30 @@ if __name__ == "__main__":
 
     else:
         horizon = episode_length
-        assert horizon % action_repeat == 0
+
         num_steps = horizon // action_repeat
 
-        ts = jnp.linspace(0, horizon * env.dt, num_steps + 1)
 
-
-        @jit
         def repeated_step(state, _):
             u = policy(state.obs)[0]
 
             def f(state, _):
                 nstate = env.step(state, u)
-                return nstate, (nstate.reward, nstate.done)
+                return nstate, nstate.reward
 
-            state, (rewards, dones) = scan(f, state, (), action_repeat)
-            state = state.replace(reward=jnp.sum(rewards * (1 - dones), axis=0),
-                                  done=1 - jnp.prod(1 - dones))
+            state, rewards = scan(f, state, (), action_repeat)
+            state = state.replace(reward=jnp.sum(rewards, axis=0))
             return state, (state.obs, u, state.reward)
 
-        trajectory = []
-        for _ in range(num_steps):
-            state, one_traj = repeated_step(state, None)
-            trajectory.append(one_traj)
 
-        trajectory = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *trajectory)
-        # x_last, trajectory = scan(repeated_step, state, None, length=num_steps)
-
-        rewards = trajectory[2]
-        us = trajectory[1]
+        x_last, trajectory = scan(repeated_step, state, None, length=num_steps)
 
         fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(16, 4))
-        axs[0].plot(ts, jnp.concatenate([state.obs.reshape(1, -1), trajectory[0]]), label='Xs')
+        axs[0].plot(trajectory[0], label='Xs')
         axs[0].legend()
-        # axs[1].plot(trajectory[1], drawstyle='steps-post', label='Us')
-        axs[1].step(ts, jnp.concatenate([us, us[-1].reshape(1, -1)]), where='post', label=r'$u$')
+        axs[1].plot(trajectory[1], drawstyle='steps-post', label='Us')
         axs[1].legend()
-        integrated_rewards = rewards / jnp.diff(ts) * env.dt
-        axs[2].step(ts, jnp.concatenate([integrated_rewards, integrated_rewards[-1].reshape(1, )]),
-                    where='post', label='Rewards')
-        # axs[2].plot(trajectory[2], label='Rewards')
+        axs[2].plot(trajectory[2], label='Rewards')
         axs[2].legend()
         plt.show()
         print(f'Total reward: {jnp.sum(trajectory[2])}')
