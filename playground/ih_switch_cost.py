@@ -17,9 +17,9 @@ from wtc.wrappers.ih_switching_cost import ConstantSwitchCost, IHSwitchCostWrapp
 if __name__ == "__main__":
     wrapper = True
     PLOT_TRUE_TRAJECTORIES = True
-    swing_up = False
+    swing_up = True
     action_repeat = 1
-    episode_length = 500
+    episode_length = 100
     time_as_part_of_state = True
 
     if swing_up:
@@ -32,7 +32,7 @@ if __name__ == "__main__":
                                   num_integrator_steps=episode_length,
                                   min_time_between_switches=1 * env.dt,
                                   max_time_between_switches=30 * env.dt,
-                                  switch_cost=ConstantSwitchCost(value=jnp.array(1.0)),
+                                  switch_cost=ConstantSwitchCost(value=jnp.array(0.1)),
                                   time_as_part_of_state=time_as_part_of_state)
 
     else:
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     num_envs = 32
     optimizer = SAC(
         environment=env,
-        num_timesteps=100_000,
+        num_timesteps=300_000,
         episode_length=episode_length,
         action_repeat=action_repeat,
         num_env_steps_between_updates=num_env_steps_between_updates,
