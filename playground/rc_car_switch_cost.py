@@ -81,7 +81,7 @@ if __name__ == "__main__":
         continuous_discounting=continuous_discounting,
         min_time_between_switches=min_time_between_switches,
         max_time_between_switches=max_time_between_switches,
-
+        env_dt=env.dt
     )
 
     xdata, ydata = [], []
