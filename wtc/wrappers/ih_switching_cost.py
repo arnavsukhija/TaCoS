@@ -2,6 +2,7 @@ from abc import abstractmethod
 from functools import partial
 from typing import NamedTuple
 
+import chex
 import jax
 import jax.numpy as jnp
 import jax.tree_util as jtu
@@ -46,7 +47,8 @@ class IHSwitchCostWrapper(Env):
                  max_time_between_switches: float | None = None,
                  switch_cost: SwitchCost = ConstantSwitchCost(value=jnp.array(1.0)),
                  discounting: float = 0.99,
-                 time_as_part_of_state: bool = False
+                 time_as_part_of_state: bool = False,
+                 compute_time_option: str = 'round_down'
                  ):
         self.env = env
         self.num_integrator_steps = num_integrator_steps
@@ -60,6 +62,7 @@ class IHSwitchCostWrapper(Env):
         self.max_time_between_switches = max_time_between_switches
         self.discounting = discounting
         self.time_as_part_of_state = time_as_part_of_state
+        self.compute_time_option = compute_time_option
 
     def reset(self, rng: jax.Array) -> State:
         """
@@ -77,6 +80,19 @@ class IHSwitchCostWrapper(Env):
             augmented_state = state.replace(pipeline_state=augmented_pipeline_state)
         return augmented_state
 
+    def compute_time(self,
+                     pseudo_time: chex.Array,
+                     dt: chex.Array,
+                     t_lower: chex.Array,
+                     t_upper: chex.Array,
+                     option: str = 'round_down') -> chex.Array:
+        assert option in ['round_down', ]
+        time_for_action = ((t_upper - t_lower) / 2 * pseudo_time + (t_upper + t_lower) / 2)
+        if option == 'round_down':
+            return (time_for_action // dt) * dt
+        else:
+            raise NotImplementedError(f'The option {option} is not implemented!')
+
     def step(self, state: State, action: jax.Array) -> State:
         u, pseudo_time_for_action = action[:-1], action[-1]
         if self.time_as_part_of_state:
@@ -87,12 +103,13 @@ class IHSwitchCostWrapper(Env):
 
         # Calculate the action time, i.e. Map pseudo_time_for_action from [-1, 1] to
         # time [self.min_time_between_switches, self.max_time_between_switches]
-        t_lower = self.min_time_between_switches
-        t_upper = self.max_time_between_switches
+        time_for_action = self.compute_time(pseudo_time=pseudo_time_for_action,
+                                            dt=self.env.dt,
+                                            t_lower=self.min_time_between_switches,
+                                            t_upper=self.max_time_between_switches,
+                                            option=self.compute_time_option)
 
-        time_for_action = ((t_upper - t_lower) / 2 * pseudo_time_for_action + (t_upper + t_lower) / 2).reshape()
         done = time_for_action >= self.time_horizon - time
-
         # Calculate how many steps we need to take with action
         num_steps = jnp.minimum(time_for_action, self.time_horizon - time) // self.env.dt
 
@@ -115,7 +132,7 @@ class IHSwitchCostWrapper(Env):
 
         init_val = (state, jnp.array(0.0), jnp.array(0))
         final_val = while_loop(cond_integration_step, body_integration_step, init_val)
-        next_state, total_reward, index = final_val
+        next_state, total_reward, _ = final_val
         next_done = 1 - (1 - next_state.done) * (1 - done)
 
         # Add switch cost to the total reward
@@ -147,10 +164,11 @@ class IHSwitchCostWrapper(Env):
 
         # Calculate the action time, i.e. Map pseudo_time_for_action from [-1, 1] to
         # time [self.min_time_between_switches, time_to_go]
-        t_lower = self.min_time_between_switches
-        t_upper = self.max_time_between_switches
-
-        time_for_action = ((t_upper - t_lower) / 2 * pseudo_time_for_action + (t_upper + t_lower) / 2).reshape()
+        time_for_action = self.compute_time(pseudo_time=pseudo_time_for_action,
+                                            dt=self.env.dt,
+                                            t_lower=self.min_time_between_switches,
+                                            t_upper=self.max_time_between_switches,
+                                            option=self.compute_time_option)
         done = time_for_action >= self.time_horizon - time
 
         # Calculate how many steps we need to take with action
