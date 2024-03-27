@@ -45,12 +45,16 @@ def experiment(env_name: str = 'inverted_pendulum',
         critic_hidden_layer_sizes = (64, 64)
 
     config = dict(env_name=env_name,
+                  num_timesteps=num_timesteps,
                   episode_length=episode_length,
                   learning_discount_factor=learning_discount_factor,
                   seed=seed,
                   num_envs=num_envs,
                   num_env_steps_between_updates=num_env_steps_between_updates,
-                  networks=networks)
+                  networks=networks,
+                  batch_size=batch_size,
+                  action_repeat=action_repeat,
+                  reward_scaling=reward_scaling)
 
     wandb.init(
         project=project_name,

@@ -1,7 +1,7 @@
 import exp
 from experiments.util import generate_run_commands, generate_base_command, dict_permutations
 
-PROJECT_NAME = 'NormalTraining_Mar_27_10_30'
+PROJECT_NAME = 'NormalTraining_Mar_27_11_00'
 
 general_configs = {
     'project_name': [PROJECT_NAME],
