@@ -1,17 +1,18 @@
 import datetime
 from datetime import datetime
 
-import jax
 import jax.numpy as jnp
 import jax.random as jr
+import jax.tree_util as jtu
 import matplotlib.pyplot as plt
+import wandb
 from jax.lax import scan
 from jax.nn import swish
-import jax.tree_util as jtu
 from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 
 from wtc.envs.pendulum import PendulumEnv
 from wtc.envs.pendulum_swing_down import PendulumEnv as PendulumEnvSwingDown
+from wtc.utils import discrete_to_continuous_discounting
 from wtc.wrappers.ih_switching_cost import ConstantSwitchCost, IHSwitchCostWrapper
 
 if __name__ == "__main__":
@@ -20,29 +21,36 @@ if __name__ == "__main__":
     swing_up = True
     action_repeat = 1
     episode_length = 100
-    time_as_part_of_state = True
+    time_as_part_of_state = False
 
     if swing_up:
         env = PendulumEnv(reward_source='dm-control')
     else:
         env = PendulumEnvSwingDown(reward_source='dm-control')
 
+    min_time_between_switches = 1 * env.dt
+    max_time_between_switches = 30 * env.dt
+
+    discount_factor = 0.99
+    continuous_discounting = discrete_to_continuous_discounting(discrete_discounting=discount_factor,
+                                                                dt=env.dt)
     if wrapper:
         env = IHSwitchCostWrapper(env,
                                   num_integrator_steps=episode_length,
                                   min_time_between_switches=1 * env.dt,
                                   max_time_between_switches=30 * env.dt,
-                                  switch_cost=ConstantSwitchCost(value=jnp.array(0.1)),
+                                  switch_cost=ConstantSwitchCost(value=jnp.array(1.0)),
                                   time_as_part_of_state=time_as_part_of_state)
 
     else:
         action_repeat = 7
 
-    num_env_steps_between_updates = 10
+    num_env_steps_between_updates = 5
     num_envs = 32
     optimizer = SAC(
+        target_entropy=None,
         environment=env,
-        num_timesteps=300_000,
+        num_timesteps=100_000,
         episode_length=episode_length,
         action_repeat=action_repeat,
         num_env_steps_between_updates=num_env_steps_between_updates,
@@ -55,23 +63,28 @@ if __name__ == "__main__":
         wd_policy=0.,
         wd_q=0.,
         max_grad_norm=1e5,
-        discounting=0.99,
-        batch_size=32,
+        discounting=discount_factor,
+        batch_size=64,
         num_evals=20,
         normalize_observations=True,
         reward_scaling=1.,
         tau=0.005,
-        min_replay_size=10 ** 2,
+        min_replay_size=10 ** 3,
         max_replay_size=10 ** 5,
         grad_updates_per_step=num_env_steps_between_updates * num_envs,
         deterministic_eval=True,
         init_log_alpha=0.,
-        policy_hidden_layer_sizes=(64, 64),
+        policy_hidden_layer_sizes=(32,) * 5,
         policy_activation=swish,
-        critic_hidden_layer_sizes=(64, 64),
+        critic_hidden_layer_sizes=(128,) * 3,
         critic_activation=swish,
         wandb_logging=False,
         return_best_model=True,
+        non_equidistant_time=True,
+        continuous_discounting=continuous_discounting,
+        min_time_between_switches=min_time_between_switches,
+        max_time_between_switches=max_time_between_switches,
+        env_dt=env.dt,
     )
 
     xdata, ydata = [], []
@@ -91,6 +104,9 @@ if __name__ == "__main__":
 
 
     print('Before inference')
+    # wandb.init(
+    #     project='TestIHSwitchCost'
+    # )
     policy_params, metrics = optimizer.run_training(key=jr.PRNGKey(0), progress_fn=progress)
     print('After inference')
 
