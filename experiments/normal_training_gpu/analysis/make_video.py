@@ -6,7 +6,7 @@ import os
 import matplotlib.pyplot as plt
 
 def experiment(env_name: str = 'inverted_pendulum',
-               backend: str = 'generalized',
+               backend: str = 'mjx',
                filename: str = None,
                track: bool = False,
                dir: str = 'random',
@@ -14,7 +14,7 @@ def experiment(env_name: str = 'inverted_pendulum',
                ):
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
                         'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d']
-    assert backend in ['generalized', 'positional', 'spring']
+    assert backend in ['generalized', 'positional', 'spring', 'mjx']
     env = envs.get_environment(env_name=env_name,
                                backend=backend)
 
@@ -48,12 +48,12 @@ def experiment(env_name: str = 'inverted_pendulum',
 
 
 if __name__ == '__main__':
-    environments = ['ant']
+    environments = ['humanoid']
     tracks = [True]
     for env, track in zip(environments[:1], tracks[:1]):
-        for index in [1]:
+        for index in [2, 3, 5]:
             experiment(env_name=env,
-                       backend='generalized',
+                       backend='mjx',
                        filename=f'{env}_{index}.pkl',
                        track=track,
                        dir='Mar27_11_00',

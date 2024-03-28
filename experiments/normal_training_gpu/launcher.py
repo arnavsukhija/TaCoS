@@ -1,11 +1,12 @@
 import exp
 from experiments.util import generate_run_commands, generate_base_command, dict_permutations
 
-PROJECT_NAME = 'NormalTraining_Mar_27_11_00'
+PROJECT_NAME = 'NormalTraining_Humanoid_Mar_27_12_50'
 
 general_configs = {
     'project_name': [PROJECT_NAME],
-    'num_timesteps': [5_000_000, ],
+    'backend': ['mjx', ],
+    'num_timesteps': [10_000_000, ],
     'episode_length': [500],
     'learning_discount_factor': [0.99],
     'num_envs': [128, 264],
@@ -13,17 +14,17 @@ general_configs = {
     'seed': list(range(3)),
     'networks': [0, ],
     'batch_size': [128, 512],
-    'action_repeat': [1, 2, 3, 10],
+    'action_repeat': [1, 2, 3, 5],
 }
 
-ant = {'env_name': ['ant', ],
-       'reward_scaling': [10, ],
-       } | general_configs
+humanoid = {'env_name': ['humanoid', ],
+            'reward_scaling': [1.0, ],
+            } | general_configs
 
 
 def main():
     command_list = []
-    flags_combinations = dict_permutations(ant)
+    flags_combinations = dict_permutations(humanoid)
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)
         command_list.append(cmd)

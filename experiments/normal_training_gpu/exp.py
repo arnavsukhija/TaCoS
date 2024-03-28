@@ -18,6 +18,7 @@ ENTITY = 'trevenl'
 
 
 def experiment(env_name: str = 'inverted_pendulum',
+               backend: str = 'generalized',
                project_name: str = 'GPUSpeedTest',
                num_timesteps: int = 1_000_000,
                episode_length: int = 200,
@@ -32,7 +33,6 @@ def experiment(env_name: str = 'inverted_pendulum',
                ):
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
                         'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d']
-    backend = 'generalized'
     env = envs.get_environment(env_name=env_name,
                                backend=backend)
 
@@ -82,8 +82,8 @@ def experiment(env_name: str = 'inverted_pendulum',
         normalize_observations=True,
         reward_scaling=reward_scaling,
         tau=0.005,
-        min_replay_size=10 ** 2,
-        max_replay_size=10 ** 5,
+        min_replay_size=10 ** 3,
+        max_replay_size=10 ** 6,
         grad_updates_per_step=num_env_steps_between_updates * num_envs,
         deterministic_eval=True,
         init_log_alpha=0.,
@@ -152,6 +152,7 @@ def experiment(env_name: str = 'inverted_pendulum',
 
 def main(args):
     experiment(env_name=args.env_name,
+               backend=args.backend,
                project_name=args.project_name,
                num_timesteps=args.num_timesteps,
                episode_length=args.episode_length,
@@ -169,6 +170,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--env_name', type=str, default='hopper')
+    parser.add_argument('--backend', type=str, default='mjx')
     parser.add_argument('--project_name', type=str, default='GPUSpeedTest')
     parser.add_argument('--num_timesteps', type=int, default=100_000)
     parser.add_argument('--episode_length', type=int, default=500)
