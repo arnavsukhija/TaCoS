@@ -3,6 +3,7 @@ import jax.numpy as jnp
 import jax.tree_util as jtu
 from brax.envs.base import PipelineEnv, State, Env
 from jax.lax import cond, while_loop, scan
+import chex
 
 EPS = 1e-10
 
@@ -41,6 +42,15 @@ class FixedNumOfSwitchesWrapper(Env):
         augmented_state = state.replace(obs=augmented_obs)
         return augmented_state
 
+    def compute_time(self,
+                     pseudo_time: chex.Array,
+                     dt: chex.Array,
+                     t_lower: chex.Array,
+                     t_upper: chex.Array,
+                     ) -> chex.Array:
+        time_for_action = ((t_upper - t_lower) / 2 * pseudo_time + (t_upper + t_lower) / 2)
+        return (time_for_action // dt) * dt
+
     # @partial(jax.jit, static_argnums=0)
     def step(self, state: State, action: jax.Array) -> State:
         obs, time_to_go, num_remaining_switches = state.obs[:-2], state.obs[-2], state.obs[-1]
@@ -51,15 +61,11 @@ class FixedNumOfSwitchesWrapper(Env):
         t_lower = self.min_time_between_switches
         t_upper = jnp.minimum(time_to_go, self.max_time_between_switches)
 
-        def true_fn_action_time(t_lower, t_upper, pseudo_time_for_action):
-            return t_upper + EPS, True
-
-        def false_fn_action_time(t_lower, t_upper, pseudo_time_for_action):
-            return ((t_upper - t_lower) / 2 * pseudo_time_for_action + (t_upper + t_lower) / 2).reshape(), False
-
-        time_for_action, done = cond(t_upper <= t_lower,
-                                     true_fn_action_time, false_fn_action_time,
-                                     t_lower, t_upper, pseudo_time_for_action)
+        time_for_action = self.compute_time(pseudo_time=pseudo_time_for_action,
+                                            dt=self.env.dt,
+                                            t_lower=t_lower,
+                                            t_upper=t_upper)
+        done = t_upper <= t_lower
 
         def last_action_true_fn(time_for_action, done):
             return time_to_go + EPS, True
