@@ -48,7 +48,6 @@ class IHSwitchCostWrapper(Env):
                  switch_cost: SwitchCost = ConstantSwitchCost(value=jnp.array(1.0)),
                  discounting: float = 0.99,
                  time_as_part_of_state: bool = False,
-                 compute_time_option: str = 'round_down'
                  ):
         self.env = env
         self.num_integrator_steps = num_integrator_steps
@@ -62,7 +61,6 @@ class IHSwitchCostWrapper(Env):
         self.max_time_between_switches = max_time_between_switches
         self.discounting = discounting
         self.time_as_part_of_state = time_as_part_of_state
-        self.compute_time_option = compute_time_option
 
     def reset(self, rng: jax.Array) -> State:
         """
@@ -85,13 +83,9 @@ class IHSwitchCostWrapper(Env):
                      dt: chex.Array,
                      t_lower: chex.Array,
                      t_upper: chex.Array,
-                     option: str = 'round_down') -> chex.Array:
-        assert option in ['round_down', ]
+                     ) -> chex.Array:
         time_for_action = ((t_upper - t_lower) / 2 * pseudo_time + (t_upper + t_lower) / 2)
-        if option == 'round_down':
-            return (time_for_action // dt) * dt
-        else:
-            raise NotImplementedError(f'The option {option} is not implemented!')
+        return (time_for_action // dt) * dt
 
     def step(self, state: State, action: jax.Array) -> State:
         u, pseudo_time_for_action = action[:-1], action[-1]
@@ -107,7 +101,7 @@ class IHSwitchCostWrapper(Env):
                                             dt=self.env.dt,
                                             t_lower=self.min_time_between_switches,
                                             t_upper=self.max_time_between_switches,
-                                            option=self.compute_time_option)
+                                            )
 
         done = time_for_action >= self.time_horizon - time
         # Calculate how many steps we need to take with action
