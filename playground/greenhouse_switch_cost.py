@@ -10,7 +10,7 @@ from jax.nn import swish
 import jax.tree_util as jtu
 from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 
-from wtc.envs.rccar import RCCar, plot_rc_trajectory
+from wtc.envs.greenhouse import GreenHouseEnv
 from wtc.utils import continuous_to_discrete_discounting, discrete_to_continuous_discounting
 
 from wtc.wrappers.ih_switching_cost import ConstantSwitchCost, IHSwitchCostWrapper
@@ -22,9 +22,9 @@ if __name__ == "__main__":
     action_repeat = 1
     episode_length = 100
     time_as_part_of_state = True
-    discrete_discounting = 0.99
+    discrete_discounting = 0.997
 
-    env = RCCar(margin_factor=20)
+    env = GreenHouseEnv()
 
     continuous_discounting = discrete_to_continuous_discounting(discrete_discounting=discrete_discounting,
                                                                 dt=env.dt)
@@ -85,11 +85,11 @@ if __name__ == "__main__":
     )
 
     xdata, ydata = [], []
-    times = [datetime.now()]
+    true_times = [datetime.now()]
 
 
     def progress(num_steps, metrics):
-        times.append(datetime.now())
+        true_times.append(datetime.now())
         xdata.append(num_steps)
         ydata.append(metrics['eval/episode_reward'])
         # plt.xlim([0, train_fn.keywords['num_timesteps']])
@@ -155,7 +155,10 @@ if __name__ == "__main__":
         full_trajectory = jtu.tree_map(lambda *xs: jnp.concatenate(xs), *full_trajectories)
         all_states = jtu.tree_map(lambda *xs: jnp.stack(xs), *all_states)
 
-        xs_full_trajectory = jnp.concatenate([init_state.obs[:-1].reshape(1, -1), full_trajectory.obs, ])
+        if time_as_part_of_state:
+            xs_full_trajectory = jnp.concatenate([init_state.obs[:-1].reshape(1, -1), full_trajectory.obs, ])
+        else:
+            xs_full_trajectory = jnp.concatenate([init_state.obs.reshape(1, -1), full_trajectory.obs, ])
         rewards_full_trajectory = jnp.concatenate([init_state.reward.reshape(1, ), full_trajectory.reward])
         # ts_full_trajectory = jnp.linspace(0, env.time_horizon, episode_length)
         ts_full_trajectory = jnp.arange(0, xs_full_trajectory.shape[0]) * env.env.dt
@@ -192,6 +195,7 @@ if __name__ == "__main__":
 
         axs[0].set_xlabel('Time', fontsize=LABEL_SIZE)
         axs[0].set_ylabel('State', fontsize=LABEL_SIZE)
+        axs[0].set_ylim([-50, 50])
 
         axs[1].step(all_ts, jnp.concatenate([us, us[-1].reshape(1, -1)]), where='post', label=r'$u$')
         axs[1].set_xlabel('Time', fontsize=LABEL_SIZE)
@@ -223,10 +227,6 @@ if __name__ == "__main__":
         print(f'Total reward: {jnp.sum(rewards_full_trajectory[:episode_length])}')
         print(f'Total number of actions {len(us)}')
 
-        fig, axs = plot_rc_trajectory(xs_full_trajectory, encode_angle=True)
-        fig.savefig('rc_car_trajectory.pdf')
-        plt.show()
-
     else:
         horizon = episode_length
 
@@ -257,8 +257,8 @@ if __name__ == "__main__":
         plt.show()
         print(f'Total reward: {jnp.sum(trajectory[2])}')
 
-    time_to_jit = times[1] - times[0]
-    time_to_train = times[-1] - times[1]
+    time_to_jit = true_times[1] - true_times[0]
+    time_to_train = true_times[-1] - true_times[1]
 
     print(f'time to jit: {time_to_jit}')
     print(f'time to train: {time_to_train}')

@@ -161,8 +161,7 @@ class IHSwitchCostWrapper(Env):
         time_for_action = self.compute_time(pseudo_time=pseudo_time_for_action,
                                             dt=self.env.dt,
                                             t_lower=self.min_time_between_switches,
-                                            t_upper=self.max_time_between_switches,
-                                            option=self.compute_time_option)
+                                            t_upper=self.max_time_between_switches)
         done = time_for_action >= self.time_horizon - time
 
         # Calculate how many steps we need to take with action

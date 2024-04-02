@@ -50,7 +50,7 @@ if __name__ == "__main__":
     optimizer = SAC(
         target_entropy=None,
         environment=env,
-        num_timesteps=100_000,
+        num_timesteps=20_000,
         episode_length=episode_length,
         action_repeat=action_repeat,
         num_env_steps_between_updates=num_env_steps_between_updates,
