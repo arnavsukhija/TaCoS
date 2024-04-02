@@ -13,6 +13,9 @@ import wandb
 from brax import envs
 from jax.nn import swish
 from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
+from wtc.envs.drone import Crazyflie2
+from wtc.envs.greenhouse import GreenHouseEnv
+import matplotlib.pyplot as plt
 
 ENTITY = 'trevenl'
 
@@ -31,8 +34,10 @@ def experiment(env_name: str = 'inverted_pendulum',
                action_repeat: int = 1,
                reward_scaling: float = 1.0,
                ):
+    envs.register_environment('drone', Crazyflie2)
+    envs.register_environment('greenhouse', GreenHouseEnv)
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
-                        'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d']
+                        'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse']
     env = envs.get_environment(env_name=env_name,
                                backend=backend)
 
@@ -138,6 +143,9 @@ def experiment(env_name: str = 'inverted_pendulum',
 
     trajectory = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *trajectory)
 
+    plt.plot(trajectory.reward)
+    plt.show()
+
     # We save full_trajectory to wandb
     # Save trajectory rather than rendered video
     directory = os.path.join(wandb.run.dir, 'results')
@@ -169,15 +177,15 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env_name', type=str, default='hopper')
+    parser.add_argument('--env_name', type=str, default='greenhouse')
     parser.add_argument('--backend', type=str, default='mjx')
     parser.add_argument('--project_name', type=str, default='GPUSpeedTest')
-    parser.add_argument('--num_timesteps', type=int, default=100_000)
-    parser.add_argument('--episode_length', type=int, default=500)
+    parser.add_argument('--num_timesteps', type=int, default=200_000)
+    parser.add_argument('--episode_length', type=int, default=2000)
     parser.add_argument('--learning_discount_factor', type=float, default=0.99)
     parser.add_argument('--seed', type=int, default=20)
     parser.add_argument('--num_envs', type=int, default=32)
-    parser.add_argument('--num_env_steps_between_updates', type=int, default=10)
+    parser.add_argument('--num_env_steps_between_updates', type=int, default=1)
     parser.add_argument('--networks', type=int, default=1)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--action_repeat', type=int, default=1)
