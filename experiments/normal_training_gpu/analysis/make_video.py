@@ -51,7 +51,7 @@ if __name__ == '__main__':
     environments = ['humanoid']
     tracks = [True]
     for env, track in zip(environments[:1], tracks[:1]):
-        for index in [2, 3, 5]:
+        for index in [1]:
             experiment(env_name=env,
                        backend='mjx',
                        filename=f'{env}_{index}.pkl',
