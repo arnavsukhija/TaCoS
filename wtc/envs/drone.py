@@ -16,13 +16,14 @@ class Crazyflie2(PipelineEnv):
     def __init__(self, backend='mjx', **kwargs):
         model_dir = Path('../../mujoco_menagerie/bitcraze_crazyflie_2')
         model_xml = model_dir / "scene.xml"
-        assert backend == 'mjx'
+        backend = 'mjx'
 
         mj_model = mujoco.MjModel.from_xml_path(str(model_xml))
         sys = mjcf.load_model(mj_model)
-        super().__init__(sys, **kwargs)
+        # sys = mjcf.load(model_xml)
+        super().__init__(sys, backend=backend, **kwargs)
         # We move one meter up and also in both x any coordinate
-        self.target_state = jnp.array([1.0, 1.0, 1.0, 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.])
+        self.target_state = jnp.array([0.0, 0.0, 1.0, 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.])
 
         bound, value_at_margin, margin_factor = 0.1, 0.1, 10.0
         self.tolerance_reward = ToleranceReward(bounds=(0.0, bound),
@@ -70,6 +71,7 @@ class Crazyflie2(PipelineEnv):
 
 if __name__ == '__main__':
     import imageio
+    import time
 
     print('We started')
     env = Crazyflie2()
@@ -82,7 +84,9 @@ if __name__ == '__main__':
     pipeline_states = []
 
     for i in range(2000):
+        start = time.time()
         state = jitted_step(state, action)
+        print("Time passed: ", time.time() - start)
         full_states.append(state)
         pipeline_states.append(state.pipeline_state)
 
@@ -100,8 +104,6 @@ if __name__ == '__main__':
 
     obs = [state.obs for state in full_states]
     obs = jnp.stack(obs)
-
-    import time
 
     jitted_reset = jax.jit(env.reset)
     for i in range(5):
