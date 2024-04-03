@@ -260,6 +260,7 @@ class GreenHouseEnv(Env):
         t_o, t_d, c_o, v_o, w, G = obs[egs_start_idx], obs[egs_start_idx + 1], \
             obs[egs_start_idx + 2], obs[egs_start_idx + 3], obs[egs_start_idx + 4], obs[egs_start_idx + 5]
         t_h, rwl, rww, phi_c = action[0], action[1], action[2], action[3]
+        # temperature of bolier water, how much you open the vents (rwl, rww), how much CO2 injection
         phi_v = (params.sigma * rwl / (1 + params.chi * rwl) + params.zeta + params.xi * rww) * w \
                 + params.psi
         k_v = params.rho_a * params.cp_a * phi_v
@@ -337,9 +338,11 @@ class GreenHouseEnv(Env):
         dt_dt = jnp.ones_like(dt_g_dt)
 
         dx_dt = jnp.stack([
-            dt_g_dt, dt_p_dt, dt_s_dt, dc_i_dt, dv_i_dt,
+            dt_g_dt, dt_p_dt, dt_s_dt, dc_i_dt, dv_i_dt, # Greenhouse temperature, temperature of the pipes, temperature of the soil, concentration of C02 in greenhouse, humidity (water/air)
             dmb_dt, dmf_dt, dml_dt, dd_p_dt,
             dt_o_dt, dt_d_dt, dc_o_dt, dv_o_dt, dw_dt, dG_dt, dt_dt,
+            # Outside temperature, deep soil temperature, concentration of CO2 outside,
+            # humidity outside, wind speed, radiation, time
         ])
         return dx_dt
 
