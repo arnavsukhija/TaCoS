@@ -85,7 +85,7 @@ class FixedNumOfSwitchesWrapper(Env):
         num_steps = next_steps_passed - steps_passed
 
         # Integrate dynamics forward for the num_steps
-        state = state.replace(obs=obs, )
+        state = state.replace(obs=obs)
 
         def body_integration_step(val):
             s, r, index = val
@@ -125,15 +125,11 @@ class FixedNumOfSwitchesWrapper(Env):
         t_lower = self.min_time_between_switches
         t_upper = jnp.minimum(time_to_go, self.max_time_between_switches)
 
-        def true_fn_action_time(t_lower, t_upper, pseudo_time_for_action):
-            return t_upper + EPS, True
-
-        def false_fn_action_time(t_lower, t_upper, pseudo_time_for_action):
-            return ((t_upper - t_lower) / 2 * pseudo_time_for_action + (t_upper + t_lower) / 2).reshape(), False
-
-        time_for_action, done = cond(t_upper <= t_lower,
-                                     true_fn_action_time, false_fn_action_time,
-                                     t_lower, t_upper, pseudo_time_for_action)
+        time_for_action = self.compute_time(pseudo_time=pseudo_time_for_action,
+                                            dt=self.env.dt,
+                                            t_lower=t_lower,
+                                            t_upper=t_upper)
+        done = t_upper <= t_lower
 
         def last_action_true_fn(time_for_action, done):
             return time_to_go + EPS, True
@@ -153,7 +149,7 @@ class FixedNumOfSwitchesWrapper(Env):
         num_steps = next_steps_passed - steps_passed
 
         # Integrate dynamics forward for the num_steps
-        state = state.replace(obs=obs, )
+        state = state.replace(obs=obs)
 
         @jax.jit
         def scan_f(s, _):
