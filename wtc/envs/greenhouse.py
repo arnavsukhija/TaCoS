@@ -3,6 +3,7 @@ from functools import partial
 import chex
 import jax
 import jax.numpy as jnp
+import jax.random as jr
 from brax.envs.base import State, Env
 from flax import struct
 from jaxtyping import Float, Array
@@ -159,10 +160,16 @@ class GreenHouseEnv(Env):
     input_ub = jnp.array([80.0, 1.0, 1.0, 2.1])
     input_lb = jnp.array([10.0, 0.0, 0.0, 0.0])
 
+    default_process_noise_scale = jnp.array(
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.5, 5.0, 0.0, ])
+
     def __init__(self,
                  dt_integration: float = 60,
                  reward_source: str = 'temperature_tracking',
-                 backend: str = 'mjx'):
+                 backend: str = 'mjx',
+                 add_process_noise: bool = False,
+                 process_noise_scale: Float[Array, "observation_dim"] | None = None
+                 ):
         self.dynamics_params = GreenHouseParams()
         self.reward_params = GreenHouseRewardParams()
         self.reward_source = reward_source
@@ -185,14 +192,21 @@ class GreenHouseEnv(Env):
                                                 margin=margin_factor * bound,
                                                 value_at_margin=value_at_margin,
                                                 sigmoid='long_tail')
+        self.add_process_noise = add_process_noise
+        if process_noise_scale is None:
+            process_noise_scale = self.default_process_noise_scale
+        self.process_noise_scale = process_noise_scale
 
     def reset(self, rng: jax.Array) -> State:
         init_state = self.init_state + jax.random.normal(rng) * self.noise_std
         init_state = jnp.clip(init_state, self.constraint_lb, self.constraint_ub)
-        return State(pipeline_state=None,
-                     obs=init_state,
-                     reward=jnp.array(0.0),
-                     done=jnp.array(0.0), )
+        state = State(pipeline_state=None,
+                      obs=init_state,
+                      reward=jnp.array(0.0),
+                      done=jnp.array(0.0), )
+        if self.add_process_noise:
+            state.info['process_noise_key'] = rng
+        return state
 
     def reward(self,
                obs: Float[Array, 'observation_dim'],
@@ -327,18 +341,19 @@ class GreenHouseEnv(Env):
 
         # Exogenous effects
 
-        dt_o_dt = jnp.zeros_like(dt_g_dt)
-        dt_d_dt = jnp.zeros_like(dt_g_dt)
-        dc_o_dt = jnp.zeros_like(dt_g_dt)
-        dv_o_dt = jnp.zeros_like(dt_g_dt)
-        dw_dt = jnp.zeros_like(dt_g_dt)
-        dG_dt = jnp.zeros_like(dt_g_dt)
+        dt_o_dt = jnp.zeros_like(dt_g_dt)  # scale = 2.0
+        dt_d_dt = jnp.zeros_like(dt_g_dt)  # 0
+        dc_o_dt = jnp.zeros_like(dt_g_dt)  # 0
+        dv_o_dt = jnp.zeros_like(dt_g_dt)  # 0
+        dw_dt = jnp.zeros_like(dt_g_dt)  # [2, 8]
+        dG_dt = jnp.zeros_like(dt_g_dt)  # Uniform [5, 400]
 
         # Time
         dt_dt = jnp.ones_like(dt_g_dt)
 
         dx_dt = jnp.stack([
-            dt_g_dt, dt_p_dt, dt_s_dt, dc_i_dt, dv_i_dt, # Greenhouse temperature, temperature of the pipes, temperature of the soil, concentration of C02 in greenhouse, humidity (water/air)
+            dt_g_dt, dt_p_dt, dt_s_dt, dc_i_dt, dv_i_dt,
+            # Greenhouse temperature, temperature of the pipes, temperature of the soil, concentration of C02 in greenhouse, humidity (water/air)
             dmb_dt, dmf_dt, dml_dt, dd_p_dt,
             dt_o_dt, dt_d_dt, dc_o_dt, dv_o_dt, dw_dt, dG_dt, dt_dt,
             # Outside temperature, deep soil temperature, concentration of CO2 outside,
@@ -369,6 +384,15 @@ class GreenHouseEnv(Env):
         next_reward = self.reward(obs, action)
         action = self.scale_action(action)
         next_obs = self.integrate(obs, action, self.dynamics_params)
+        # Add process noise to the next_obs
+        if self.add_process_noise:
+            key = state.info['process_noise_key']
+            key, subkey = jax.random.split(key)
+            # We add noise noise to the system and ensure they are inside the plausible region
+            next_obs += self.process_noise_scale * jr.normal(key=subkey, shape=(self.observation_size,))
+            next_obs = jnp.clip(next_obs, self.constraint_lb, self.constraint_ub)
+            # We update the key in the state.info
+            state.info['process_noise_key'] = key
         next_state = State(pipeline_state=state.pipeline_state,
                            obs=next_obs,
                            reward=next_reward,
