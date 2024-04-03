@@ -20,11 +20,13 @@ if __name__ == "__main__":
     PLOT_TRUE_TRAJECTORIES = True
     swing_up = True
     action_repeat = 1
-    episode_length = 100
-    time_as_part_of_state = False
+    episode_length = 200
+    time_as_part_of_state = True
 
     if swing_up:
-        env = PendulumEnv(reward_source='dm-control')
+        env = PendulumEnv(reward_source='dm-control',
+                          add_process_noise=True,
+                          process_noise_scale=1.0 * jnp.array([0.01, 0.01, 0.1]))
     else:
         env = PendulumEnvSwingDown(reward_source='dm-control')
 
@@ -39,7 +41,7 @@ if __name__ == "__main__":
                                   num_integrator_steps=episode_length,
                                   min_time_between_switches=1 * env.dt,
                                   max_time_between_switches=30 * env.dt,
-                                  switch_cost=ConstantSwitchCost(value=jnp.array(1.0)),
+                                  switch_cost=ConstantSwitchCost(value=jnp.array(0.1)),
                                   time_as_part_of_state=time_as_part_of_state)
 
     else:
