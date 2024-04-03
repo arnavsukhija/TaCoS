@@ -26,7 +26,7 @@ if __name__ == "__main__":
     if swing_up:
         env = PendulumEnv(reward_source='dm-control',
                           add_process_noise=True,
-                          process_noise_scale=1.0 * jnp.array([0.01, 0.01, 0.1]))
+                          process_noise_scale=0.0 * jnp.array([0.01, 0.01, 0.1]))
     else:
         env = PendulumEnvSwingDown(reward_source='dm-control')
 
@@ -42,7 +42,8 @@ if __name__ == "__main__":
                                   min_time_between_switches=1 * env.dt,
                                   max_time_between_switches=30 * env.dt,
                                   switch_cost=ConstantSwitchCost(value=jnp.array(0.1)),
-                                  time_as_part_of_state=time_as_part_of_state)
+                                  time_as_part_of_state=time_as_part_of_state,
+                                  discounting=discount_factor)
 
     else:
         action_repeat = 7
