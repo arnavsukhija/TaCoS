@@ -1,10 +1,12 @@
-import jax
-from brax.envs.base import PipelineEnv, State, Env
-import chex
-from flax import struct
-import jax.numpy as jnp
-from jaxtyping import Float, Array
 from functools import partial
+
+import chex
+import jax
+import jax.numpy as jnp
+import jax.random as jr
+from brax.envs.base import State, Env
+from flax import struct
+from jaxtyping import Float, Array
 
 from wtc.utils.tolerance_reward import ToleranceReward
 
@@ -27,7 +29,10 @@ class PendulumRewardParams:
 
 
 class PendulumEnv(Env):
-    def __init__(self, reward_source: str = 'gym'):
+    def __init__(self,
+                 reward_source: str = 'gym',
+                 add_process_noise: bool = True,
+                 process_noise_scale: Float[Array, "observation_dim"] | None = None):
         self.dynamics_params = PendulumDynamicsParams()
         self.reward_params = PendulumRewardParams()
         bound = 0.1
@@ -38,13 +43,23 @@ class PendulumEnv(Env):
                                                 margin=margin_factor * bound,
                                                 value_at_margin=value_at_margin,
                                                 sigmoid='long_tail')
+        self.add_process_noise = add_process_noise
+        self.process_noise_scale = process_noise_scale
 
     def reset(self,
               rng: jax.Array) -> State:
-        return State(pipeline_state=None,
-                     obs=jnp.array([-1.0, 0.0, 0.0]),
-                     reward=jnp.array(0.0),
-                     done=jnp.array(0.0), )
+        if self.add_process_noise:
+            state = State(pipeline_state=None,
+                          obs=jnp.array([-1.0, 0.0, 0.0]),
+                          reward=jnp.array(0.0),
+                          done=jnp.array(0.0), )
+            state.info['process_noise_key'] = rng
+            return state
+        else:
+            return State(pipeline_state=None,
+                         obs=jnp.array([-1.0, 0.0, 0.0]),
+                         reward=jnp.array(0.0),
+                         done=jnp.array(0.0), )
 
     def reward(self,
                x: Float[Array, 'observation_dim'],
@@ -66,7 +81,7 @@ class PendulumEnv(Env):
         diff_th = theta - target_angle
         diff_th = ((diff_th + jnp.pi) % (2 * jnp.pi)) - jnp.pi
         reward = self.tolerance_reward(jnp.sqrt(self.reward_params.angle_cost * diff_th ** 2 +
-                                       0.1 * omega ** 2)) - self.reward_params.control_cost * u ** 2
+                                                0.1 * omega ** 2)) - self.reward_params.control_cost * u ** 2
         reward = reward.squeeze()
         return reward
 
@@ -86,6 +101,13 @@ class PendulumEnv(Env):
         newthdot = thdot + dx[-1] * dt
         newthdot = jnp.clip(newthdot, -self.dynamics_params.max_speed, self.dynamics_params.max_speed)
         next_obs = jnp.asarray([jnp.cos(newth), jnp.sin(newth), newthdot]).reshape(-1)
+        if self.add_process_noise:
+            key = state.info['process_noise_key']
+            key, subkey = jax.random.split(key)
+            # We add noise noise to the system
+            next_obs += self.process_noise_scale * jr.normal(key=subkey, shape=(self.observation_size,))
+            # We update the key in the state.info
+            state.info['process_noise_key'] = key
         if self.reward_source == 'gym':
             next_reward = self.reward(x, action)
         elif self.reward_source == 'dm-control':
