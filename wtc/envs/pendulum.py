@@ -31,7 +31,7 @@ class PendulumRewardParams:
 class PendulumEnv(Env):
     def __init__(self,
                  reward_source: str = 'gym',
-                 add_process_noise: bool = True,
+                 add_process_noise: bool = False,
                  process_noise_scale: Float[Array, "observation_dim"] | None = None):
         self.dynamics_params = PendulumDynamicsParams()
         self.reward_params = PendulumRewardParams()
