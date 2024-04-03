@@ -162,9 +162,9 @@ class GreenHouseEnv(Env):
 
     default_process_noise_scale = jnp.array(
         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-         0.1,  # Outside temperature
+         0.3,  # Outside temperature
          0.0, 0.0, 0.0,
-         0.1,  # Wind speed
+         0.01,  # Wind speed
          1.0,  # Radiation
          0.0, ])
 
@@ -227,7 +227,7 @@ class GreenHouseEnv(Env):
             reward = (mf + action_penalty + violation_cost).squeeze()
         elif self.reward_source == 'temperature_tracking':
             tracking_reward = self.tolerance_reward(jnp.sqrt((tg - self.reward_params.tg_des) ** 2))
-            reward = (tracking_reward + action_penalty).squeeze()
+            reward = (tracking_reward + 0.0 * action_penalty).squeeze()
         else:
             raise NotImplementedError
         # jax.debug.breakpoint()

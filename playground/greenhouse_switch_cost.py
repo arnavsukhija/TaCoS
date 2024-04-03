@@ -23,9 +23,10 @@ if __name__ == "__main__":
     episode_length = 100
     time_as_part_of_state = True
     discrete_discounting = 0.997
+    process_noise_scale = jnp.array(2.0)
 
     env = GreenHouseEnv(add_process_noise=True,
-                        process_noise_scale=jnp.array(1.0))
+                        process_noise_scale=process_noise_scale)
 
     continuous_discounting = discrete_to_continuous_discounting(discrete_discounting=discrete_discounting,
                                                                 dt=env.dt)
@@ -37,7 +38,7 @@ if __name__ == "__main__":
                                   num_integrator_steps=episode_length,
                                   min_time_between_switches=min_time_between_switches,
                                   max_time_between_switches=max_time_between_switches,
-                                  switch_cost=ConstantSwitchCost(value=jnp.array(1.0)),
+                                  switch_cost=ConstantSwitchCost(value=jnp.array(0.2)),
                                   time_as_part_of_state=time_as_part_of_state,
                                   discounting=discrete_discounting)
 
@@ -122,7 +123,7 @@ if __name__ == "__main__":
         return next_state, (next_state.obs, u, next_state.reward, rest)
 
     env = GreenHouseEnv(add_process_noise=True,
-                        process_noise_scale=jnp.array(1.0))
+                        process_noise_scale=process_noise_scale)
 
     if wrapper:
         env = IHSwitchCostWrapper(env,
