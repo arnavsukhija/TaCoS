@@ -161,14 +161,19 @@ class GreenHouseEnv(Env):
     input_lb = jnp.array([10.0, 0.0, 0.0, 0.0])
 
     default_process_noise_scale = jnp.array(
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.5, 5.0, 0.0, ])
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+         0.1,  # Outside temperature
+         0.0, 0.0, 0.0,
+         0.1,  # Wind speed
+         1.0,  # Radiation
+         0.0, ])
 
     def __init__(self,
                  dt_integration: float = 60,
                  reward_source: str = 'temperature_tracking',
                  backend: str = 'mjx',
                  add_process_noise: bool = False,
-                 process_noise_scale: Float[Array, "observation_dim"] | None = None
+                 process_noise_scale: Float[Array, "None"] | None = None
                  ):
         self.dynamics_params = GreenHouseParams()
         self.reward_params = GreenHouseRewardParams()
@@ -194,8 +199,8 @@ class GreenHouseEnv(Env):
                                                 sigmoid='long_tail')
         self.add_process_noise = add_process_noise
         if process_noise_scale is None:
-            process_noise_scale = self.default_process_noise_scale
-        self.process_noise_scale = process_noise_scale
+            process_noise_scale = 0.0
+        self.process_noise_scale = process_noise_scale * self.default_process_noise_scale
 
     def reset(self, rng: jax.Array) -> State:
         init_state = self.init_state + jax.random.normal(rng) * self.noise_std
