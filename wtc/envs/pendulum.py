@@ -48,18 +48,13 @@ class PendulumEnv(Env):
 
     def reset(self,
               rng: jax.Array) -> State:
+        state = State(pipeline_state=None,
+                      obs=jnp.array([-1.0, 0.0, 0.0]),
+                      reward=jnp.array(0.0),
+                      done=jnp.array(0.0), )
         if self.add_process_noise:
-            state = State(pipeline_state=None,
-                          obs=jnp.array([-1.0, 0.0, 0.0]),
-                          reward=jnp.array(0.0),
-                          done=jnp.array(0.0), )
             state.info['process_noise_key'] = rng
-            return state
-        else:
-            return State(pipeline_state=None,
-                         obs=jnp.array([-1.0, 0.0, 0.0]),
-                         reward=jnp.array(0.0),
-                         done=jnp.array(0.0), )
+        return state
 
     def reward(self,
                x: Float[Array, 'observation_dim'],
