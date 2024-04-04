@@ -37,4 +37,4 @@ df = df.join(config_df).join(summary_df)
 print(df.head())  # Display the first few rows of the DataFrame
 
 # You can now save this DataFrame to a CSV file or perform further analysis
-df.to_csv("data/wandb_data.csv", index=False)
+df.to_csv("data/pendulum_data.csv", index=False)
