@@ -1,7 +1,7 @@
 import exp
 from experiments.util import generate_run_commands, generate_base_command, dict_permutations
 
-PROJECT_NAME = 'HalfcheetahVaryingDtApr05_12_55'
+PROJECT_NAME = 'HalfcheetahVaryingDtApr05_13_40'
 
 general_configs = {
     'project_name': [PROJECT_NAME],
@@ -10,7 +10,7 @@ general_configs = {
     'base_discount_factor': [0.99],
     'num_envs': [128],
     'num_env_steps_between_updates': [10, ],
-    'seed': [0],
+    'seed': list(range(5)),
     'networks': [0, ],
     'batch_size': [128],
     'action_repeat': [1, ],
