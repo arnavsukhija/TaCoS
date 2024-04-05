@@ -1,7 +1,7 @@
 import exp
 from experiments.util import generate_run_commands, generate_base_command, dict_permutations
 
-PROJECT_NAME = 'HalfcheetahVaryingDtApr05_13_40'
+PROJECT_NAME = 'HalfcheetahVaryingDtSwitchCostApr05_17_40'
 
 general_configs = {
     'project_name': [PROJECT_NAME],
@@ -16,22 +16,26 @@ general_configs = {
     'action_repeat': [1, ],
 }
 
-inverted_pendulum = {'env_name': ['inverted_pendulum', ],
-                     'reward_scaling': [1.0, ],
-                     'episode_time': [8.0],
-                     'base_dt_divisor': [1, 2, 4, ],
-                     } | general_configs
+# halfcheetah = {'env_name': ['halfcheetah', ],
+#                'reward_scaling': [1.0, ],
+#                'episode_time': [10.0],
+#                'base_dt_divisor': [1, 2, 4, 10, 15],
+#                'switch_cost_wrapper': [0, ]
+#                } | general_configs
 
-halfcheetah = {'env_name': ['halfcheetah', ],
-               'reward_scaling': [1.0, ],
-               'episode_time': [10.0],
-               'base_dt_divisor': [1, 2, 4, 10, 15, 20, 30, 50],
-               } | general_configs
+halfcheetah_switch_cost = {'env_name': ['halfcheetah', ],
+                           'reward_scaling': [1.0, ],
+                           'episode_time': [10.0],
+                           'base_dt_divisor': [1, 2, 4, 10, 15],
+                           'switch_cost_wrapper': [1, ],
+                           'switch_cost': [0.1, 0.01],
+                           'max_time_between_switches': [0.05, 0.1, 0.15, 0.2]
+                           } | general_configs
 
 
 def main():
     command_list = []
-    flags_combinations = dict_permutations(halfcheetah)
+    flags_combinations = dict_permutations(halfcheetah_switch_cost)
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)
         command_list.append(cmd)

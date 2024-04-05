@@ -20,7 +20,7 @@ if __name__ == "__main__":
     PLOT_TRUE_TRAJECTORIES = True
     swing_up = True
     action_repeat = 1
-    episode_length = 200
+    episode_length = 100
     time_as_part_of_state = True
 
     if swing_up:
