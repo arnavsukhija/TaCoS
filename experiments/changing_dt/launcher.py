@@ -1,7 +1,7 @@
 import exp
 from experiments.util import generate_run_commands, generate_base_command, dict_permutations
 
-PROJECT_NAME = 'PendulumVaryingDtApr05_12_55'
+PROJECT_NAME = 'HalfcheetahVaryingDtApr05_12_55'
 
 general_configs = {
     'project_name': [PROJECT_NAME],
@@ -22,10 +22,16 @@ inverted_pendulum = {'env_name': ['inverted_pendulum', ],
                      'base_dt_divisor': [1, 2, 4, ],
                      } | general_configs
 
+halfcheetah = {'env_name': ['halfcheetah', ],
+               'reward_scaling': [1.0, ],
+               'episode_time': [10.0],
+               'base_dt_divisor': [1, 2, 4, 10, 15, 20, 30, 50],
+               } | general_configs
+
 
 def main():
     command_list = []
-    flags_combinations = dict_permutations(inverted_pendulum)
+    flags_combinations = dict_permutations(halfcheetah)
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)
         command_list.append(cmd)

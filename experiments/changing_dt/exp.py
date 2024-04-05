@@ -88,7 +88,7 @@ def experiment(env_name: str = 'inverted_pendulum',
         action_repeat=action_repeat,
         num_env_steps_between_updates=num_env_steps_between_updates,
         num_envs=num_envs,
-        num_eval_envs=32,
+        num_eval_envs=64,
         lr_alpha=3e-4,
         lr_policy=3e-4,
         lr_q=3e-4,
@@ -144,12 +144,15 @@ def experiment(env_name: str = 'inverted_pendulum',
     env = envs.get_environment(env_name=env_name,
                                backend=backend)
 
+    env = ChangeIntegrationStep(env=env,
+                                dt_divisor=base_dt_divisor)
+
     state = env.reset(rng=jr.PRNGKey(0))
     step_fn = jax.jit(env.step)
 
     trajectory = []
     total_steps = 0
-    while (not state.done) and (total_steps < episode_time // env.dt):
+    while (not state.done) and (total_steps < (episode_time // env.dt)):
         action = policy(state.obs)[0]
         for _ in range(action_repeat):
             state = step_fn(state, action)
@@ -157,6 +160,11 @@ def experiment(env_name: str = 'inverted_pendulum',
             trajectory.append(state)
 
     trajectory = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *trajectory)
+    wandb.log({'results/total_reward': jnp.sum(trajectory.reward),
+               'results/total_steps': len(trajectory.reward)})
+
+    print(f'Total reward: {jnp.sum(trajectory.reward)}')
+    print(f'Total steps: {total_steps}')
 
     plt.plot(trajectory.reward)
     plt.show()
