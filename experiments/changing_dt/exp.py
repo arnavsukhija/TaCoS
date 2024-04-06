@@ -19,8 +19,8 @@ from wtc.utils import discrete_to_continuous_discounting
 from wtc.wrappers.ih_switching_cost import ConstantSwitchCost, IHSwitchCostWrapper
 
 from jax import config
-config.update("jax_debug_nans", True)
 
+config.update("jax_debug_nans", True)
 
 ENTITY = 'trevenl'
 
@@ -42,6 +42,7 @@ def experiment(env_name: str = 'inverted_pendulum',
                switch_cost_wrapper: bool = False,
                switch_cost: float = 0.1,
                max_time_between_switches: float = 0.1,
+               time_as_part_of_state: bool = True,
                ):
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
                         'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse']
@@ -70,7 +71,7 @@ def experiment(env_name: str = 'inverted_pendulum',
                                   max_time_between_switches=max_time_between_switches,
                                   switch_cost=ConstantSwitchCost(value=jnp.array(switch_cost)),
                                   discounting=new_discount_factor,
-                                  time_as_part_of_state=True,
+                                  time_as_part_of_state=time_as_part_of_state,
                                   )
 
     if networks == 0:
@@ -101,6 +102,7 @@ def experiment(env_name: str = 'inverted_pendulum',
                   switch_cost_wrapper=switch_cost_wrapper,
                   switch_cost=switch_cost,
                   max_time_between_switches=max_time_between_switches,
+                  time_as_part_of_state=time_as_part_of_state
                   )
 
     wandb.init(
@@ -208,6 +210,7 @@ def experiment(env_name: str = 'inverted_pendulum',
 
     ########################## Evaluation ##########################
     ################################################################
+    print(f'Starting with evaluation')
     if switch_cost_wrapper:
         env = envs.get_environment(env_name=env_name,
                                    backend=backend)
@@ -220,8 +223,10 @@ def experiment(env_name: str = 'inverted_pendulum',
                                   max_time_between_switches=max_time_between_switches,
                                   switch_cost=ConstantSwitchCost(value=jnp.array(0.0)),
                                   discounting=1.0,
-                                  time_as_part_of_state=True, )
+                                  time_as_part_of_state=time_as_part_of_state, )
         state = env.reset(rng=jr.PRNGKey(0))
+
+        print(f'Prepared and reseted environment')
 
         def step(state, _):
             u = policy(state.obs)[0]
@@ -238,6 +243,7 @@ def experiment(env_name: str = 'inverted_pendulum',
         mpl.rcParams['xtick.labelsize'] = TICKS_SIZE
         mpl.rcParams['ytick.labelsize'] = TICKS_SIZE
 
+        print('Starting with trajectory simulation')
         trajectory = []
         full_trajectories = []
         while not state.done:
@@ -246,9 +252,14 @@ def experiment(env_name: str = 'inverted_pendulum',
             trajectory.append(one_traj)
             full_trajectories.append(full_trajectory)
 
+        print('End of trajectory simulation')
         trajectory = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *trajectory)
         full_trajectory = jtu.tree_map(lambda *xs: jnp.concatenate(xs), *full_trajectories)
 
+        wandb.log({'results/total_reward': float(jnp.sum(trajectory[2])),
+                   'results/num_actions': trajectory[0].shape[0]})
+
+        print('Saving the models to Wandb')
         # We save full_trajectory to wandb
         # Save trajectory rather than rendered video
         directory = os.path.join(wandb.run.dir, 'results')
@@ -258,8 +269,13 @@ def experiment(env_name: str = 'inverted_pendulum',
         with open(model_path, 'wb') as handle:
             pickle.dump(full_trajectory, handle)
         wandb.save(model_path, wandb.run.dir)
+        print('Trajectory saved to Wandb')
 
-        xs_full_trajectory = jnp.concatenate([init_state.obs[:-1].reshape(1, -1), full_trajectory.obs, ])
+        print('Started plotting')
+        if time_as_part_of_state:
+            xs_full_trajectory = jnp.concatenate([init_state.obs[:-1].reshape(1, -1), full_trajectory.obs, ])
+        else:
+            xs_full_trajectory = jnp.concatenate([init_state.obs.reshape(1, -1), full_trajectory.obs, ])
         rewards_full_trajectory = jnp.concatenate([init_state.reward.reshape(1, ), full_trajectory.reward])
         executed_integration_steps = xs_full_trajectory.shape[0]
 
@@ -299,9 +315,11 @@ def experiment(env_name: str = 'inverted_pendulum',
             ax.legend(fontsize=LEGEND_SIZE)
         plt.tight_layout()
 
-        wandb.log({'switch_bound_figure': wandb.Image(fig),
-                   'results/total_reward': float(jnp.sum(trajectory[2])),
-                   'results/num_actions': trajectory[0].shape[0]})
+        print('End of plotting, uploading results to wandb')
+
+        wandb.log({'switch_bound_figure': wandb.Image(fig), })
+
+        print('Results uploaded to wandb')
 
     else:
         env = envs.get_environment(env_name=env_name,
@@ -363,6 +381,7 @@ def main(args):
                switch_cost_wrapper=bool(args.switch_cost_wrapper),
                switch_cost=args.switch_cost,
                max_time_between_switches=args.max_time_between_switches,
+               time_as_part_of_state=bool(args.time_as_part_of_state),
                )
 
 
@@ -385,6 +404,8 @@ if __name__ == '__main__':
     parser.add_argument('--switch_cost_wrapper', type=int, default=1)
     parser.add_argument('--switch_cost', type=float, default=0.1)
     parser.add_argument('--max_time_between_switches', type=float, default=0.2)
+    parser.add_argument('--time_as_part_of_state', type=int, default=1)
+
 
     args = parser.parse_args()
     main(args)

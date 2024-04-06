@@ -1,7 +1,7 @@
 import exp
 from experiments.util import generate_run_commands, generate_base_command, dict_permutations
 
-PROJECT_NAME = 'HalfcheetahVaryingDtSwitchCostApr05_17_40'
+PROJECT_NAME = 'HalfcheetahVaryingDtSwitchCostApr06_12_20'
 
 general_configs = {
     'project_name': [PROJECT_NAME],
@@ -28,9 +28,30 @@ halfcheetah_switch_cost = {'env_name': ['halfcheetah', ],
                            'episode_time': [10.0],
                            'base_dt_divisor': [1, 2, 4, 10, 15],
                            'switch_cost_wrapper': [1, ],
-                           'switch_cost': [0.1, 0.01],
-                           'max_time_between_switches': [0.05, 0.1, 0.15, 0.2]
+                           'switch_cost': [0.01, 0.1, 0.2, 0.5, 1.0],
+                           'max_time_between_switches': [0.05, 0.1, 0.15, 0.2],
+                           'time_as_part_of_state': [0, 1]
                            } | general_configs
+
+
+# inverted_pendulum_switch_cost = {'env_name': ['inverted_pendulum', ],
+#                                  'backend': ['generalized', ],
+#                                  'project_name': [PROJECT_NAME],
+#                                  'num_timesteps': [20_000, ],
+#                                  'episode_time': [4.0],
+#                                  'base_dt_divisor': [4, ],
+#                                  'base_discount_factor': [0.99],
+#                                  'seed': [20, ],
+#                                  'num_envs': [32],
+#                                  'num_env_steps_between_updates': [10, ],
+#                                  'networks': [1, ],
+#                                  'batch_size': [32],
+#                                  'action_repeat': [1, ],
+#                                  'reward_scaling': [1.0, ],
+#                                  'switch_cost_wrapper': [1, ],
+#                                  'switch_cost': [0.1, ],
+#                                  'max_time_between_switches': [0.2]
+#                                  }
 
 
 def main():
@@ -47,7 +68,7 @@ def main():
                           mode='euler',
                           duration='23:59:00',
                           prompt=True,
-                          mem=16000)
+                          mem=32000)
 
 
 if __name__ == '__main__':
