@@ -286,7 +286,7 @@ class GreenHouseEnv(Env):
         alpha = params.nu * jnp.sqrt(params.tau + jnp.sqrt(jnp.abs(t_g - t_p)))
         s = params.s1 * jnp.power(t_g, 2) + params.s2 * t_g + params.s3
         p_g_star = params.a1 * jnp.exp((params.a2 * t_g) / (params.a3 + t_g + self.eps))
-        # convert temp to Kelvin and then from pascal to kpa. v_i is in g/m^3
+        # convert temp to Kelvin ant then from pascal to kpa. v_i is in g/m^3
         p_g = (params.lam * (t_g + params.T0) * v_i)
         Dg = p_g_star - p_g
         # g1: mm/s, g2: [], g4: m^3/g, g3: s m ^2 /micromol
@@ -393,7 +393,7 @@ class GreenHouseEnv(Env):
         if self.add_process_noise:
             key = state.info['process_noise_key']
             key, subkey = jax.random.split(key)
-            # We add noise noise to the system and ensure they are inside the plausible region
+            # We add noise noise to the system ant ensure they are inside the plausible region
             next_obs += self.process_noise_scale * jr.normal(key=subkey, shape=(self.observation_size,))
             next_obs = jnp.clip(next_obs, self.constraint_lb, self.constraint_ub)
             # We update the key in the state.info

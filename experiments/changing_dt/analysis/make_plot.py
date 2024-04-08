@@ -48,6 +48,14 @@ xs_grouped_data_adaptive_with_switch_cost = np.array(grouped_data_adaptive_with_
 ys_grouped_data_mean_adaptive_with_switch_cost = np.array(grouped_data_adaptive_with_switch_cost['mean'])
 ys_grouped_data_std_adaptive_with_switch_cost = np.array(grouped_data_adaptive_with_switch_cost['std'])
 
+
+grouped_data_num_actions = filtered_df.groupby('new_integration_dt')['results/num_actions'].agg(['mean', 'std'])
+grouped_data_num_actions = grouped_data_num_actions.reset_index()
+
+xs_num_actions = np.array(grouped_data_num_actions['new_integration_dt'])
+ys_num_actions_mean = np.array(grouped_data_num_actions['mean'])
+ys_num_actions_std = np.array(grouped_data_num_actions['std'])
+
 ########################################################################################
 ########################################################################################
 
@@ -100,9 +108,18 @@ ax[1].fill_between(xs_grouped_data_adaptive_with_switch_cost,
                        NUM_SAMPLES_PER_SEED),
                    alpha=0.2)
 
-
 ax[1].set_xlabel(r'Integration dt', fontsize=LABEL_FONT_SIZE)
 ax[1].set_ylabel('Reward [With Switch Cost]', fontsize=LABEL_FONT_SIZE)
+
+# ax[2].plot(xs_num_actions, ys_num_actions_mean)
+# ax[2].fill_between(xs_num_actions,
+#                    ys_num_actions_mean - ys_num_actions_std ,
+#                    ys_num_actions_mean + ys_num_actions_std,
+#                    alpha=0.2)
+#
+# ax[2].set_xlabel(r'Integration dt', fontsize=LABEL_FONT_SIZE)
+# ax[2].set_ylabel('Number of control switches', fontsize=LABEL_FONT_SIZE)
+
 
 handles, labels = [], []
 for axs in ax:

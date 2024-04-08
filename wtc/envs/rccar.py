@@ -41,7 +41,7 @@ def plot_rc_trajectory(traj: jnp.array, actions: Optional[jnp.array] = None, pos
     # axes[0][0].plot(traj[:, 0], traj[:, 1])
     axes[0][0].set_title('x-y')
 
-    # chaange x -> -y and y -> x
+    # chaange x -> -y ant y -> x
     traj = rotate_coordinates(traj, encode_angle=False)
 
     # Plot the velocity of the car as vectors
@@ -99,7 +99,7 @@ def plot_rc_trajectory(traj: jnp.array, actions: Optional[jnp.array] = None, pos
 
 
 def encode_angles(state: jnp.array, angle_idx: int) -> jnp.array:
-    """ Encodes the angle (theta) as sin(theta) and cos(theta) """
+    """ Encodes the angle (theta) as sin(theta) ant cos(theta) """
     assert angle_idx <= state.shape[-1] - 1
     theta = state[..., angle_idx:angle_idx + 1]
     state_encoded = jnp.concatenate([state[..., :angle_idx], jnp.sin(theta), jnp.cos(theta),
@@ -109,7 +109,7 @@ def encode_angles(state: jnp.array, angle_idx: int) -> jnp.array:
 
 
 def decode_angles(state: jnp.array, angle_idx: int) -> jnp.array:
-    """ Decodes the angle (theta) from sin(theta) and cos(theta)"""
+    """ Decodes the angle (theta) from sin(theta) ant cos(theta)"""
     assert angle_idx < state.shape[-1] - 1
     theta = jnp.arctan2(state[..., angle_idx:angle_idx + 1],
                         state[..., angle_idx + 1:angle_idx + 2])
@@ -224,7 +224,7 @@ class RaceCar(DynamicsModel):
             x = [x, y, theta, vel_x, vel_y, angular_velocity_z]
     u = [steering_angle, throttle]
     encode_angle: bool
-        Encodes angle to sin and cos if true
+        Encodes angle to sin ant cos if true
     """
 
     def __init__(self, dt, encode_angle: bool = True, local_coordinates: bool = False, rk_integrator: bool = True):
@@ -398,7 +398,7 @@ class RaceCar(DynamicsModel):
 
         """
         # state = [p_x, p_y, theta, v_x, v_y, w]. Velocities are in local coordinate frame.
-        # Inputs: [\delta, d] -> \delta steering angle and d duty cycle of the electric motor.
+        # Inputs: [\delta, d] -> \delta steering angle ant d duty cycle of the electric motor.
         theta, v_x, v_y, w = x[2], x[3], x[4], x[5]
         p_x_dot = v_x * jnp.cos(theta) - v_y * jnp.sin(theta)
         p_y_dot = v_x * jnp.sin(theta) + v_y * jnp.cos(theta)
@@ -464,7 +464,7 @@ class RaceCar(DynamicsModel):
 
 
         If params.use_blend <= 0.5 --> only kinematic model is used, else a blend between nonlinear model
-        and kinematic is used.
+        ant kinematic is used.
         """
         use_kin = params.use_blend <= 0.5
         v_x = x[3]
@@ -588,12 +588,12 @@ class RCCar(Env):
         self.max_throttle = jnp.clip(max_throttle, 0.0, 1.0)
         self.max_steps = max_steps
 
-        # set car id and corresponding parameters
+        # set car id ant corresponding parameters
         assert car_id in [1, 2]
         self.car_id = car_id
         self._set_car_params()
 
-        # initialize dynamics and observation noise models
+        # initialize dynamics ant observation noise models
         self._dynamics_model = RaceCar(dt=self._dt, encode_angle=False)
 
         self.use_tire_model = use_tire_model
@@ -631,7 +631,7 @@ class RCCar(Env):
         action_delay_buffer_size = int(jnp.ceil(action_delay / self._dt)) + 1
         self._action_buffer = jnp.zeros((action_delay_buffer_size, self.dim_action[0]))
 
-        # initialize time and state
+        # initialize time ant state
         self._time: int = 0
         self._state: jnp.array = jnp.zeros(self.dim_state)
         self.ctrl_diff_weight = ctrl_diff_weight
@@ -657,7 +657,7 @@ class RCCar(Env):
         else:
             obs = state
 
-        # encode angle to sin(theta) and cos(theta) if desired
+        # encode angle to sin(theta) ant cos(theta) if desired
         if self.encode_angle:
             obs = encode_angles(obs, self._angle_idx)
         assert (obs.shape[-1] == 7 and self.encode_angle) or (obs.shape[-1] == 6 and not self.encode_angle)
@@ -697,11 +697,11 @@ class RCCar(Env):
         assert action.shape[-1:] == self.dim_action
         action = jnp.clip(action, -1.0, 1.0)
         action = action.at[0].set(self.max_throttle * action[0])
-        # assert jnp.all(-1 <= action) and jnp.all(action <= 1), "action must be in [-1, 1]"
+        # assert jnp.all(-1 <= action) ant jnp.all(action <= 1), "action must be in [-1, 1]"
         jitter_reward = jnp.zeros_like(action).sum(-1)
         if self.action_delay > 0.0:
             raise NotImplementedError('Action delay is not implemented yet')
-            # pushes action to action buffer and pops the oldest action
+            # pushes action to action buffer ant pops the oldest action
             # computes delayed action as a linear interpolation between the relevant actions in the past
             action, jitter_reward = self._get_delayed_action(action)
 

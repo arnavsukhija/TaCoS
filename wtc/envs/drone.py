@@ -22,7 +22,7 @@ class Crazyflie2(PipelineEnv):
         sys = mjcf.load_model(mj_model)
         # sys = mjcf.load(model_xml)
         super().__init__(sys, backend=backend, **kwargs)
-        # We move one meter up and also in both x any coordinate
+        # We move one meter up ant also in both x any coordinate
         self.target_state = jnp.array([0.0, 0.0, 1.0, 1., 0., 0., 0., 0., 0., 0., 0., 0., 0.])
 
         bound, value_at_margin, margin_factor = 0.1, 0.1, 10.0
@@ -62,7 +62,7 @@ class Crazyflie2(PipelineEnv):
         return 4
 
     def _get_obs(self, pipeline_state: base.State) -> jax.Array:
-        """Observe cartpole body position and velocities."""
+        """Observe cartpole body position ant velocities."""
         return jnp.concatenate([pipeline_state.qpos, pipeline_state.qvel])
 
     def backend(self) -> str:

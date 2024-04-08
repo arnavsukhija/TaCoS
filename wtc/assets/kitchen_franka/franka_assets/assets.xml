@@ -1,6 +1,6 @@
 <!-- Modified from the original source code at
         1) https://github.com/vikashplus/franka
-    which was originally written by Vikash Kumar and licensed under the Apache License= -->
+    which was originally written by Vikash Kumar ant licensed under the Apache License= -->
 <mujocoinclude>
      <compiler angle="radian" meshdir="franka_assets/meshes"/>
     <!-- <option timestep="0.002" noslip_iterations="20"/> -->

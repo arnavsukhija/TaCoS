@@ -5,7 +5,7 @@ from brax import envs
 
 ENTITY = 'trevenl'
 
-env_name = 'halfcheetah'
+env_name = 'humanoid'
 backend = 'generalized'
 project_name = 'GPUSpeedTest'
 num_timesteps = 1_000_000
@@ -49,32 +49,32 @@ action = 0.1 * jnp.ones(shape=(env.action_size,))
 base_dt = env.sys.dt
 num_steps = 10
 
-# Do 10 base steps
-num_divisors = 1
-state = init_state
-all_states = [init_state.obs]
-env.sys = env.sys.replace(dt=base_dt / num_divisors)
-jitted_step = jax.jit(env.step)
-for i in range(num_steps * num_divisors):
-    state = jitted_step(state, action)
-    all_states.append(state.obs)
-all_states = jnp.stack(all_states)
-
-plt.plot(all_states)
-plt.title(f'Number of divisors: {num_divisors}')
-plt.show()
-
-# Do 10 base steps
-num_divisors = 10
-state = init_state
-all_states = [init_state.obs]
-env.sys = env.sys.replace(dt=base_dt / num_divisors)
-jitted_step = jax.jit(env.step)
-for i in range(num_steps * num_divisors):
-    state = jitted_step(state, action)
-    all_states.append(state.obs)
-all_states = jnp.stack(all_states)
-
-plt.plot(all_states)
-plt.title(f'Number of divisors: {num_divisors}')
-plt.show()
+# # Do 10 base steps
+# num_divisors = 1
+# state = init_state
+# all_states = [init_state.obs]
+# env.sys = env.sys.replace(dt=base_dt / num_divisors)
+# jitted_step = jax.jit(env.step)
+# for i in range(num_steps * num_divisors):
+#     state = jitted_step(state, action)
+#     all_states.append(state.obs)
+# all_states = jnp.stack(all_states)
+#
+# plt.plot(all_states)
+# plt.title(f'Number of divisors: {num_divisors}')
+# plt.show()
+#
+# # Do 10 base steps
+# num_divisors = 10
+# state = init_state
+# all_states = [init_state.obs]
+# env.sys = env.sys.replace(dt=base_dt / num_divisors)
+# jitted_step = jax.jit(env.step)
+# for i in range(num_steps * num_divisors):
+#     state = jitted_step(state, action)
+#     all_states.append(state.obs)
+# all_states = jnp.stack(all_states)
+#
+# plt.plot(all_states)
+# plt.title(f'Number of divisors: {num_divisors}')
+# plt.show()

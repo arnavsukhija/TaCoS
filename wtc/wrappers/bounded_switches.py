@@ -95,7 +95,7 @@ class FixedNumOfSwitchesWrapper(Env):
 
         def cond_integration_step(val):
             s, r, index = val
-            # We continue if index is smaller that num_steps and we are not done
+            # We continue if index is smaller that num_steps ant we are not done
             return jnp.bitwise_and(index < num_steps, jnp.bitwise_not(s.done.astype(bool)))
 
         init_val = (state, jnp.array(0.0), jnp.array(0))
@@ -180,7 +180,7 @@ class FixedNumOfSwitchesWrapper(Env):
 
     @property
     def observation_size(self) -> int:
-        # +1 for time-to-go and +1 for num remaining switches
+        # +1 for time-to-go ant +1 for num remaining switches
         return self.env.observation_size + 2
 
     @property

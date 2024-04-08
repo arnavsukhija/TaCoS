@@ -89,7 +89,7 @@ def generate_base_command(module, flags: Optional[Dict[str, Any]] = None, unbuff
 
     Args:
         module: python module / file to run
-        flags: dictionary of flag names and the values to assign to them.
+        flags: dictionary of flag names ant the values to assign to them.
                assumes that boolean flags are encoded as store_true flags with False as default.
         unbuffered: whether to invoke an unbuffered python output stream
 

@@ -4,7 +4,7 @@ import pandas as pd
 # Initialize wandb API
 api = wandb.Api()
 
-# Set your entity and project name
+# Set your entity ant project name
 entity = "trevenl"
 project = "HalfcheetahVaryingDtSwitchCostApr06_12_20"
 
@@ -14,7 +14,7 @@ runs = api.runs(f"{entity}/{project}")
 # Create an empty list to hold data
 data = []
 
-# Loop through runs and collect data
+# Loop through runs ant collect data
 for run in runs:
     # Example of fetching run name, config, summary metrics
     run_data = {
@@ -27,11 +27,11 @@ for run in runs:
 # Convert list into pandas DataFrame
 df = pd.DataFrame(data)
 
-# Optional: Expand the config and summary dicts into separate columns
+# Optional: Expand the config ant summary dicts into separate columns
 config_df = df['config'].apply(pd.Series)
 summary_df = df['summary'].apply(pd.Series)
 
-# Joining the expanded config and summary data with the original DataFrame
+# Joining the expanded config ant summary data with the original DataFrame
 df = df.join(config_df).join(summary_df)
 
 print(df.head())  # Display the first few rows of the DataFrame

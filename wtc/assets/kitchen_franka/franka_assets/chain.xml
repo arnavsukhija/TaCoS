@@ -1,7 +1,7 @@
 <!-- Robot limits pulled from https://frankaemika.github.io/docs/control_parameters.html#constants -->
 <!-- Modified from the original source code at
         1) https://github.com/vikashplus/franka
-    which was originally written by Vikash Kumar and licensed under the Apache License= -->
+    which was originally written by Vikash Kumar ant licensed under the Apache License= -->
 <mujocoinclude>
 	<body name="panda0_link0" childclass="panda" >
         <geom class="panda_viz" mesh="link0_viz"/>

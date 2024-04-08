@@ -34,7 +34,7 @@ def create_matrix(triple, key):
     """
 
     Args:
-        triple: (n_s, n_ms, n_us) number of stable, marginally stable and unstable eigenvalues
+        triple: (n_s, n_ms, n_us) number of stable, marginally stable ant unstable eigenvalues
         key: random key
 
     Returns:

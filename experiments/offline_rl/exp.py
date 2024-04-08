@@ -57,7 +57,7 @@ key, key_angle, key_angular_velocity = jr.split(key, 3)
 angle = jr.uniform(key=key_angle, shape=(number_offline_data, 1), minval=-jnp.pi, maxval=jnp.pi)
 velocity = jr.uniform(key=key_angular_velocity, shape=(number_offline_data, 1), minval=-5, maxval=5)
 
-# Transform data to cos and sin
+# Transform data to cos ant sin
 cos, sin = jnp.cos(angle), jnp.sin(angle)
 obs = jnp.concatenate([cos, sin, velocity], axis=-1)
 
@@ -179,7 +179,7 @@ class PendulumTrainedEnv(Env):
 
     @property
     def observation_size(self) -> int:
-        # +1 for time-to-go and +1 for num remaining switches
+        # +1 for time-to-go ant +1 for num remaining switches
         return self.env.observation_size + 1
 
     @property
