@@ -1,7 +1,7 @@
 import exp
 from experiments.util import generate_run_commands, generate_base_command, dict_permutations, available_gpus
 
-PROJECT_NAME = 'PPO_Apr_08_14_05'
+PROJECT_NAME = 'PPO_Apr_08_14_20'
 
 ant_configs = {
     'env_name': ['ant'],
