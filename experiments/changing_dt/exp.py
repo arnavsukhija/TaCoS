@@ -3,6 +3,7 @@ import datetime
 import os
 import pickle
 from datetime import datetime
+import math
 
 import jax
 import jax.numpy as jnp
@@ -43,6 +44,7 @@ def experiment(env_name: str = 'inverted_pendulum',
                switch_cost: float = 0.1,
                max_time_between_switches: float = 0.1,
                time_as_part_of_state: bool = True,
+               same_amount_of_gradient_updates: bool = True
                ):
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
                         'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse']
@@ -102,7 +104,8 @@ def experiment(env_name: str = 'inverted_pendulum',
                   switch_cost_wrapper=switch_cost_wrapper,
                   switch_cost=switch_cost,
                   max_time_between_switches=max_time_between_switches,
-                  time_as_part_of_state=time_as_part_of_state
+                  time_as_part_of_state=time_as_part_of_state,
+                  same_amount_of_gradient_updates=same_amount_of_gradient_updates
                   )
 
     wandb.init(
@@ -151,6 +154,10 @@ def experiment(env_name: str = 'inverted_pendulum',
             env_dt=env.dt,
         )
     else:
+        if same_amount_of_gradient_updates:
+            grad_updates_per_step = math.ceil(num_env_steps_between_updates * num_envs / base_dt_divisor)
+        else:
+            grad_updates_per_step = num_env_steps_between_updates * num_envs,
         optimizer = SAC(
             environment=env,
             num_timesteps=num_timesteps,
@@ -174,7 +181,7 @@ def experiment(env_name: str = 'inverted_pendulum',
             tau=0.005,
             min_replay_size=10 ** 3,
             max_replay_size=10 ** 6,
-            grad_updates_per_step=num_env_steps_between_updates * num_envs,
+            grad_updates_per_step=grad_updates_per_step,
             deterministic_eval=True,
             init_log_alpha=0.,
             policy_hidden_layer_sizes=policy_hidden_layer_sizes,
@@ -210,6 +217,7 @@ def experiment(env_name: str = 'inverted_pendulum',
 
     ########################## Evaluation ##########################
     ################################################################
+
     print(f'Starting with evaluation')
     if switch_cost_wrapper:
         env = envs.get_environment(env_name=env_name,
@@ -382,6 +390,7 @@ def main(args):
                switch_cost=args.switch_cost,
                max_time_between_switches=args.max_time_between_switches,
                time_as_part_of_state=bool(args.time_as_part_of_state),
+               same_amount_of_gradient_updates=bool(args.same_amount_of_gradient_updates)
                )
 
 
@@ -405,7 +414,7 @@ if __name__ == '__main__':
     parser.add_argument('--switch_cost', type=float, default=0.1)
     parser.add_argument('--max_time_between_switches', type=float, default=0.2)
     parser.add_argument('--time_as_part_of_state', type=int, default=1)
-
+    parser.add_argument('--same_amount_of_gradient_updates', type=int, default=1)
 
     args = parser.parse_args()
     main(args)

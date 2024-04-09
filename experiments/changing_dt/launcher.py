@@ -1,7 +1,7 @@
 import exp
 from experiments.util import generate_run_commands, generate_base_command, dict_permutations
 
-PROJECT_NAME = 'HalfcheetahVaryingDtNoSwitchCostApr09_15_10'
+PROJECT_NAME = 'HalfcheetahNoSwitchCostFixedGDStepsFixedEpisodesApr09_15_25'
 
 # general_configs = {
 #     'project_name': [PROJECT_NAME],
@@ -47,6 +47,7 @@ halfcheetah_no_switch_cost_base_configs = {
     'networks': [0, ],
     'batch_size': [128],
     'action_repeat': [1, ],
+    'same_amount_of_gradient_updates': [1, ],
 }
 
 halfcheetah_no_switch_cost_configs = []
