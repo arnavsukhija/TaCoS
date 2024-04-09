@@ -1,7 +1,7 @@
 import exp
 from experiments.util import generate_run_commands, generate_base_command, dict_permutations
 
-PROJECT_NAME = 'HalfcheetahVaryingDtNoSwitchCostApr08_15_10'
+PROJECT_NAME = 'HalfcheetahVaryingDtNoSwitchCostApr09_15_10'
 
 # general_configs = {
 #     'project_name': [PROJECT_NAME],
@@ -56,10 +56,6 @@ for dt_divisor in base_dt_divisor:
     cur_configs = halfcheetah_no_switch_cost_base_configs | {'base_dt_divisor': [dt_divisor],
                                                              'num_timesteps': [base_numsteps * dt_divisor]}
     halfcheetah_no_switch_cost_configs.append(cur_configs)
-
-for conf in halfcheetah_no_switch_cost_configs:
-    print(f"Base dt divisor{conf['base_dt_divisor']}")
-    print(f"Base numsteps{conf['num_timesteps']}")
 
 
 def main():
