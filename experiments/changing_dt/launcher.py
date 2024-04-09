@@ -1,12 +1,45 @@
 import exp
 from experiments.util import generate_run_commands, generate_base_command, dict_permutations
 
-PROJECT_NAME = 'HalfcheetahVaryingDtSwitchCostApr06_12_20'
+PROJECT_NAME = 'HalfcheetahVaryingDtNoSwitchCostApr08_15_10'
 
-general_configs = {
+# general_configs = {
+#     'project_name': [PROJECT_NAME],
+#     'backend': ['generalized', ],
+#     'num_timesteps': [1_000_000, ],
+#     'base_discount_factor': [0.99],
+#     'num_envs': [128],
+#     'num_env_steps_between_updates': [10, ],
+#     'seed': list(range(5)),
+#     'networks': [0, ],
+#     'batch_size': [128],
+#     'action_repeat': [1, ],
+# }
+
+# halfcheetah = {'env_name': ['halfcheetah', ],
+#                'reward_scaling': [1.0, ],
+#                'episode_time': [10.0],
+#                'base_dt_divisor': [1, 2, 4, 10, 15],
+#                'switch_cost_wrapper': [0, ]
+#                } | general_configs
+
+# halfcheetah_switch_cost = {'env_name': ['halfcheetah', ],
+#                            'reward_scaling': [1.0, ],
+#                            'episode_time': [10.0],
+#                            'base_dt_divisor': [1, 2, 4, 10, 15],
+#                            'switch_cost_wrapper': [1, ],
+#                            'switch_cost': [0.01, 0.1, 0.2, 0.5, 1.0],
+#                            'max_time_between_switches': [0.05, 0.1, 0.15, 0.2],
+#                            'time_as_part_of_state': [0, 1]
+#                            } | general_configs
+
+halfcheetah_no_switch_cost_base_configs = {
     'project_name': [PROJECT_NAME],
+    'env_name': ['halfcheetah', ],
+    'reward_scaling': [1.0, ],
+    'episode_time': [10.0],
+    'switch_cost_wrapper': [0, ],
     'backend': ['generalized', ],
-    'num_timesteps': [1_000_000, ],
     'base_discount_factor': [0.99],
     'num_envs': [128],
     'num_env_steps_between_updates': [10, ],
@@ -16,47 +49,27 @@ general_configs = {
     'action_repeat': [1, ],
 }
 
-# halfcheetah = {'env_name': ['halfcheetah', ],
-#                'reward_scaling': [1.0, ],
-#                'episode_time': [10.0],
-#                'base_dt_divisor': [1, 2, 4, 10, 15],
-#                'switch_cost_wrapper': [0, ]
-#                } | general_configs
+halfcheetah_no_switch_cost_configs = []
+base_dt_divisor = [1, 2, 4, 10, 15]
+base_numsteps = 1_000_000
+for dt_divisor in base_dt_divisor:
+    cur_configs = halfcheetah_no_switch_cost_base_configs | {'base_dt_divisor': [dt_divisor],
+                                                             'num_timesteps': [base_numsteps * dt_divisor]}
+    halfcheetah_no_switch_cost_configs.append(cur_configs)
 
-halfcheetah_switch_cost = {'env_name': ['halfcheetah', ],
-                           'reward_scaling': [1.0, ],
-                           'episode_time': [10.0],
-                           'base_dt_divisor': [1, 2, 4, 10, 15],
-                           'switch_cost_wrapper': [1, ],
-                           'switch_cost': [0.01, 0.1, 0.2, 0.5, 1.0],
-                           'max_time_between_switches': [0.05, 0.1, 0.15, 0.2],
-                           'time_as_part_of_state': [0, 1]
-                           } | general_configs
-
-
-# inverted_pendulum_switch_cost = {'env_name': ['inverted_pendulum', ],
-#                                  'backend': ['generalized', ],
-#                                  'project_name': [PROJECT_NAME],
-#                                  'num_timesteps': [20_000, ],
-#                                  'episode_time': [4.0],
-#                                  'base_dt_divisor': [4, ],
-#                                  'base_discount_factor': [0.99],
-#                                  'seed': [20, ],
-#                                  'num_envs': [32],
-#                                  'num_env_steps_between_updates': [10, ],
-#                                  'networks': [1, ],
-#                                  'batch_size': [32],
-#                                  'action_repeat': [1, ],
-#                                  'reward_scaling': [1.0, ],
-#                                  'switch_cost_wrapper': [1, ],
-#                                  'switch_cost': [0.1, ],
-#                                  'max_time_between_switches': [0.2]
-#                                  }
+for conf in halfcheetah_no_switch_cost_configs:
+    print(f"Base dt divisor{conf['base_dt_divisor']}")
+    print(f"Base numsteps{conf['num_timesteps']}")
 
 
 def main():
     command_list = []
-    flags_combinations = dict_permutations(halfcheetah_switch_cost)
+    flags_combinations = None
+    for conf in halfcheetah_no_switch_cost_configs:
+        if flags_combinations is None:
+            flags_combinations = dict_permutations(conf)
+        else:
+            flags_combinations += dict_permutations(conf)
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)
         command_list.append(cmd)

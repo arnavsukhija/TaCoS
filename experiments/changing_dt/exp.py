@@ -401,7 +401,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--action_repeat', type=int, default=1)
     parser.add_argument('--reward_scaling', type=float, default=1.0)
-    parser.add_argument('--switch_cost_wrapper', type=int, default=1)
+    parser.add_argument('--switch_cost_wrapper', type=int, default=0)
     parser.add_argument('--switch_cost', type=float, default=0.1)
     parser.add_argument('--max_time_between_switches', type=float, default=0.2)
     parser.add_argument('--time_as_part_of_state', type=int, default=1)
