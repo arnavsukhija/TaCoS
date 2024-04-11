@@ -6,7 +6,7 @@ api = wandb.Api()
 
 # Set your entity ant project name
 entity = "trevenl"
-project = "HalfcheetahVaryingDtNoSwitchCostApr08_15_10"
+project = "HalfcheetahVaryingDtNoSwitchCostApr09_15_10"
 
 # Fetch all runs from the project
 runs = api.runs(f"{entity}/{project}")

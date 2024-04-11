@@ -24,7 +24,8 @@ r'\def\vf{{\bm{f}}}')
 mpl.rcParams['xtick.labelsize'] = TICKS_SIZE
 mpl.rcParams['ytick.labelsize'] = TICKS_SIZE
 
-SWITCH_COST = 1.0
+SWITCH_COST = 0.5
+MAX_TIME_BETWEEN_SWITCHES = 0.05
 
 
 class Statistics(NamedTuple):
@@ -37,9 +38,10 @@ baselines_reward_without_switch_cost: Dict[str, Statistics] = {}
 baselines_reward_with_switch_cost: Dict[str, Statistics] = {}
 
 data = pd.read_csv('data/halfcheetah/equidistant.csv')
+data = data[data['new_integration_dt'] >= 0.05 / 15]
 data_adaptive = pd.read_csv('data/halfcheetah/adaptive.csv')
 filtered_df = data_adaptive[(data_adaptive['switch_cost'] == SWITCH_COST) &
-                            (data_adaptive['max_time_between_switches'] == 0.05) &
+                            (data_adaptive['max_time_between_switches'] == MAX_TIME_BETWEEN_SWITCHES) &
                             (data_adaptive['time_as_part_of_state'] == True)]
 filtered_df['results/reward_with_switch_cost'] = filtered_df['results/total_reward'] - SWITCH_COST * filtered_df[
     'results/num_actions']
@@ -110,6 +112,43 @@ baselines_reward_with_switch_cost['Control per integration step [Same number of 
     ys_std=np.array(grouped_data_with_switch_cost['std'])
 )
 
+
+def update_baselines(cur_data: pd.DataFrame,
+                     baseline_name: str,
+                     cur_baselines_reward_with_switch_cost: Dict[str, Statistics],
+                     cur_baselines_reward_without_switch_cost: Dict[str, Statistics], ):
+    grouped_data = cur_data.groupby('new_integration_dt')['results/total_reward'].agg(['mean', 'std'])
+    grouped_data = grouped_data.reset_index()
+
+    cur_baselines_reward_without_switch_cost[baseline_name] = Statistics(
+        xs=np.array(grouped_data['new_integration_dt']),
+        ys_mean=np.array(grouped_data['mean']),
+        ys_std=np.array(grouped_data['std'])
+    )
+
+    cur_data['results/reward_with_switch_cost'] = cur_data['results/total_reward'] - SWITCH_COST * cur_data[
+        'results/num_actions']
+    grouped_data_with_switch_cost = cur_data.groupby('new_integration_dt')['results/reward_with_switch_cost'].agg(
+        ['mean', 'std'])
+    grouped_data_with_switch_cost = grouped_data_with_switch_cost.reset_index()
+
+    cur_baselines_reward_with_switch_cost[baseline_name] = Statistics(
+        xs=np.array(grouped_data_with_switch_cost['new_integration_dt']),
+        ys_mean=np.array(grouped_data_with_switch_cost['mean']),
+        ys_std=np.array(grouped_data_with_switch_cost['std'])
+    )
+    return cur_baselines_reward_with_switch_cost, cur_baselines_reward_without_switch_cost
+
+
+data = pd.read_csv('data/halfcheetah/same_number_of_episodes_and_gradients.csv')
+
+baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
+    cur_data=data,
+    baseline_name='Control per integration step [Same number of episodes and gradients updates]',
+    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
+    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost
+)
+
 fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(16, 8))
 
 for baseline_name, baseline_stat in baselines_reward_without_switch_cost.items():
@@ -119,6 +158,7 @@ for baseline_name, baseline_stat in baselines_reward_without_switch_cost.items()
                        baseline_stat.ys_mean + baseline_stat.ys_std / np.sqrt(NUM_SAMPLES_PER_SEED),
                        alpha=0.2)
 
+ax[0].set_xscale('log')
 ax[0].set_xlabel(r'Integration dt', fontsize=LABEL_FONT_SIZE)
 ax[0].set_ylabel('Reward [Without Switch Cost]', fontsize=LABEL_FONT_SIZE)
 
