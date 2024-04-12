@@ -24,7 +24,7 @@ r'\def\vf{{\bm{f}}}')
 mpl.rcParams['xtick.labelsize'] = TICKS_SIZE
 mpl.rcParams['ytick.labelsize'] = TICKS_SIZE
 
-SWITCH_COST = 0.5
+SWITCH_COST = 2
 MAX_TIME_BETWEEN_SWITCHES = 0.05
 
 
@@ -169,6 +169,7 @@ for baseline_name, baseline_stat in baselines_reward_with_switch_cost.items():
                        baseline_stat.ys_mean + baseline_stat.ys_std / np.sqrt(NUM_SAMPLES_PER_SEED),
                        alpha=0.2)
 
+ax[1].set_xscale('log')
 ax[1].set_xlabel(r'Integration dt', fontsize=LABEL_FONT_SIZE)
 ax[1].set_ylabel('Reward [With Switch Cost]', fontsize=LABEL_FONT_SIZE)
 
@@ -186,7 +187,7 @@ fig.legend(by_label.values(), by_label.keys(),
            fontsize=LEGEND_FONT_SIZE,
            frameon=False)
 
-fig.suptitle('Halfcheetah run forward task [Duration = 10 sec], [Switch Cost = 1.0]',
+fig.suptitle(f'Halfcheetah run forward task [Duration = 10 sec], [Switch Cost = {SWITCH_COST}]',
              fontsize=TITLE_FONT_SIZE,
              y=0.92)
 fig.tight_layout(rect=[0.0, 0.0, 1, 0.7])

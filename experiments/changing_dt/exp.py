@@ -157,7 +157,7 @@ def experiment(env_name: str = 'inverted_pendulum',
         if same_amount_of_gradient_updates:
             grad_updates_per_step = math.ceil(num_env_steps_between_updates * num_envs / base_dt_divisor)
         else:
-            grad_updates_per_step = num_env_steps_between_updates * num_envs,
+            grad_updates_per_step = num_env_steps_between_updates * num_envs
         optimizer = SAC(
             environment=env,
             num_timesteps=num_timesteps,
@@ -414,7 +414,7 @@ if __name__ == '__main__':
     parser.add_argument('--switch_cost', type=float, default=0.1)
     parser.add_argument('--max_time_between_switches', type=float, default=0.2)
     parser.add_argument('--time_as_part_of_state', type=int, default=1)
-    parser.add_argument('--same_amount_of_gradient_updates', type=int, default=1)
+    parser.add_argument('--same_amount_of_gradient_updates', type=int, default=0)
 
     args = parser.parse_args()
     main(args)

@@ -1,91 +1,77 @@
 import datetime
 from datetime import datetime
 
+import jax
 import jax.numpy as jnp
 import jax.random as jr
-import jax.tree_util as jtu
 import matplotlib.pyplot as plt
 from jax.lax import scan
 from jax.nn import swish
+import jax.tree_util as jtu
+from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 from mbpo.optimizers.policy_optimizers.ppo.ppo_brax_env import PPO
 
-from wtc.envs.pendulum import PendulumEnv
-from wtc.envs.pendulum_swing_down import PendulumEnv as PendulumEnvSwingDown
-from wtc.utils import discrete_to_continuous_discounting
+from wtc.envs.rccar import RCCar, plot_rc_trajectory
+from wtc.utils import continuous_to_discrete_discounting, discrete_to_continuous_discounting
+
 from wtc.wrappers.ih_switching_cost import ConstantSwitchCost, IHSwitchCostWrapper
 
 if __name__ == "__main__":
-    wrapper = False
+    wrapper = True
     PLOT_TRUE_TRAJECTORIES = True
     swing_up = True
     action_repeat = 1
     episode_length = 100
-    time_as_part_of_state = False
+    time_as_part_of_state = True
+    discrete_discounting = 0.99
 
-    if swing_up:
-        env = PendulumEnv(reward_source='dm-control')
-    else:
-        env = PendulumEnvSwingDown(reward_source='dm-control')
+    env = RCCar(margin_factor=20)
 
-    min_time_between_switches = 1 * env.dt
-    max_time_between_switches = 30 * env.dt
-
-    discount_factor = 0.99
-    continuous_discounting = discrete_to_continuous_discounting(discrete_discounting=discount_factor,
+    continuous_discounting = discrete_to_continuous_discounting(discrete_discounting=discrete_discounting,
                                                                 dt=env.dt)
+
     if wrapper:
+        min_time_between_switches = 1 * env.dt
+        max_time_between_switches = 30 * env.dt
         env = IHSwitchCostWrapper(env,
                                   num_integrator_steps=episode_length,
-                                  min_time_between_switches=1 * env.dt,
-                                  max_time_between_switches=30 * env.dt,
+                                  min_time_between_switches=min_time_between_switches,
+                                  max_time_between_switches=max_time_between_switches,
                                   switch_cost=ConstantSwitchCost(value=jnp.array(1.0)),
-                                  time_as_part_of_state=time_as_part_of_state)
+                                  time_as_part_of_state=time_as_part_of_state,
+                                  discounting=discrete_discounting)
 
     else:
         action_repeat = 1
 
-    num_envs = 2048
-    unroll_length = 20
-    batch_size = 1024
-    entropy_cost = 1e0
-    num_minibatches = 2 * num_envs // batch_size
-    num_updates_per_batch = 4
+    num_env_steps_between_updates = 10
+    num_envs = 32
 
     optimizer = PPO(
         environment=env,
-        num_timesteps=1_000_000,
-        episode_length=episode_length,
-        action_repeat=action_repeat,
-        num_envs=num_envs,
-        num_eval_envs=4,
-        lr=3e-4,
-        wd=0.,
-        entropy_cost=entropy_cost,
-        unroll_length=unroll_length,
-        # max_grad_norm=1e5, TODO: implement this
-        discounting=discount_factor,
-        batch_size=batch_size,
-        num_minibatches=num_minibatches,
-        num_updates_per_batch=num_updates_per_batch,
+        num_timesteps=2_000_000,
         num_evals=20,
+        reward_scaling=10,
+        episode_length=1000,
         normalize_observations=True,
-        reward_scaling=10.,
-        clipping_epsilon=0.3,
-        gae_lambda=0.95,
-        deterministic_eval=True,
-        policy_hidden_layer_sizes=(64,) * 3,
-        policy_activation=swish,
-        critic_hidden_layer_sizes=(64,) * 3,
-        critic_activation=swish,
-        wandb_logging=False,
-        normalize_advantage=True,
-        # return_best_model=True, TODO: implement this
+        action_repeat=1,
+        unroll_length=5,
+        num_minibatches=32,
+        num_updates_per_batch=4,
+        discounting=0.99,
+        lr=3e-3,
+        wd=0.0,
+        entropy_cost=1e-2,
+        num_envs=2048,
+        batch_size=1024,
+        seed=1,
         non_equidistant_time=True,
         continuous_discounting=continuous_discounting,
         min_time_between_switches=min_time_between_switches,
         max_time_between_switches=max_time_between_switches,
-        env_dt=env.dt,
+        env_dt=env.dt
     )
+
 
     xdata, ydata = [], []
     times = [datetime.now()]
@@ -104,9 +90,6 @@ if __name__ == "__main__":
 
 
     print('Before inference')
-    # wandb.init(
-    #     project='TestIHSwitchCost'
-    # )
     policy_params, metrics = optimizer.run_training(key=jr.PRNGKey(0), progress_fn=progress)
     print('After inference')
 
@@ -161,7 +144,7 @@ if __name__ == "__main__":
         full_trajectory = jtu.tree_map(lambda *xs: jnp.concatenate(xs), *full_trajectories)
         all_states = jtu.tree_map(lambda *xs: jnp.stack(xs), *all_states)
 
-        xs_full_trajectory = jnp.concatenate([init_state.obs[:3].reshape(1, -1), full_trajectory.obs, ])
+        xs_full_trajectory = jnp.concatenate([init_state.obs[:-1].reshape(1, -1), full_trajectory.obs, ])
         rewards_full_trajectory = jnp.concatenate([init_state.reward.reshape(1, ), full_trajectory.reward])
         # ts_full_trajectory = jnp.linspace(0, env.time_horizon, episode_length)
         ts_full_trajectory = jnp.arange(0, xs_full_trajectory.shape[0]) * env.env.dt
@@ -188,8 +171,8 @@ if __name__ == "__main__":
                       2: r'$\omega$'}
 
         if PLOT_TRUE_TRAJECTORIES:
-            for i in range(3):
-                axs[0].plot(ts_full_trajectory, xs_full_trajectory[:, i], label=state_dict[i])
+            for i in range(env.observation_size):
+                axs[0].plot(ts_full_trajectory, xs_full_trajectory[:, i])
             for h in all_ts[:-1]:
                 axs[0].axvline(x=h, color='black', ls='--', alpha=0.4)
         else:
@@ -228,6 +211,10 @@ if __name__ == "__main__":
         plt.show()
         print(f'Total reward: {jnp.sum(rewards_full_trajectory[:episode_length])}')
         print(f'Total number of actions {len(us)}')
+
+        fig, axs = plot_rc_trajectory(xs_full_trajectory, encode_angle=True)
+        fig.savefig('rc_car_trajectory.pdf')
+        plt.show()
 
     else:
         horizon = episode_length

@@ -12,7 +12,7 @@ general_configs = {
     'num_envs': [128],
     'num_env_steps_between_updates': [10, ],
     'seed': list(range(3)),
-    'networks': [0, ],
+    'networks': [0],
     'batch_size': [128],
     'action_repeat': [1, ],
 }
