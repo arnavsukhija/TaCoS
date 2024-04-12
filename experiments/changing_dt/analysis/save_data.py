@@ -6,7 +6,7 @@ api = wandb.Api()
 
 # Set your entity ant project name
 entity = "trevenl"
-project = "HalfcheetahSwitchCostApr11_10_00"
+project = "HalfcheetahNoSwitchCostApr12_14_00"
 
 # Fetch all runs from the project
 runs = api.runs(f"{entity}/{project}")
@@ -37,4 +37,4 @@ df = df.join(config_df).join(summary_df)
 print(df.head())  # Display the first few rows of the DataFrame
 
 # You can now save this DataFrame to a CSV file or perform further analysis
-df.to_csv("data/halfcheetah/adaptive.csv", index=False)
+df.to_csv("data/halfcheetah/no_switch_cost.csv", index=False)

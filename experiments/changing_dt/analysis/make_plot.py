@@ -38,7 +38,7 @@ baselines_reward_without_switch_cost: Dict[str, Statistics] = {}
 baselines_reward_with_switch_cost: Dict[str, Statistics] = {}
 
 data = pd.read_csv('data/halfcheetah/equidistant.csv')
-data = data[data['new_integration_dt'] >= 0.05 / 15]
+data = data[data['new_integration_dt'] >= 0.05 / 30]
 data_adaptive = pd.read_csv('data/halfcheetah/adaptive.csv')
 filtered_df = data_adaptive[(data_adaptive['switch_cost'] == SWITCH_COST) &
                             (data_adaptive['max_time_between_switches'] == MAX_TIME_BETWEEN_SWITCHES) &
@@ -91,7 +91,10 @@ baselines_reward_with_switch_cost['Control per integration step [Same number of 
 )
 
 ######### Baseline: Same number of episodes, 1 grad update per env step #########
-data = pd.read_csv('data/halfcheetah/same_number_of_episodes.csv')
+# data = pd.read_csv('data/halfcheetah/same_number_of_episodes.csv')
+data = pd.read_csv('data/halfcheetah/no_switch_cost.csv')
+data = data[data['same_amount_of_gradient_updates'] == False]
+
 grouped_data = data.groupby('new_integration_dt')['results/total_reward'].agg(['mean', 'std'])
 grouped_data = grouped_data.reset_index()
 
@@ -140,7 +143,9 @@ def update_baselines(cur_data: pd.DataFrame,
     return cur_baselines_reward_with_switch_cost, cur_baselines_reward_without_switch_cost
 
 
-data = pd.read_csv('data/halfcheetah/same_number_of_episodes_and_gradients.csv')
+# data = pd.read_csv('data/halfcheetah/same_number_of_episodes_and_gradients.csv')
+data = pd.read_csv('data/halfcheetah/no_switch_cost.csv')
+data = data[data['same_amount_of_gradient_updates'] == True]
 
 baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
     cur_data=data,
