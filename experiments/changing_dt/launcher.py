@@ -3,8 +3,6 @@ from experiments.util import generate_run_commands, generate_base_command, dict_
 
 PROJECT_NAME = 'HopperSwitchCostApr15_16_00'
 
-
-
 #################### Hopper ####################
 
 general_configs = {
@@ -20,15 +18,16 @@ general_configs = {
     'action_repeat': [1, ],
 }
 
-halfcheetah_switch_cost = {'env_name': ['hopper', ],
-                           'reward_scaling': [1.0, ],
-                           'episode_time': [4.0],
-                           'base_dt_divisor': [1, 2, 4, 10, 15, 20, 25, 30, ],
-                           'switch_cost_wrapper': [1, ],
-                           'switch_cost': [0.5, 1.0, 2.0, 3.0],
-                           'max_time_between_switches': [0.008],
-                           'time_as_part_of_state': [1, ]
-                           } | general_configs
+hopper_switch_cost = {'env_name': ['hopper', ],
+                      'reward_scaling': [1.0, ],
+                      'episode_time': [4.0],
+                      'base_dt_divisor': [1, 2, 4, 10, 15, 20, 25, 30, ],
+                      'switch_cost_wrapper': [1, ],
+                      'switch_cost': [0.5, 1.0, 2.0, 3.0],
+                      'max_time_between_switches': [0.008],
+                      'time_as_part_of_state': [1, ]
+                      } | general_configs
+
 
 ###########################################################################
 
@@ -89,13 +88,13 @@ halfcheetah_switch_cost = {'env_name': ['hopper', ],
 
 def main():
     command_list = []
-    flags_combinations = None
-    for conf in halfcheetah_no_switch_cost_configs:
-        if flags_combinations is None:
-            flags_combinations = dict_permutations(conf)
-        else:
-            flags_combinations += dict_permutations(conf)
-    # flags_combinations = dict_permutations(halfcheetah_switch_cost)
+    # flags_combinations = None
+    # for conf in halfcheetah_no_switch_cost_configs:
+    #     if flags_combinations is None:
+    #         flags_combinations = dict_permutations(conf)
+    #     else:
+    #         flags_combinations += dict_permutations(conf)
+    flags_combinations = dict_permutations(hopper_switch_cost)
 
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)
