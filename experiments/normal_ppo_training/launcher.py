@@ -134,10 +134,37 @@ swimmer_configs = {
 }
 
 
+hopper_configs = {
+    'env_name': ['hopper'],
+    'backend': ['generalized', ],
+    'project_name': [PROJECT_NAME],
+    'num_timesteps': [50_000_000, ],
+    'episode_length': [200],
+    'action_repeat': [1, ],
+    'num_envs': [2048],
+    'num_eval_envs': [128],
+    'learning_rate': [3e-4],
+    'entropy_cost': [1e-3],
+    'discounting': [0.95],
+    'seed': list(range(5)),
+    'unroll_length': [20, ],
+    'batch_size': [256, ],
+    'num_minibatches': [32, ],
+    'num_updates_per_batch': [8, ],
+    'num_evals': [20],
+    'normalize_observations': [1, ],
+    'reward_scaling': [5.0],
+    'clipping_epsilon': [0.3],
+    'gae_lambda': [0.95],
+    'deterministic_eval': [1, ],
+    'normalize_advantage': [1, ],
+}
+
+
 def main():
     command_list = []
-    flags_combinations = dict_permutations(swimmer_configs)
-    flags_combinations += dict_permutations(reacher_configs)
+    flags_combinations = dict_permutations(hopper_configs)
+    # flags_combinations += dict_permutations(reacher_configs)
     # flags_combinations += dict_permutations(ant_configs)
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)
@@ -151,7 +178,7 @@ def main():
                           mode='euler',
                           duration='23:59:00',
                           prompt=True,
-                          mem=64000)
+                          mem=32000)
 
 
 if __name__ == '__main__':
