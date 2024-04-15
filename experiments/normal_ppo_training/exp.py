@@ -42,7 +42,8 @@ def experiment(env_name: str = 'ant',
                normalize_advantage: bool = True,
                ):
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
-                        'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse']
+                        'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse',
+                        'swimmer']
     env = envs.get_environment(env_name=env_name,
                                backend=backend)
 
@@ -195,7 +196,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env_name', type=str, default='halfcheetah')
+    parser.add_argument('--env_name', type=str, default='swimmer')
     parser.add_argument('--backend', type=str, default='generalized')
     parser.add_argument('--project_name', type=str, default='GPUSpeedTest')
     parser.add_argument('--num_timesteps', type=int, default=100_000)
