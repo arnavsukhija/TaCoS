@@ -178,8 +178,8 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env_name', type=str, default='drone')
-    parser.add_argument('--backend', type=str, default='mjx')
+    parser.add_argument('--env_name', type=str, default='swimmer')
+    parser.add_argument('--backend', type=str, default='generalized')
     parser.add_argument('--project_name', type=str, default='GPUSpeedTest')
     parser.add_argument('--num_timesteps', type=int, default=100_000)
     parser.add_argument('--episode_length', type=int, default=1000)
