@@ -19,18 +19,19 @@ if __name__ == "__main__":
     PLOT_TRUE_TRAJECTORIES = True
     swing_up = True
     action_repeat = 1
-    episode_length = 100
+    episode_length = 200
     time_as_part_of_state = False
 
     if swing_up:
-        env = PendulumEnv(reward_source='dm-control')
+        env = PendulumEnv(reward_source='dm-control',
+                          margin_factor=10.0)
     else:
         env = PendulumEnvSwingDown(reward_source='dm-control')
 
     min_time_between_switches = 1 * env.dt
     max_time_between_switches = 30 * env.dt
 
-    discount_factor = 0.99
+    discount_factor = 0.9
     continuous_discounting = discrete_to_continuous_discounting(discrete_discounting=discount_factor,
                                                                 dt=env.dt)
     if wrapper:
@@ -44,10 +45,10 @@ if __name__ == "__main__":
     else:
         action_repeat = 1
 
-    num_envs = 2048
-    unroll_length = 20
-    batch_size = 1024
-    entropy_cost = 1e0
+    num_envs = 16
+    unroll_length = 10
+    batch_size = 32
+    entropy_cost = 1e-5
     num_minibatches = 2 * num_envs // batch_size
     num_updates_per_batch = 4
 
@@ -62,7 +63,7 @@ if __name__ == "__main__":
         wd=0.,
         entropy_cost=entropy_cost,
         unroll_length=unroll_length,
-        # max_grad_norm=1e5, TODO: implement this
+        max_grad_norm=1e5,
         discounting=discount_factor,
         batch_size=batch_size,
         num_minibatches=num_minibatches,
@@ -79,8 +80,8 @@ if __name__ == "__main__":
         critic_activation=swish,
         wandb_logging=False,
         normalize_advantage=True,
-        # return_best_model=True, TODO: implement this
-        non_equidistant_time=True,
+        return_best_model=True,
+        non_equidistant_time=wrapper,
         continuous_discounting=continuous_discounting,
         min_time_between_switches=min_time_between_switches,
         max_time_between_switches=max_time_between_switches,

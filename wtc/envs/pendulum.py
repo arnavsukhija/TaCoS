@@ -32,12 +32,13 @@ class PendulumEnv(Env):
     def __init__(self,
                  reward_source: str = 'gym',
                  add_process_noise: bool = False,
+                 margin_factor: float = 10.0,
                  process_noise_scale: Float[Array, "observation_dim"] | None = None):
         self.dynamics_params = PendulumDynamicsParams()
         self.reward_params = PendulumRewardParams()
         bound = 0.1
         value_at_margin = 0.1
-        margin_factor = 10.0
+        margin_factor = margin_factor
         self.reward_source = reward_source  # 'dm-control' or 'gym'
         self.tolerance_reward = ToleranceReward(bounds=(0.0, bound),
                                                 margin=margin_factor * bound,

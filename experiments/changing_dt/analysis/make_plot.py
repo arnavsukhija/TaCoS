@@ -5,7 +5,7 @@ import matplotlib as mpl
 from scipy.ndimage import gaussian_filter1d
 from typing import NamedTuple, Dict
 
-LEGEND_FONT_SIZE = 26
+LEGEND_FONT_SIZE = 22
 TITLE_FONT_SIZE = 30
 TABLE_FONT_SIZE = 20
 LABEL_FONT_SIZE = 26
@@ -51,7 +51,7 @@ filtered_df['results/reward_with_switch_cost'] = filtered_df['results/total_rewa
 grouped_data_adaptive = filtered_df.groupby('new_integration_dt')['results/total_reward'].agg(['mean', 'std'])
 grouped_data_adaptive = grouped_data_adaptive.reset_index()
 
-baselines_reward_without_switch_cost['When to control'] = Statistics(
+baselines_reward_without_switch_cost[r'Switch-Cost-CTRL [Episodes=5000, GD updates=$10^6$, Measurements=$10^6$]'] = Statistics(
     xs=np.array(grouped_data_adaptive['new_integration_dt']),
     ys_mean=np.array(grouped_data_adaptive['mean']),
     ys_std=np.array(grouped_data_adaptive['std'])
@@ -61,7 +61,7 @@ grouped_data_adaptive_with_switch_cost = filtered_df.groupby('new_integration_dt
     'results/reward_with_switch_cost'].agg(['mean', 'std'])
 grouped_data_adaptive_with_switch_cost = grouped_data_adaptive_with_switch_cost.reset_index()
 
-baselines_reward_with_switch_cost['When to control'] = Statistics(
+baselines_reward_with_switch_cost[r'Switch-Cost-CTRL [Episodes=5000, GD updates=$10^6$, Measurements=$10^6$]'] = Statistics(
     xs=np.array(grouped_data_adaptive_with_switch_cost['new_integration_dt']),
     ys_mean=np.array(grouped_data_adaptive_with_switch_cost['mean']),
     ys_std=np.array(grouped_data_adaptive_with_switch_cost['std'])
@@ -73,7 +73,7 @@ baselines_reward_with_switch_cost['When to control'] = Statistics(
 grouped_data = data.groupby('new_integration_dt')['results/total_reward'].agg(['mean', 'std'])
 grouped_data = grouped_data.reset_index()
 
-baselines_reward_without_switch_cost['Control per integration step [Same number of gradient updates]'] = Statistics(
+baselines_reward_without_switch_cost[r'Standard RL [Episodes=5000 $\times \frac{\text{Integration }dt}{0.05}$, GD updates=$10^6$, Measurements=$10^6$]'] = Statistics(
     xs=np.array(grouped_data['new_integration_dt']),
     ys_mean=np.array(grouped_data['mean']),
     ys_std=np.array(grouped_data['std'])
@@ -84,7 +84,7 @@ grouped_data_with_switch_cost = data.groupby('new_integration_dt')['results/rewa
     ['mean', 'std'])
 grouped_data_with_switch_cost = grouped_data_with_switch_cost.reset_index()
 
-baselines_reward_with_switch_cost['Control per integration step [Same number of gradient updates]'] = Statistics(
+baselines_reward_with_switch_cost[r'Standard RL [Episodes=5000 $\times \frac{\text{Integration }dt}{0.05}$, GD updates=$10^6$, Measurements=$10^6$]'] = Statistics(
     xs=np.array(grouped_data_with_switch_cost['new_integration_dt']),
     ys_mean=np.array(grouped_data_with_switch_cost['mean']),
     ys_std=np.array(grouped_data_with_switch_cost['std'])
@@ -98,7 +98,7 @@ data = data[data['same_amount_of_gradient_updates'] == False]
 grouped_data = data.groupby('new_integration_dt')['results/total_reward'].agg(['mean', 'std'])
 grouped_data = grouped_data.reset_index()
 
-baselines_reward_without_switch_cost['Control per integration step [Same number of episodes]'] = Statistics(
+baselines_reward_without_switch_cost[r'Standard RL [Episodes=5000, GD updates=$10^6\times \frac{0.05}{\text{Integration }dt}$, Measurements=$10^6\times \frac{0.05}{\text{Integration }dt}$]'] = Statistics(
     xs=np.array(grouped_data['new_integration_dt']),
     ys_mean=np.array(grouped_data['mean']),
     ys_std=np.array(grouped_data['std'])
@@ -109,7 +109,7 @@ grouped_data_with_switch_cost = data.groupby('new_integration_dt')['results/rewa
     ['mean', 'std'])
 grouped_data_with_switch_cost = grouped_data_with_switch_cost.reset_index()
 
-baselines_reward_with_switch_cost['Control per integration step [Same number of episodes]'] = Statistics(
+baselines_reward_with_switch_cost[r'Standard RL [Episodes=5000, GD updates=$10^6\times \frac{0.05}{\text{Integration }dt}$, Measurements=$10^6\times \frac{0.05}{\text{Integration }dt}$]'] = Statistics(
     xs=np.array(grouped_data_with_switch_cost['new_integration_dt']),
     ys_mean=np.array(grouped_data_with_switch_cost['mean']),
     ys_std=np.array(grouped_data_with_switch_cost['std'])
@@ -149,7 +149,7 @@ data = data[data['same_amount_of_gradient_updates'] == True]
 
 baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
     cur_data=data,
-    baseline_name='Control per integration step [Same number of episodes and gradients updates]',
+    baseline_name=r'Standard RL [Episodes=5000, GD updates=$10^6$, Measurements=$10^6\times \frac{0.05}{\text{Integration }dt}$]',
     cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
     cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost
 )
@@ -194,7 +194,7 @@ fig.legend(by_label.values(), by_label.keys(),
 
 fig.suptitle(f'Halfcheetah run forward task [Duration = 10 sec], [Switch Cost = {SWITCH_COST}]',
              fontsize=TITLE_FONT_SIZE,
-             y=0.92)
-fig.tight_layout(rect=[0.0, 0.0, 1, 0.7])
+             y=0.95)
+fig.tight_layout(rect=[0.0, 0.0, 1, 0.67])
 plt.savefig('halfcheetah_switch_cost_varying_integration_dt.pdf')
 plt.show()
