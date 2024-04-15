@@ -37,7 +37,8 @@ def experiment(env_name: str = 'inverted_pendulum',
     envs.register_environment('drone', Crazyflie2)
     envs.register_environment('greenhouse', GreenHouseEnv)
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
-                        'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse']
+                        'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse',
+                        'swimmer']
     env = envs.get_environment(env_name=env_name,
                                backend=backend)
 
@@ -143,15 +144,15 @@ def experiment(env_name: str = 'inverted_pendulum',
 
     trajectory = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *trajectory)
 
-    plt.plot(trajectory.reward)
-    plt.show()
+    wandb.log({'results/total_reward': jnp.sum(trajectory.reward),
+               'results/num_actions': len(trajectory.reward)})
 
     # We save full_trajectory to wandb
     # Save trajectory rather than rendered video
     directory = os.path.join(wandb.run.dir, 'results')
     if not os.path.exists(directory):
         os.makedirs(directory)
-    model_path = os.path.join(directory, 'trajectory.pkl')
+    model_path = os.path.join(directory, 'trajectory_1.pkl')
     with open(model_path, 'wb') as handle:
         pickle.dump(trajectory, handle)
     wandb.save(model_path, wandb.run.dir)

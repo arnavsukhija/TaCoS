@@ -13,7 +13,7 @@ def experiment(env_name: str = 'inverted_pendulum',
                plot: bool = False,
                ):
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
-                        'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d']
+                        'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'swimmer']
     assert backend in ['generalized', 'positional', 'spring', 'mjx']
     env = envs.get_environment(env_name=env_name,
                                backend=backend)
@@ -48,13 +48,13 @@ def experiment(env_name: str = 'inverted_pendulum',
 
 
 if __name__ == '__main__':
-    environments = ['halfcheetah']
-    tracks = [True]
+    environments = ['reacher']
+    tracks = [False]
     for env, track in zip(environments[:1], tracks[:1]):
         for index in [1]:
             experiment(env_name=env,
                        backend='generalized',
-                       filename='trajectory_1.pkl',
+                       filename='trajectory_2.pkl',
                        track=track,
-                       dir=f'trajectories/{env}/Apr08_14_45',
+                       dir=f'trajectories/{env}/Apr15_13_05',
                        plot=True)

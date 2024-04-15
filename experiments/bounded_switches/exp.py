@@ -163,7 +163,7 @@ def experiment(env_name: str = 'inverted_pendulum',
     directory = os.path.join(wandb.run.dir, 'results')
     if not os.path.exists(directory):
         os.makedirs(directory)
-    model_path = os.path.join(directory, 'trajectory.pkl')
+    model_path = os.path.join(directory, 'trajectory_1.pkl')
     with open(model_path, 'wb') as handle:
         pickle.dump(full_trajectory, handle)
     wandb.save(model_path, wandb.run.dir)
