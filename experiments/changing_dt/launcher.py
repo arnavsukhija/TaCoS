@@ -1,7 +1,7 @@
 import exp
 from experiments.util import generate_run_commands, generate_base_command, dict_permutations
 
-PROJECT_NAME = 'HopperSwitchCostApr15_16_00'
+PROJECT_NAME = 'HopperSwitchCostApr16_11_30'
 
 #################### Hopper ####################
 
@@ -19,11 +19,11 @@ general_configs = {
 }
 
 hopper_switch_cost = {'env_name': ['hopper', ],
-                      'reward_scaling': [1.0, ],
+                      'reward_scaling': [30.0, ],
                       'episode_time': [4.0],
                       'base_dt_divisor': [1, 2, 4, 10, 15, 20, 25, 30, ],
                       'switch_cost_wrapper': [1, ],
-                      'switch_cost': [0.5, 1.0, 2.0, 3.0],
+                      'switch_cost': [0.1, 0.2, 0.5, 0.8, 1.0, 1.5, 2.0],
                       'max_time_between_switches': [0.008],
                       'time_as_part_of_state': [1, ]
                       } | general_configs

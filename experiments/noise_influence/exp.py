@@ -22,7 +22,8 @@ ENTITY = 'trevenl'
 def experiment(
         env_name: str = 'Pendulum',
         project_name: str = 'TestPendulumNoiseInfluence',
-        scale: float = 0.1,
+        noise_scale: float = 0.1,
+        switch_cost: float = 1.0,
         seed: int = 0,
         wrapper: bool = True,
         num_timesteps: int = 20_000,
@@ -34,7 +35,7 @@ def experiment(
     if env_name == 'Pendulum':
         env = PendulumEnv(reward_source='dm-control',
                           add_process_noise=True,
-                          process_noise_scale=scale * jnp.array([0.01, 0.01, 0.1]))
+                          process_noise_scale=noise_scale * jnp.array([0.01, 0.01, 0.1]))
 
         min_time_between_switches = 1 * env.dt
         max_time_between_switches = 30 * env.dt
@@ -47,13 +48,13 @@ def experiment(
                                       num_integrator_steps=episode_length,
                                       min_time_between_switches=1 * env.dt,
                                       max_time_between_switches=30 * env.dt,
-                                      switch_cost=ConstantSwitchCost(value=jnp.array(0.1)),
+                                      switch_cost=ConstantSwitchCost(value=jnp.array(switch_cost)),
                                       time_as_part_of_state=time_as_part_of_state,
                                       discounting=discount_factor)
 
     elif env_name == 'Greenhouse':
         env = GreenHouseEnv(add_process_noise=True,
-                            process_noise_scale=jnp.array(scale))
+                            process_noise_scale=jnp.array(noise_scale))
 
         min_time_between_switches = 1 * env.dt
         max_time_between_switches = 30 * env.dt
@@ -67,12 +68,12 @@ def experiment(
                                       num_integrator_steps=episode_length,
                                       min_time_between_switches=1 * env.dt,
                                       max_time_between_switches=30 * env.dt,
-                                      switch_cost=ConstantSwitchCost(value=jnp.array(0.2)),
+                                      switch_cost=ConstantSwitchCost(value=jnp.array(switch_cost)),
                                       time_as_part_of_state=time_as_part_of_state,
                                       discounting=discount_factor)
 
     config = dict(seed=seed,
-                  scale=scale,
+                  scale=noise_scale,
                   env_name=env_name,
                   wrapper=wrapper,
                   num_timesteps=num_timesteps
@@ -195,7 +196,7 @@ def experiment(
         if env_name == 'Pendulum':
             env = PendulumEnv(reward_source='dm-control',
                               add_process_noise=True,
-                              process_noise_scale=scale * jnp.array([0.01, 0.01, 0.1]))
+                              process_noise_scale=noise_scale * jnp.array([0.01, 0.01, 0.1]))
             env = IHSwitchCostWrapper(env,
                                       num_integrator_steps=episode_length,
                                       min_time_between_switches=1 * env.dt,
@@ -206,7 +207,7 @@ def experiment(
 
         elif env_name == 'Greenhouse':
             env = GreenHouseEnv(add_process_noise=True,
-                                process_noise_scale=jnp.array(scale))
+                                process_noise_scale=jnp.array(noise_scale))
             env = IHSwitchCostWrapper(env,
                                       num_integrator_steps=episode_length,
                                       min_time_between_switches=1 * env.dt,
@@ -311,11 +312,11 @@ def experiment(
         if env_name == 'Pendulum':
             env = PendulumEnv(reward_source='dm-control',
                               add_process_noise=True,
-                              process_noise_scale=scale * jnp.array([0.01, 0.01, 0.1]))
+                              process_noise_scale=noise_scale * jnp.array([0.01, 0.01, 0.1]))
 
         elif env_name == 'Greenhouse':
             env = GreenHouseEnv(add_process_noise=True,
-                                process_noise_scale=jnp.array(scale))
+                                process_noise_scale=jnp.array(noise_scale))
 
         state = env.reset(rng=jr.PRNGKey(0))
         step_fn = jax.jit(env.step)
@@ -341,7 +342,8 @@ def experiment(
 def main(args):
     experiment(env_name=args.env_name,
                project_name=args.project_name,
-               scale=args.scale,
+               noise_scale=args.noise_scale,
+               switch_cost=args.switch_cost,
                seed=args.seed,
                wrapper=bool(args.wrapper),
                num_timesteps=args.num_timesteps,
@@ -352,7 +354,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--env_name', type=str, default='Pendulum')
     parser.add_argument('--project_name', type=str, default='TestPendulumNoiseInfluence')
-    parser.add_argument('--scale', type=float, default=0.1)
+    parser.add_argument('--noise_scale', type=float, default=0.1)
+    parser.add_argument('--switch_cost', type=float, default=1.0)
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--wrapper', type=int, default=0)
     parser.add_argument('--num_timesteps', type=int, default=20_000)

@@ -1,7 +1,7 @@
 import exp
 from experiments.util import generate_run_commands, generate_base_command, dict_permutations
 
-PROJECT_NAME = 'SAC_Apr15_13_40'
+PROJECT_NAME = 'SAC_Apr16_10_40'
 
 swimmer_configs = {
     'env_name': ['swimmer'],
@@ -24,7 +24,7 @@ hopper_configs = {
     'backend': ['generalized', ],
     'project_name': [PROJECT_NAME],
     'num_timesteps': [1_000_000, ],
-    'episode_length': [200],
+    'episode_length': [500],
     'num_envs': [128],
     'learning_discount_factor': [0.99],
     'num_env_steps_between_updates': [10, ],
@@ -38,8 +38,8 @@ hopper_configs = {
 
 def main():
     command_list = []
-    flags_combinations = dict_permutations(swimmer_configs)
-    flags_combinations += dict_permutations(hopper_configs)
+    # flags_combinations = dict_permutations(swimmer_configs)
+    flags_combinations = dict_permutations(hopper_configs)
 
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)

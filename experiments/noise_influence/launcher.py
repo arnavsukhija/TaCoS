@@ -2,12 +2,13 @@ import exp
 import numpy as np
 from experiments.util import generate_run_commands, generate_base_command, dict_permutations
 
-PROJECT_NAME = 'NoiseInfluencePerformance_Apr_04_10_00'
+PROJECT_NAME = 'NoiseInfluence_Apr_16_11_45'
 
 general_configs = {
     'env_name': ['Greenhouse', 'Pendulum'],
     'project_name': [PROJECT_NAME, ],
-    'scale': list(np.linspace(0, 2, 40)),
+    'noise_scale': list(np.linspace(0, 2, 20)),
+    'switch_cost': [0.1, 1.0, 2.0],
     'seed': list(range(5)),
     'wrapper': [0, ],
     'num_timesteps': [100_000],
