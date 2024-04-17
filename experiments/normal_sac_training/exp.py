@@ -3,6 +3,8 @@ import datetime
 import os
 import pickle
 from datetime import datetime
+import time
+from jax import vmap
 
 import jax
 import jax.numpy as jnp
@@ -16,6 +18,7 @@ from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 from wtc.envs.drone import Crazyflie2
 from wtc.envs.greenhouse import GreenHouseEnv
 import matplotlib.pyplot as plt
+import numpy as np
 
 ENTITY = 'trevenl'
 
@@ -33,6 +36,7 @@ def experiment(env_name: str = 'inverted_pendulum',
                batch_size: int = 64,
                action_repeat: int = 1,
                reward_scaling: float = 1.0,
+               video_track: bool | None = True,
                ):
     envs.register_environment('drone', Crazyflie2)
     envs.register_environment('greenhouse', GreenHouseEnv)
@@ -113,9 +117,11 @@ def experiment(env_name: str = 'inverted_pendulum',
         plt.plot(xdata, ydata)
         plt.show()
 
+    start_time = time.time()
     print('Before inference')
     policy_params, metrics = optimizer.run_training(key=jr.PRNGKey(seed), progress_fn=progress)
     print('After inference')
+    print('Total time: {}'.format(time.time() - start_time))
 
     # Now we plot the evolution
     pseudo_policy = optimizer.make_policy(policy_params, deterministic=True)
@@ -130,9 +136,9 @@ def experiment(env_name: str = 'inverted_pendulum',
     env = envs.get_environment(env_name=env_name,
                                backend=backend)
 
-    state = env.reset(rng=jr.PRNGKey(0))
+    state = env.reset(rng=jr.PRNGKey(4))
     step_fn = jax.jit(env.step)
-
+    print('Start simulation')
     trajectory = []
     total_steps = 0
     while (not state.done) and (total_steps < episode_length):
@@ -146,6 +152,19 @@ def experiment(env_name: str = 'inverted_pendulum',
 
     wandb.log({'results/total_reward': jnp.sum(trajectory.reward),
                'results/num_actions': len(trajectory.reward)})
+
+    if video_track is not None:
+        traj = [jtu.tree_map(lambda x: x[i], trajectory).pipeline_state for i in range(trajectory.obs.shape[0])]
+        print('End simulation, start rendering')
+        if video_track:
+            video_frames = env.render(traj, camera='track')
+        else:
+            video_frames = env.render(traj)
+        print('Uploading video to wandb.')
+        video = np.stack(video_frames)
+        video = np.transpose(video, (0, 3, 1, 2))
+
+        wandb.log({"video": wandb.Video(video, fps=int(1 / env.dt))})
 
     # We save full_trajectory to wandb
     # Save trajectory rather than rendered video
@@ -173,24 +192,26 @@ def main(args):
                batch_size=args.batch_size,
                action_repeat=args.action_repeat,
                reward_scaling=args.reward_scaling,
+               video_track=bool(args.video_track)
                )
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env_name', type=str, default='swimmer')
+    parser.add_argument('--env_name', type=str, default='reacher')
     parser.add_argument('--backend', type=str, default='generalized')
     parser.add_argument('--project_name', type=str, default='GPUSpeedTest')
-    parser.add_argument('--num_timesteps', type=int, default=100_000)
-    parser.add_argument('--episode_length', type=int, default=1000)
-    parser.add_argument('--learning_discount_factor', type=float, default=0.99)
+    parser.add_argument('--num_timesteps', type=int, default=20_000)
+    parser.add_argument('--episode_length', type=int, default=200)
+    parser.add_argument('--learning_discount_factor', type=float, default=0.95)
     parser.add_argument('--seed', type=int, default=20)
     parser.add_argument('--num_envs', type=int, default=32)
     parser.add_argument('--num_env_steps_between_updates', type=int, default=10)
     parser.add_argument('--networks', type=int, default=1)
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--action_repeat', type=int, default=5)
-    parser.add_argument('--reward_scaling', type=float, default=1.0)
+    parser.add_argument('--reward_scaling', type=float, default=5.0)
+    parser.add_argument('--video_track', type=int, default=0)
 
     args = parser.parse_args()
     main(args)
