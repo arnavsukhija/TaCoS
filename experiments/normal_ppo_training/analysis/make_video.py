@@ -48,13 +48,13 @@ def experiment(env_name: str = 'inverted_pendulum',
 
 
 if __name__ == '__main__':
-    environments = ['hopper']
-    tracks = [True]
+    environments = ['reacher']
+    tracks = [False]
     for env, track in zip(environments[:1], tracks[:1]):
-        for index in [1]:
+        for index in range(10):
             experiment(env_name=env,
                        backend='generalized',
-                       filename='trajectory_2.pkl',
+                       filename=f'trajectory_{index}.pkl',
                        track=track,
-                       dir=f'trajectories/{env}/Apr16_10_20',
+                       dir=f'trajectories/{env}/Apr17_16_30',
                        plot=True)

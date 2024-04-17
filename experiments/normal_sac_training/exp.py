@@ -2,23 +2,23 @@ import argparse
 import datetime
 import os
 import pickle
-from datetime import datetime
 import time
-from jax import vmap
+from datetime import datetime
 
 import jax
 import jax.numpy as jnp
 import jax.random as jr
 import jax.tree_util as jtu
 import matplotlib.pyplot as plt
+import numpy as np
 import wandb
 from brax import envs
 from jax.nn import swish
 from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
+
 from wtc.envs.drone import Crazyflie2
 from wtc.envs.greenhouse import GreenHouseEnv
-import matplotlib.pyplot as plt
-import numpy as np
+from wtc.wrappers.action_repeat_to_n_frames import ActionRepeatToNumFrames
 
 ENTITY = 'trevenl'
 
@@ -36,15 +36,18 @@ def experiment(env_name: str = 'inverted_pendulum',
                batch_size: int = 64,
                action_repeat: int = 1,
                reward_scaling: float = 1.0,
-               video_track: bool | None = True,
+               video_track: int = 2,
+               num_final_evals: int = 10
                ):
     envs.register_environment('drone', Crazyflie2)
     envs.register_environment('greenhouse', GreenHouseEnv)
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
                         'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse',
                         'swimmer']
+    episode_length = int(episode_length / action_repeat)
     env = envs.get_environment(env_name=env_name,
                                backend=backend)
+    env = ActionRepeatToNumFrames(env, action_repeat=action_repeat)
 
     if networks == 0:
         policy_hidden_layer_sizes = (32,) * 5
@@ -75,7 +78,7 @@ def experiment(env_name: str = 'inverted_pendulum',
         environment=env,
         num_timesteps=num_timesteps,
         episode_length=episode_length,
-        action_repeat=action_repeat,
+        action_repeat=1,
         num_env_steps_between_updates=num_env_steps_between_updates,
         num_envs=num_envs,
         num_eval_envs=32,
@@ -136,45 +139,48 @@ def experiment(env_name: str = 'inverted_pendulum',
     env = envs.get_environment(env_name=env_name,
                                backend=backend)
 
-    state = env.reset(rng=jr.PRNGKey(4))
+    env = ActionRepeatToNumFrames(env, action_repeat=action_repeat)
+
     step_fn = jax.jit(env.step)
-    print('Start simulation')
-    trajectory = []
-    total_steps = 0
-    while (not state.done) and (total_steps < episode_length):
-        action = policy(state.obs)[0]
-        for _ in range(action_repeat):
+
+    for index in range(num_final_evals):
+        state = env.reset(rng=jr.PRNGKey(index))
+        print('Start simulation')
+        trajectory = []
+        total_steps = 0
+        while (not state.done) and (total_steps < episode_length):
+            action = policy(state.obs)[0]
             state = step_fn(state, action)
             total_steps += 1
             trajectory.append(state)
 
-    trajectory = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *trajectory)
+        trajectory = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *trajectory)
 
-    wandb.log({'results/total_reward': jnp.sum(trajectory.reward),
-               'results/num_actions': len(trajectory.reward)})
+        wandb.log({f'results/total_reward_{index}': jnp.sum(trajectory.reward),
+                   f'results/num_actions_{index}': len(trajectory.reward)})
 
-    if video_track is not None:
-        traj = [jtu.tree_map(lambda x: x[i], trajectory).pipeline_state for i in range(trajectory.obs.shape[0])]
-        print('End simulation, start rendering')
-        if video_track:
-            video_frames = env.render(traj, camera='track')
-        else:
-            video_frames = env.render(traj)
-        print('Uploading video to wandb.')
-        video = np.stack(video_frames)
-        video = np.transpose(video, (0, 3, 1, 2))
+        if video_track < 2:
+            traj = [jtu.tree_map(lambda x: x[i], trajectory).pipeline_state for i in range(trajectory.obs.shape[0])]
+            print('End simulation, start rendering')
+            if video_track == 0:
+                video_frames = env.render(traj, camera='track')
+            elif video_track == 1:
+                video_frames = env.render(traj)
+            print('Uploading video to wandb.')
+            video = np.stack(video_frames)
+            video = np.transpose(video, (0, 3, 1, 2))
 
-        wandb.log({"video": wandb.Video(video, fps=int(1 / env.dt))})
+            wandb.log({f"video_{index}": wandb.Video(video, fps=int(1 / env.dt))})
 
-    # We save full_trajectory to wandb
-    # Save trajectory rather than rendered video
-    directory = os.path.join(wandb.run.dir, 'results')
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    model_path = os.path.join(directory, 'trajectory_1.pkl')
-    with open(model_path, 'wb') as handle:
-        pickle.dump(trajectory, handle)
-    wandb.save(model_path, wandb.run.dir)
+        # We save full_trajectory to wandb
+        # Save trajectory rather than rendered video
+        directory = os.path.join(wandb.run.dir, 'results')
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        model_path = os.path.join(directory, f'trajectory_{index}.pkl')
+        with open(model_path, 'wb') as handle:
+            pickle.dump(trajectory, handle)
+        wandb.save(model_path, wandb.run.dir)
     wandb.finish()
 
 
@@ -192,7 +198,7 @@ def main(args):
                batch_size=args.batch_size,
                action_repeat=args.action_repeat,
                reward_scaling=args.reward_scaling,
-               video_track=bool(args.video_track)
+               video_track=args.video_track
                )
 
 
@@ -212,6 +218,7 @@ if __name__ == '__main__':
     parser.add_argument('--action_repeat', type=int, default=5)
     parser.add_argument('--reward_scaling', type=float, default=5.0)
     parser.add_argument('--video_track', type=int, default=0)
+    parser.add_argument('--num_final_evals', type=int, default=1)
 
     args = parser.parse_args()
     main(args)

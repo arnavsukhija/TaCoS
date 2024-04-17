@@ -5,7 +5,7 @@ from brax import envs
 
 ENTITY = 'trevenl'
 
-env_name = 'hopper'
+env_name = 'reacher'
 backend = 'generalized'
 project_name = 'GPUSpeedTest'
 num_timesteps = 1_000_000

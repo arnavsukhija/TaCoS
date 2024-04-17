@@ -35,11 +35,29 @@ hopper_configs = {
     'reward_scaling': [30.0, ],
 }
 
+reacher_configs = {
+    'env_name': ['reacher'],
+    'backend': ['generalized', ],
+    'project_name': ['ReacherTestSAC_Apr17_16_45'],
+    'num_timesteps': [2_000_000, ],
+    'episode_length': [200],
+    'num_envs': [256],
+    'learning_discount_factor': [0.95],
+    'num_env_steps_between_updates': [10, ],
+    'seed': list(range(5)),
+    'networks': [0],
+    'batch_size': [256],
+    'action_repeat': [5, ],
+    'reward_scaling': [5.0, ],
+    'video_track': [2],
+    'num_final_evals': [10]
+}
+
 
 def main():
     command_list = []
     # flags_combinations = dict_permutations(swimmer_configs)
-    flags_combinations = dict_permutations(hopper_configs)
+    flags_combinations = dict_permutations(reacher_configs)
 
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)

@@ -12,7 +12,7 @@ LABEL_FONT_SIZE = 26
 TICKS_SIZE = 24
 OBSERVATION_SIZE = 300
 
-NUM_SAMPLES_PER_SEED = 1
+NUM_SAMPLES_PER_SEED = 5
 
 plt.rc('text', usetex=True)
 plt.rc('text.latex', preamble=
@@ -132,15 +132,15 @@ for axs in ax:
 by_label = dict(zip(labels, handles))
 
 fig.legend(by_label.values(), by_label.keys(),
-           ncols=1,
+           ncols=2,
            loc='upper center',
            bbox_to_anchor=(0.5, 0.89),
            fontsize=LEGEND_FONT_SIZE,
            frameon=False)
 
-fig.suptitle(f'RC Car [Duration = 10 sec], [Switch Cost = {SWITCH_COST}]',
+fig.suptitle(f'RC Car [Duration = 4 sec], [Switch Cost = {SWITCH_COST}]',
              fontsize=TITLE_FONT_SIZE,
              y=0.95)
-fig.tight_layout(rect=[0.0, 0.0, 1, 0.67])
-plt.savefig('halfcheetah_switch_cost_varying_integration_dt.pdf')
+fig.tight_layout(rect=[0.0, 0.0, 1, 0.8])
+plt.savefig('rc_car_switch_cost_varying_integration_dt.pdf')
 plt.show()
