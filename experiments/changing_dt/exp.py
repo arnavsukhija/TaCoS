@@ -50,9 +50,9 @@ def experiment(env_name: str = 'inverted_pendulum',
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
                         'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse', 'rccar']
     if env_name == 'rccar':
-        # Episode time needs to be 3.5 seconds
+        # Episode time needs to be 4.0 seconds
         base_dt = 0.5
-        base_episode_steps = 7
+        base_episode_steps = 8
         new_dt = base_dt / base_dt_divisor
         env = RCCar(margin_factor=20, dt=new_dt)
     else:
@@ -229,7 +229,7 @@ def experiment(env_name: str = 'inverted_pendulum',
     print(f'Starting with evaluation')
     if switch_cost_wrapper:
         if env_name == 'rccar':
-            # Episode time needs to be 3.5 seconds
+            # Episode time needs to be 4.0 seconds
             base_dt = 0.5
             new_dt = base_dt / base_dt_divisor
             env = RCCar(margin_factor=20, dt=new_dt)
@@ -345,7 +345,7 @@ def experiment(env_name: str = 'inverted_pendulum',
 
     else:
         if env_name == 'rccar':
-            # Episode time needs to be 3.5 seconds
+            # Episode time needs to be 4.0 seconds
             base_dt = 0.5
             new_dt = base_dt / base_dt_divisor
             env = RCCar(margin_factor=20, dt=new_dt)

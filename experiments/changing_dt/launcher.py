@@ -1,38 +1,38 @@
 import exp
 from experiments.util import generate_run_commands, generate_base_command, dict_permutations
 
-PROJECT_NAME = 'RCCarNoSwitchCostApr16_16_00'
+PROJECT_NAME = 'RCCarNoSwitchCostApr17_14_00'
 
 #################### RC Car ####################
 
-# general_configs = {
-#     'project_name': [PROJECT_NAME],
-#     'backend': ['generalized', ],
-#     'num_timesteps': [200_000, ],
-#     'base_discount_factor': [0.9],
-#     'num_envs': [128],
-#     'num_env_steps_between_updates': [10, ],
-#     'seed': list(range(5)),
-#     'networks': [0, ],
-#     'batch_size': [128],
-#     'action_repeat': [1, ],
-# }
-#
-# rccar_switch_cost = {'env_name': ['rccar', ],
-#                      'reward_scaling': [1.0, ],
-#                      'episode_time': [3.5],
-#                      'base_dt_divisor': [1, 2, 5, 10, 25, 50, 80, 100],
-#                      'switch_cost_wrapper': [1, ],
-#                      'switch_cost': [0.1, 1.0, 2.0, 3.0],
-#                      'max_time_between_switches': [0.5],
-#                      'time_as_part_of_state': [1, ]
-#                      } | general_configs
+general_configs = {
+    'project_name': ["RCCarSwitchCostApr17_14_00"],
+    'backend': ['generalized', ],
+    'num_timesteps': [50_000, ],
+    'base_discount_factor': [0.9],
+    'num_envs': [128],
+    'num_env_steps_between_updates': [10, ],
+    'seed': list(range(5)),
+    'networks': [0, ],
+    'batch_size': [128],
+    'action_repeat': [1, ],
+}
+
+rccar_switch_cost = {'env_name': ['rccar', ],
+                     'reward_scaling': [1.0, ],
+                     'episode_time': [4.0],
+                     'base_dt_divisor': [1, 2, 5, 10, 25, 50, 80, 100, 150, 200],
+                     'switch_cost_wrapper': [1, ],
+                     'switch_cost': [0.1, 0.5, 1.0],
+                     'max_time_between_switches': [0.5],
+                     'time_as_part_of_state': [1, ]
+                     } | general_configs
 
 rccar_no_switch_cost_base_configs = {
-    'project_name': [PROJECT_NAME],
+    'project_name': ["RCCarNoSwitchCostApr17_14_00"],
     'env_name': ['rccar', ],
     'reward_scaling': [1.0, ],
-    'episode_time': [3.5],
+    'episode_time': [4.0],
     'switch_cost_wrapper': [0, ],
     'backend': ['generalized', ],
     'base_discount_factor': [0.9],
@@ -46,8 +46,8 @@ rccar_no_switch_cost_base_configs = {
 }
 
 rccar_no_switch_cost_configs = []
-base_dt_divisor = [1, 2, 5, 10, 25, 50, 80, 100]
-base_numsteps = 1_000_000
+base_dt_divisor = [1, 2, 5, 10, 25, 50, 80, 100, 150, 200]
+base_numsteps = 50_000
 for dt_divisor in base_dt_divisor:
     cur_configs = rccar_no_switch_cost_base_configs | {'base_dt_divisor': [dt_divisor],
                                                        'num_timesteps': [base_numsteps * dt_divisor]}
@@ -146,7 +146,7 @@ def main():
             flags_combinations = dict_permutations(conf)
         else:
             flags_combinations += dict_permutations(conf)
-    # flags_combinations = dict_permutations(rccar_switch_cost)
+    flags_combinations += dict_permutations(rccar_switch_cost)
 
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)

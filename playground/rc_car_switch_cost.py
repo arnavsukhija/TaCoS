@@ -20,18 +20,18 @@ if __name__ == "__main__":
     PLOT_TRUE_TRAJECTORIES = True
     swing_up = True
     action_repeat = 1
-    episode_length = 100
+    episode_length = 200
     time_as_part_of_state = True
     discrete_discounting = 0.99
 
-    env = RCCar(margin_factor=20)
+    env = RCCar(margin_factor=20, dt=0.01)
 
     continuous_discounting = discrete_to_continuous_discounting(discrete_discounting=discrete_discounting,
                                                                 dt=env.dt)
 
     if wrapper:
         min_time_between_switches = 1 * env.dt
-        max_time_between_switches = 30 * env.dt
+        max_time_between_switches = 30 * 0.02
         env = IHSwitchCostWrapper(env,
                                   num_integrator_steps=episode_length,
                                   min_time_between_switches=min_time_between_switches,
@@ -44,10 +44,10 @@ if __name__ == "__main__":
         action_repeat = 1
 
     num_env_steps_between_updates = 10
-    num_envs = 32
+    num_envs = 128
     optimizer = SAC(
         environment=env,
-        num_timesteps=20_000,
+        num_timesteps=100_000,
         episode_length=episode_length,
         action_repeat=action_repeat,
         num_env_steps_between_updates=num_env_steps_between_updates,
@@ -61,7 +61,7 @@ if __name__ == "__main__":
         wd_q=0.,
         max_grad_norm=1e5,
         discounting=0.99,
-        batch_size=32,
+        batch_size=128,
         num_evals=20,
         normalize_observations=True,
         reward_scaling=1.,
