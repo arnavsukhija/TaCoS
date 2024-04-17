@@ -76,7 +76,8 @@ def experiment(
                   scale=noise_scale,
                   env_name=env_name,
                   wrapper=wrapper,
-                  num_timesteps=num_timesteps
+                  num_timesteps=num_timesteps,
+                  switch_cost=switch_cost
                   )
 
     wandb.init(

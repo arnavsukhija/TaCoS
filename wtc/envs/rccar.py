@@ -230,8 +230,12 @@ class RaceCar(DynamicsModel):
     def __init__(self, dt, encode_angle: bool = True, local_coordinates: bool = False, rk_integrator: bool = True):
         self.encode_angle = encode_angle
         x_dim = 6
+        if dt <= 1 / 100:
+            integration_dt = dt
+        else:
+            integration_dt = 1 / 100
         super().__init__(dt=dt, x_dim=x_dim, u_dim=2, params=CarParams(), angle_idx=2,
-                         dt_integration=1 / 90.)
+                         dt_integration=integration_dt)
         self.local_coordinates = local_coordinates
         self.angle_idx = 2
         self.velocity_start_idx = 4 if self.encode_angle else 3
@@ -550,7 +554,7 @@ class RCCarEnvReward:
 
 class RCCar(Env):
     max_steps: int = 200
-    _dt: float = 1 / 30.
+    base_dt: float = 1 / 30.
     dim_action: Tuple[int] = (2,)
     _goal: jnp.array = jnp.array([0.0, 0.0, 0.0])
     _init_pose: jnp.array = jnp.array([1.42, -1.04, jnp.pi])
@@ -569,7 +573,8 @@ class RCCar(Env):
                  car_id: int = 2,
                  ctrl_diff_weight: float = 0.0,
                  seed: int = 230492394,
-                 max_steps: int = 200):
+                 max_steps: int = 200,
+                 dt: float | None = None):
         """
         Race car simulator environment
 
@@ -582,6 +587,10 @@ class RCCar(Env):
             car_model_params: dictionary of car model parameters that overwrite the default values
             seed: random number generator seed
         """
+        if dt is None:
+            self._dt = self.base_dt
+        else:
+            self._dt = dt
         self.dim_state: Tuple[int] = (7,) if encode_angle else (6,)
         self.encode_angle: bool = encode_angle
         self._rds_key = jax.random.PRNGKey(seed)
@@ -716,7 +725,7 @@ class RCCar(Env):
         obs = self._state_to_obs(obs, rng_key=jax.random.PRNGKey(0))
 
         # compute reward
-        reward = self._reward_model.forward(obs=None, action=action, next_obs=obs) + jitter_reward
+        reward = self._reward_model.forward(obs=None, action=action, next_obs=obs) * self._dt / self.base_dt
         # check if done
         done = self._time >= self.max_steps
         next_done = 1 - (1 - done) * (1 - state.done)
@@ -750,9 +759,13 @@ class RCCar(Env):
 
 
 if __name__ == '__main__':
-    env = RCCar()
+    env = RCCar(dt=0.001)
     state = env.reset(rng=jax.random.PRNGKey(0))
-    action = jnp.array([0.3, -0.6])
-    for _ in range(10):
-        state = env.step(state, action)
-        print(state)
+    action = jnp.array([0.0, 0.0])
+
+    reward = env._reward_model.forward(obs=None, action=action, next_obs=state.obs) * env._dt / env.base_dt
+    print(reward)
+
+    # for _ in range(10):
+    #     state = env.step(state, action)
+    #     print(state)

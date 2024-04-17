@@ -18,6 +18,7 @@ from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 from wtc.wrappers.change_integration_dt import ChangeIntegrationStep
 from wtc.utils import discrete_to_continuous_discounting
 from wtc.wrappers.ih_switching_cost import ConstantSwitchCost, IHSwitchCostWrapper
+from wtc.envs.rccar import RCCar, plot_rc_trajectory
 
 from jax import config
 
@@ -47,16 +48,23 @@ def experiment(env_name: str = 'inverted_pendulum',
                same_amount_of_gradient_updates: bool = True
                ):
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
-                        'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse']
-    env = envs.get_environment(env_name=env_name,
-                               backend=backend)
-    base_dt = env.dt
-    base_episode_steps = episode_time // env.dt
-    print(f'Base integration dt {base_dt}')
-    print(f'Base episode steps: {base_episode_steps}')
+                        'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse', 'rccar']
+    if env_name == 'rccar':
+        # Episode time needs to be 3.5 seconds
+        base_dt = 0.5
+        base_episode_steps = 7
+        new_dt = base_dt / base_dt_divisor
+        env = RCCar(margin_factor=20, dt=new_dt)
+    else:
+        env = envs.get_environment(env_name=env_name,
+                                   backend=backend)
+        base_dt = env.dt
+        base_episode_steps = episode_time // env.dt
+        print(f'Base integration dt {base_dt}')
+        print(f'Base episode steps: {base_episode_steps}')
 
-    env = ChangeIntegrationStep(env=env,
-                                dt_divisor=base_dt_divisor)
+        env = ChangeIntegrationStep(env=env,
+                                    dt_divisor=base_dt_divisor)
 
     print(f'New integration dt {env.dt}')
     print(f'New episode steps: {episode_time // env.dt}')
@@ -220,10 +228,16 @@ def experiment(env_name: str = 'inverted_pendulum',
 
     print(f'Starting with evaluation')
     if switch_cost_wrapper:
-        env = envs.get_environment(env_name=env_name,
-                                   backend=backend)
-        env = ChangeIntegrationStep(env=env,
-                                    dt_divisor=base_dt_divisor)
+        if env_name == 'rccar':
+            # Episode time needs to be 3.5 seconds
+            base_dt = 0.5
+            new_dt = base_dt / base_dt_divisor
+            env = RCCar(margin_factor=20, dt=new_dt)
+        else:
+            env = envs.get_environment(env_name=env_name,
+                                       backend=backend)
+            env = ChangeIntegrationStep(env=env,
+                                        dt_divisor=base_dt_divisor)
 
         env = IHSwitchCostWrapper(env=env,
                                   num_integrator_steps=int(episode_time // env.dt),
@@ -330,11 +344,16 @@ def experiment(env_name: str = 'inverted_pendulum',
         print('Results uploaded to wandb')
 
     else:
-        env = envs.get_environment(env_name=env_name,
-                                   backend=backend)
-
-        env = ChangeIntegrationStep(env=env,
-                                    dt_divisor=base_dt_divisor)
+        if env_name == 'rccar':
+            # Episode time needs to be 3.5 seconds
+            base_dt = 0.5
+            new_dt = base_dt / base_dt_divisor
+            env = RCCar(margin_factor=20, dt=new_dt)
+        else:
+            env = envs.get_environment(env_name=env_name,
+                                       backend=backend)
+            env = ChangeIntegrationStep(env=env,
+                                        dt_divisor=base_dt_divisor)
 
         state = env.reset(rng=jr.PRNGKey(0))
         step_fn = jax.jit(env.step)
@@ -396,13 +415,13 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env_name', type=str, default='inverted_pendulum')
+    parser.add_argument('--env_name', type=str, default='rccar')
     parser.add_argument('--backend', type=str, default='generalized')
     parser.add_argument('--project_name', type=str, default='GPUSpeedTest')
     parser.add_argument('--num_timesteps', type=int, default=20_000)
-    parser.add_argument('--episode_time', type=float, default=4.0)
-    parser.add_argument('--base_dt_divisor', type=int, default=4)
-    parser.add_argument('--base_discount_factor', type=float, default=0.99)
+    parser.add_argument('--episode_time', type=float, default=3.5)
+    parser.add_argument('--base_dt_divisor', type=int, default=25)
+    parser.add_argument('--base_discount_factor', type=float, default=0.9)
     parser.add_argument('--seed', type=int, default=20)
     parser.add_argument('--num_envs', type=int, default=32)
     parser.add_argument('--num_env_steps_between_updates', type=int, default=10)
@@ -410,9 +429,9 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--action_repeat', type=int, default=1)
     parser.add_argument('--reward_scaling', type=float, default=1.0)
-    parser.add_argument('--switch_cost_wrapper', type=int, default=0)
-    parser.add_argument('--switch_cost', type=float, default=0.1)
-    parser.add_argument('--max_time_between_switches', type=float, default=0.2)
+    parser.add_argument('--switch_cost_wrapper', type=int, default=1)
+    parser.add_argument('--switch_cost', type=float, default=1.0)
+    parser.add_argument('--max_time_between_switches', type=float, default=0.5)
     parser.add_argument('--time_as_part_of_state', type=int, default=1)
     parser.add_argument('--same_amount_of_gradient_updates', type=int, default=0)
 

@@ -1,7 +1,59 @@
 import exp
 from experiments.util import generate_run_commands, generate_base_command, dict_permutations
 
-PROJECT_NAME = 'HopperSwitchCostApr16_11_30'
+PROJECT_NAME = 'RCCarNoSwitchCostApr16_16_00'
+
+#################### RC Car ####################
+
+# general_configs = {
+#     'project_name': [PROJECT_NAME],
+#     'backend': ['generalized', ],
+#     'num_timesteps': [200_000, ],
+#     'base_discount_factor': [0.9],
+#     'num_envs': [128],
+#     'num_env_steps_between_updates': [10, ],
+#     'seed': list(range(5)),
+#     'networks': [0, ],
+#     'batch_size': [128],
+#     'action_repeat': [1, ],
+# }
+#
+# rccar_switch_cost = {'env_name': ['rccar', ],
+#                      'reward_scaling': [1.0, ],
+#                      'episode_time': [3.5],
+#                      'base_dt_divisor': [1, 2, 5, 10, 25, 50, 80, 100],
+#                      'switch_cost_wrapper': [1, ],
+#                      'switch_cost': [0.1, 1.0, 2.0, 3.0],
+#                      'max_time_between_switches': [0.5],
+#                      'time_as_part_of_state': [1, ]
+#                      } | general_configs
+
+rccar_no_switch_cost_base_configs = {
+    'project_name': [PROJECT_NAME],
+    'env_name': ['rccar', ],
+    'reward_scaling': [1.0, ],
+    'episode_time': [3.5],
+    'switch_cost_wrapper': [0, ],
+    'backend': ['generalized', ],
+    'base_discount_factor': [0.9],
+    'num_envs': [128],
+    'num_env_steps_between_updates': [10, ],
+    'seed': list(range(5)),
+    'networks': [0, ],
+    'batch_size': [128],
+    'action_repeat': [1, ],
+    'same_amount_of_gradient_updates': [0, 1, ],
+}
+
+rccar_no_switch_cost_configs = []
+base_dt_divisor = [1, 2, 5, 10, 25, 50, 80, 100]
+base_numsteps = 1_000_000
+for dt_divisor in base_dt_divisor:
+    cur_configs = rccar_no_switch_cost_base_configs | {'base_dt_divisor': [dt_divisor],
+                                                       'num_timesteps': [base_numsteps * dt_divisor]}
+    rccar_no_switch_cost_configs.append(cur_configs)
+
+###########################################################################
 
 #################### Hopper ####################
 
@@ -88,13 +140,13 @@ hopper_switch_cost = {'env_name': ['hopper', ],
 
 def main():
     command_list = []
-    # flags_combinations = None
-    # for conf in halfcheetah_no_switch_cost_configs:
-    #     if flags_combinations is None:
-    #         flags_combinations = dict_permutations(conf)
-    #     else:
-    #         flags_combinations += dict_permutations(conf)
-    flags_combinations = dict_permutations(hopper_switch_cost)
+    flags_combinations = None
+    for conf in rccar_no_switch_cost_configs:
+        if flags_combinations is None:
+            flags_combinations = dict_permutations(conf)
+        else:
+            flags_combinations += dict_permutations(conf)
+    # flags_combinations = dict_permutations(rccar_switch_cost)
 
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)
@@ -103,7 +155,7 @@ def main():
     # submit jobs
     generate_run_commands(command_list,
                           num_cpus=1,
-                          num_gpus=1,
+                          num_gpus=0,
                           mode='euler',
                           duration='23:59:00',
                           prompt=True,

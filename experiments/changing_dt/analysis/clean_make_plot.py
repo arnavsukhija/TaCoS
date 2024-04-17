@@ -24,8 +24,8 @@ r'\def\vf{{\bm{f}}}')
 mpl.rcParams['xtick.labelsize'] = TICKS_SIZE
 mpl.rcParams['ytick.labelsize'] = TICKS_SIZE
 
-SWITCH_COST = 0.5
-MAX_TIME_BETWEEN_SWITCHES = 0.008
+SWITCH_COST = 1.0  # [0.1, 1, 2, 3]
+MAX_TIME_BETWEEN_SWITCHES = 0.5
 
 
 class Statistics(NamedTuple):
@@ -39,7 +39,7 @@ baselines_reward_with_switch_cost: Dict[str, Statistics] = {}
 
 # data = pd.read_csv('data/halfcheetah/equidistant.csv')
 # data = data[data['new_integration_dt'] >= 0.05 / 30]
-data_adaptive = pd.read_csv('data/hopper/switch_cost.csv')
+data_adaptive = pd.read_csv('data/rccar/switch_cost.csv')
 filtered_df = data_adaptive[(data_adaptive['switch_cost'] == SWITCH_COST) &
                             (data_adaptive['max_time_between_switches'] == MAX_TIME_BETWEEN_SWITCHES) &
                             (data_adaptive['time_as_part_of_state'] == True)]
@@ -51,7 +51,8 @@ filtered_df['results/reward_with_switch_cost'] = filtered_df['results/total_rewa
 grouped_data_adaptive = filtered_df.groupby('new_integration_dt')['results/total_reward'].agg(['mean', 'std'])
 grouped_data_adaptive = grouped_data_adaptive.reset_index()
 
-baselines_reward_without_switch_cost[r'Switch-Cost-CTRL [Episodes=5000, GD updates=$10^6$, Measurements=$10^6$]'] = Statistics(
+baselines_reward_without_switch_cost[
+    r'Switch-Cost-CTRL [Episodes=5000, GD updates=$10^6$, Measurements=$10^6$]'] = Statistics(
     xs=np.array(grouped_data_adaptive['new_integration_dt']),
     ys_mean=np.array(grouped_data_adaptive['mean']),
     ys_std=np.array(grouped_data_adaptive['std'])
@@ -61,11 +62,13 @@ grouped_data_adaptive_with_switch_cost = filtered_df.groupby('new_integration_dt
     'results/reward_with_switch_cost'].agg(['mean', 'std'])
 grouped_data_adaptive_with_switch_cost = grouped_data_adaptive_with_switch_cost.reset_index()
 
-baselines_reward_with_switch_cost[r'Switch-Cost-CTRL [Episodes=5000, GD updates=$10^6$, Measurements=$10^6$]'] = Statistics(
+baselines_reward_with_switch_cost[
+    r'Switch-Cost-CTRL [Episodes=5000, GD updates=$10^6$, Measurements=$10^6$]'] = Statistics(
     xs=np.array(grouped_data_adaptive_with_switch_cost['new_integration_dt']),
     ys_mean=np.array(grouped_data_adaptive_with_switch_cost['mean']),
     ys_std=np.array(grouped_data_adaptive_with_switch_cost['std'])
 )
+
 
 ########################################################################################
 ########################################################################################

@@ -6,7 +6,7 @@ api = wandb.Api()
 
 # Set your entity ant project name
 entity = "trevenl"
-project = "NoiseInfluencePerformance_Apr_04_10_00"
+project = "NoiseInfluence_Apr_16_15_45"
 
 # Fetch all runs from the project
 runs = api.runs(f"{entity}/{project}")
@@ -37,4 +37,4 @@ df = df.join(config_df).join(summary_df)
 print(df.head())  # Display the first few rows of the DataFrame
 
 # You can now save this DataFrame to a CSV file or perform further analysis
-df.to_csv("data/noise_influence_performance.csv", index=False)
+df.to_csv("data/noise_influence_Apr17_11_40.csv", index=False)
