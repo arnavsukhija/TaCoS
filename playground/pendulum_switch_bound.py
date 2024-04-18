@@ -149,7 +149,7 @@ if __name__ == "__main__":
 
         xs_full_trajectory = jnp.concatenate([init_state.obs[:-2].reshape(1, -1), full_trajectory.obs, ])
         rewards_full_trajectory = jnp.concatenate([init_state.reward.reshape(1, ), full_trajectory.reward])
-        ts_full_trajectory = jnp.linspace(0, env.time_horizon, episode_length)
+        ts_full_trajectory = jnp.linspace(0, env.time_horizon, xs_full_trajectory.shape[0])
 
         fig, axs = plt.subplots(nrows=1, ncols=4, figsize=(20, 4))
         xs = trajectory[0][:, :-2]
