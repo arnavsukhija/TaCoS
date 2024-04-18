@@ -19,7 +19,6 @@ from wtc.wrappers.change_integration_dt import ChangeIntegrationStep
 from wtc.utils import discrete_to_continuous_discounting
 from wtc.wrappers.ih_switching_cost import ConstantSwitchCost, IHSwitchCostWrapper
 from wtc.envs.rccar import RCCar, plot_rc_trajectory
-from wtc.wrappers.action_repeat_to_n_frames import ActionRepeatToNumFrames
 
 from jax import config
 
@@ -46,7 +45,8 @@ def experiment(env_name: str = 'inverted_pendulum',
                switch_cost: float = 0.1,
                max_time_between_switches: float = 0.1,
                time_as_part_of_state: bool = True,
-               same_amount_of_gradient_updates: bool = True
+               same_amount_of_gradient_updates: bool = True,
+               num_final_evals: int = 10
                ):
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
                         'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse', 'rccar']
@@ -59,16 +59,15 @@ def experiment(env_name: str = 'inverted_pendulum',
     else:
         env = envs.get_environment(env_name=env_name,
                                    backend=backend)
-        env = ActionRepeatToNumFrames(env, action_repeat=action_repeat)
-        episode_length = int(episode_length / action_repeat)
 
         base_dt = env.dt
-        base_episode_steps = episode_time // env.dt
+        base_episode_steps = episode_time // (env.dt * action_repeat)
         print(f'Base integration dt {base_dt}')
         print(f'Base episode steps: {base_episode_steps}')
 
         env = ChangeIntegrationStep(env=env,
-                                    dt_divisor=base_dt_divisor)
+                                    dt_divisor=base_dt_divisor,
+                                    action_repeat=action_repeat)
 
     print(f'New integration dt {env.dt}')
     print(f'New episode steps: {episode_time // env.dt}')
@@ -117,7 +116,8 @@ def experiment(env_name: str = 'inverted_pendulum',
                   switch_cost=switch_cost,
                   max_time_between_switches=max_time_between_switches,
                   time_as_part_of_state=time_as_part_of_state,
-                  same_amount_of_gradient_updates=same_amount_of_gradient_updates
+                  same_amount_of_gradient_updates=same_amount_of_gradient_updates,
+                  num_final_evals=num_final_evals
                   )
 
     wandb.init(
@@ -241,7 +241,8 @@ def experiment(env_name: str = 'inverted_pendulum',
             env = envs.get_environment(env_name=env_name,
                                        backend=backend)
             env = ChangeIntegrationStep(env=env,
-                                        dt_divisor=base_dt_divisor)
+                                        dt_divisor=base_dt_divisor,
+                                        action_repeat=action_repeat)
 
         env = IHSwitchCostWrapper(env=env,
                                   num_integrator_steps=int(episode_time // env.dt),
@@ -250,52 +251,53 @@ def experiment(env_name: str = 'inverted_pendulum',
                                   switch_cost=ConstantSwitchCost(value=jnp.array(0.0)),
                                   discounting=1.0,
                                   time_as_part_of_state=time_as_part_of_state, )
-        state = env.reset(rng=jr.PRNGKey(0))
 
-        print(f'Prepared and reseted environment')
+        for index in range(num_final_evals):
+            state = env.reset(rng=jr.PRNGKey(index))
+            print(f'Prepared and reseted environment')
 
-        def step(state, _):
-            u = policy(state.obs)[0]
-            next_state, rest = env.simulation_step(state, u)
-            return next_state, (next_state.obs, u, next_state.reward, rest)
+            def step(state, _):
+                u = policy(state.obs)[0]
+                next_state, rest = env.simulation_step(state, u)
+                return next_state, (next_state.obs, u, next_state.reward, rest)
 
-        init_state = state
-        LEGEND_SIZE = 20
-        LABEL_SIZE = 20
-        TICKS_SIZE = 20
+            init_state = state
+            LEGEND_SIZE = 20
+            LABEL_SIZE = 20
+            TICKS_SIZE = 20
 
-        import matplotlib as mpl
+            import matplotlib as mpl
 
-        mpl.rcParams['xtick.labelsize'] = TICKS_SIZE
-        mpl.rcParams['ytick.labelsize'] = TICKS_SIZE
+            mpl.rcParams['xtick.labelsize'] = TICKS_SIZE
+            mpl.rcParams['ytick.labelsize'] = TICKS_SIZE
 
-        print('Starting with trajectory simulation')
-        trajectory = []
-        full_trajectories = []
-        while not state.done:
-            state, one_traj = step(state, None)
-            one_traj, full_trajectory = one_traj[:-1], one_traj[-1]
-            trajectory.append(one_traj)
-            full_trajectories.append(full_trajectory)
+            print('Starting with trajectory simulation')
+            trajectory = []
+            full_trajectories = []
+            while not state.done:
+                state, one_traj = step(state, None)
+                one_traj, full_trajectory = one_traj[:-1], one_traj[-1]
+                trajectory.append(one_traj)
+                full_trajectories.append(full_trajectory)
 
-        print('End of trajectory simulation')
-        trajectory = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *trajectory)
-        full_trajectory = jtu.tree_map(lambda *xs: jnp.concatenate(xs), *full_trajectories)
+            print('End of trajectory simulation')
+            trajectory = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *trajectory)
+            full_trajectory = jtu.tree_map(lambda *xs: jnp.concatenate(xs), *full_trajectories)
 
-        wandb.log({'results/total_reward': float(jnp.sum(trajectory[2])),
-                   'results/num_actions': trajectory[0].shape[0]})
+            wandb.log({f'results/total_reward_{index}': float(jnp.sum(trajectory[2])),
+                       f'results/num_actions_{index}': trajectory[0].shape[0]})
 
-        print('Saving the models to Wandb')
-        # We save full_trajectory to wandb
-        # Save trajectory rather than rendered video
-        directory = os.path.join(wandb.run.dir, 'results')
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        model_path = os.path.join(directory, 'trajectory_1.pkl')
-        with open(model_path, 'wb') as handle:
-            pickle.dump(full_trajectory, handle)
-        wandb.save(model_path, wandb.run.dir)
-        print('Trajectory saved to Wandb')
+            print('Saving the models to Wandb')
+            # We save full_trajectory to wandb
+            # Save trajectory rather than rendered video
+            directory = os.path.join(wandb.run.dir, 'results')
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+            model_path = os.path.join(directory, f'trajectory_{index}.pkl')
+            with open(model_path, 'wb') as handle:
+                pickle.dump(full_trajectory, handle)
+            wandb.save(model_path, wandb.run.dir)
+            print('Trajectory saved to Wandb')
 
         print('Started plotting')
         if time_as_part_of_state:
@@ -357,7 +359,8 @@ def experiment(env_name: str = 'inverted_pendulum',
             env = envs.get_environment(env_name=env_name,
                                        backend=backend)
             env = ChangeIntegrationStep(env=env,
-                                        dt_divisor=base_dt_divisor)
+                                        dt_divisor=base_dt_divisor,
+                                        action_repeat=action_repeat)
 
         state = env.reset(rng=jr.PRNGKey(0))
         step_fn = jax.jit(env.step)
@@ -413,7 +416,8 @@ def main(args):
                switch_cost=args.switch_cost,
                max_time_between_switches=args.max_time_between_switches,
                time_as_part_of_state=bool(args.time_as_part_of_state),
-               same_amount_of_gradient_updates=bool(args.same_amount_of_gradient_updates)
+               same_amount_of_gradient_updates=bool(args.same_amount_of_gradient_updates),
+               num_final_evals=args.num_final_evals
                )
 
 
@@ -438,6 +442,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_time_between_switches', type=float, default=0.5)
     parser.add_argument('--time_as_part_of_state', type=int, default=1)
     parser.add_argument('--same_amount_of_gradient_updates', type=int, default=0)
+    parser.add_argument('--num_final_evals', type=int, default=2)
 
     args = parser.parse_args()
     main(args)

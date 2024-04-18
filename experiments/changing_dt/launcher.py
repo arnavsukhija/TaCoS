@@ -3,7 +3,37 @@ from experiments.util import generate_run_commands, generate_base_command, dict_
 
 PROJECT_NAME = 'RCCarNoSwitchCostApr17_14_00'
 
+################################################
+#################### Reacher ###################
+################################################
+
+general_configs = {
+    'project_name': ["ReachSwitchCostApr18_11_00"],
+    'backend': ['generalized', ],
+    'num_timesteps': [1_000_000, ],
+    'base_discount_factor': [0.95],
+    'num_envs': [256],
+    'num_env_steps_between_updates': [10, ],
+    'seed': list(range(5)),
+    'networks': [0, ],
+    'batch_size': [256],
+    'action_repeat': [5, ],
+}
+
+reacher_switch_cost = {'env_name': ['reacher', ],
+                       'reward_scaling': [5.0, ],
+                       'episode_time': [20.0, ],
+                       'base_dt_divisor': [1, 2, 5, 10, 25, 50, ],
+                       'switch_cost_wrapper': [1, ],
+                       'switch_cost': [0.1, 0.5, 1.0, 2.0],
+                       'max_time_between_switches': [0.1],
+                       'time_as_part_of_state': [1, ],
+                       'num_final_evals': [10, ]
+                       } | general_configs
+
+################################################
 #################### RC Car ####################
+################################################
 
 general_configs = {
     'project_name': ["RCCarSwitchCostApr17_14_00"],
@@ -53,9 +83,9 @@ for dt_divisor in base_dt_divisor:
                                                        'num_timesteps': [base_numsteps * dt_divisor]}
     rccar_no_switch_cost_configs.append(cur_configs)
 
-###########################################################################
-
+################################################
 #################### Hopper ####################
+################################################
 
 general_configs = {
     'project_name': [PROJECT_NAME],
@@ -140,13 +170,13 @@ hopper_switch_cost = {'env_name': ['hopper', ],
 
 def main():
     command_list = []
-    flags_combinations = None
-    for conf in rccar_no_switch_cost_configs:
-        if flags_combinations is None:
-            flags_combinations = dict_permutations(conf)
-        else:
-            flags_combinations += dict_permutations(conf)
-    flags_combinations += dict_permutations(rccar_switch_cost)
+    # flags_combinations = None
+    # for conf in rccar_no_switch_cost_configs:
+    #     if flags_combinations is None:
+    #         flags_combinations = dict_permutations(conf)
+    #     else:
+    #         flags_combinations += dict_permutations(conf)
+    flags_combinations = dict_permutations(reacher_switch_cost)
 
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)
