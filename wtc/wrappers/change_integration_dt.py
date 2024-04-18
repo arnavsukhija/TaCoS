@@ -37,3 +37,23 @@ class ChangeIntegrationStep(Env):
     @property
     def dt(self):
         return self.env.dt
+
+
+if __name__ == "__main__":
+    import jax
+    import jax.numpy as jnp
+    import matplotlib.pyplot as plt
+    from brax import envs
+
+    env_name = 'reacher'
+    backend = 'generalized'
+
+    assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
+                        'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse']
+    env = envs.get_environment(env_name=env_name,
+                               backend=backend)
+    print(env.dt)
+    env = ChangeIntegrationStep(env=env,
+                                action_repeat=5)
+    print(env.dt)
+    print(env.dt * 200)

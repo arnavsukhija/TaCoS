@@ -40,7 +40,7 @@ def experiment(env_name: str = 'inverted_pendulum',
         os.mkdir(video_dir)
     new_filename = filename.replace('.pkl', '.mp4')
 
-    with imageio.get_writer(os.path.join(video_dir, new_filename), fps=int(1 / env.dt)) as writer:
+    with imageio.get_writer(os.path.join(video_dir, new_filename), fps=int(1 / (env.dt * 5))) as writer:
         for frame in video_frames:
             writer.append_data(frame)
 
