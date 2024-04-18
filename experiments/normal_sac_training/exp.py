@@ -18,7 +18,7 @@ from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 
 from wtc.envs.drone import Crazyflie2
 from wtc.envs.greenhouse import GreenHouseEnv
-from wtc.wrappers.action_repeat_to_n_frames import ActionRepeatToNumFrames
+from wtc.wrappers.change_integration_dt import ChangeIntegrationStep
 
 ENTITY = 'trevenl'
 
@@ -47,7 +47,7 @@ def experiment(env_name: str = 'inverted_pendulum',
     episode_length = int(episode_length / action_repeat)
     env = envs.get_environment(env_name=env_name,
                                backend=backend)
-    env = ActionRepeatToNumFrames(env, action_repeat=action_repeat)
+    env = ChangeIntegrationStep(env, action_repeat=action_repeat)
 
     if networks == 0:
         policy_hidden_layer_sizes = (32,) * 5
@@ -139,7 +139,7 @@ def experiment(env_name: str = 'inverted_pendulum',
     env = envs.get_environment(env_name=env_name,
                                backend=backend)
 
-    env = ActionRepeatToNumFrames(env, action_repeat=action_repeat)
+    env = ChangeIntegrationStep(env, action_repeat=action_repeat)
 
     step_fn = jax.jit(env.step)
 

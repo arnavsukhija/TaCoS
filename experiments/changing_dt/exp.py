@@ -19,6 +19,7 @@ from wtc.wrappers.change_integration_dt import ChangeIntegrationStep
 from wtc.utils import discrete_to_continuous_discounting
 from wtc.wrappers.ih_switching_cost import ConstantSwitchCost, IHSwitchCostWrapper
 from wtc.envs.rccar import RCCar, plot_rc_trajectory
+from wtc.wrappers.action_repeat_to_n_frames import ActionRepeatToNumFrames
 
 from jax import config
 
@@ -58,6 +59,9 @@ def experiment(env_name: str = 'inverted_pendulum',
     else:
         env = envs.get_environment(env_name=env_name,
                                    backend=backend)
+        env = ActionRepeatToNumFrames(env, action_repeat=action_repeat)
+        episode_length = int(episode_length / action_repeat)
+
         base_dt = env.dt
         base_episode_steps = episode_time // env.dt
         print(f'Base integration dt {base_dt}')

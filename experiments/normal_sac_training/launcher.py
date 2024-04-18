@@ -38,7 +38,7 @@ hopper_configs = {
 reacher_configs = {
     'env_name': ['reacher'],
     'backend': ['generalized', ],
-    'project_name': ['ReacherTestSAC_Apr18_9_30'],
+    'project_name': ['ReacherTestSAC_Apr18_10_15'],
     'num_timesteps': [1_000_000, ],
     'episode_length': [200],
     'num_envs': [256],
@@ -47,7 +47,7 @@ reacher_configs = {
     'seed': list(range(5)),
     'networks': [0],
     'batch_size': [256],
-    'action_repeat': [5, ],
+    'action_repeat': [1,],
     'reward_scaling': [5.0, ],
     'video_track': [2],
     'num_final_evals': [10]
