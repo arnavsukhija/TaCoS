@@ -136,10 +136,10 @@ def experiment(env_name: str = 'inverted_pendulum',
     ########################## Evaluation ##########################
     ################################################################
 
-    env = envs.get_environment(env_name=env_name,
+    base_env = envs.get_environment(env_name=env_name,
                                backend=backend)
 
-    env = ChangeIntegrationStep(env, action_repeat=action_repeat)
+    env = ChangeIntegrationStep(base_env, action_repeat=action_repeat)
 
     step_fn = jax.jit(env.step)
 
@@ -163,9 +163,9 @@ def experiment(env_name: str = 'inverted_pendulum',
             traj = [jtu.tree_map(lambda x: x[i], trajectory).pipeline_state for i in range(trajectory.obs.shape[0])]
             print('End simulation, start rendering')
             if video_track == 0:
-                video_frames = env.render(traj, camera='track')
+                video_frames = base_env.render(traj, camera='track')
             elif video_track == 1:
-                video_frames = env.render(traj)
+                video_frames = base_env.render(traj)
             print('Uploading video to wandb.')
             video = np.stack(video_frames)
             video = np.transpose(video, (0, 3, 1, 2))
@@ -217,7 +217,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--action_repeat', type=int, default=5)
     parser.add_argument('--reward_scaling', type=float, default=5.0)
-    parser.add_argument('--video_track', type=int, default=0)
+    parser.add_argument('--video_track', type=int, default=1)
     parser.add_argument('--num_final_evals', type=int, default=1)
 
     args = parser.parse_args()

@@ -426,7 +426,7 @@ if __name__ == '__main__':
     parser.add_argument('--env_name', type=str, default='reacher')
     parser.add_argument('--backend', type=str, default='generalized')
     parser.add_argument('--project_name', type=str, default='GPUSpeedTest')
-    parser.add_argument('--num_timesteps', type=int, default=100_000)
+    parser.add_argument('--num_timesteps', type=int, default=20_000)
     parser.add_argument('--episode_time', type=float, default=20.0)
     parser.add_argument('--base_dt_divisor', type=int, default=1)
     parser.add_argument('--base_discount_factor', type=float, default=0.95)

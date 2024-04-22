@@ -61,6 +61,7 @@ class IHSwitchCostWrapper(Env):
         self.max_time_between_switches = max_time_between_switches
         self.discounting = discounting
         self.time_as_part_of_state = time_as_part_of_state
+        self.jitted_step_fn = jit(self.env.step)
 
     def reset(self, rng: jax.Array) -> State:
         """
@@ -173,20 +174,20 @@ class IHSwitchCostWrapper(Env):
         else:
             state = state.replace(pipeline_state=env_pipeline_state)
 
-        @jax.jit
-        def scan_f(s, _):
-            n_s = self.env.step(s, u)
-            next_done = 1 - (1 - s.done) * (1 - n_s.done)
-            n_s = n_s.replace(done=next_done,
-                              reward=(1 - next_done) * n_s.reward)
-            return n_s, n_s
+        # Execute the action for the predicted number of integration steps
+        step_index = 0
+        cur_state = state
+        all_states = []
+        while step_index < num_steps and not cur_state.done:
+            cur_state = self.jitted_step_fn(cur_state, u)
+            all_states.append(cur_state)
+            step_index += 1
 
-        next_state, inner_part = scan(scan_f, state, xs=None, length=num_steps.astype(int))
-        inner_part_not_done = jtu.tree_map(lambda x: x[inner_part.done == 0], inner_part)
-
-        # Compute total reward
-        total_reward = jnp.sum(inner_part_not_done.reward)
-
+        next_state = cur_state
+        if len(all_states) == 0:
+            all_states = [cur_state]
+        inner_part = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *all_states)
+        total_reward = jnp.sum(inner_part.reward)
         next_done = 1 - (1 - next_state.done) * (1 - done)
 
         # Add switch cost to the total reward
@@ -199,14 +200,14 @@ class IHSwitchCostWrapper(Env):
             augmented_next_state = next_state.replace(obs=augmented_next_obs,
                                                       reward=total_reward,
                                                       done=next_done)
-            return augmented_next_state, inner_part_not_done
+            return augmented_next_state, inner_part
         else:
             augmented_pipeline_state = AugmentedPipelineState(pipeline_state=next_state.pipeline_state,
                                                               time=next_time.reshape())
             augmented_next_state = next_state.replace(reward=total_reward,
                                                       done=next_done,
                                                       pipeline_state=augmented_pipeline_state)
-            return augmented_next_state, inner_part_not_done
+            return augmented_next_state, inner_part
 
     @property
     def observation_size(self) -> int:
