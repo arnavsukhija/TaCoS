@@ -19,7 +19,7 @@ class ChangeIntegrationStep(Env):
 
     def step(self, state: State, action: jax.Array) -> State:
         next_step = self.env.step(state, action)
-        next_step = next_step.replace(reward=next_step.reward / self.dt_divisor * self.action_repeat)
+        next_step = next_step.replace(reward=(next_step.reward / self.dt_divisor) * self.action_repeat)
         return next_step
 
     @property
