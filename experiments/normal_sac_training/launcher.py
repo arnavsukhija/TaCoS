@@ -45,7 +45,7 @@ reacher_configs = {
     'learning_discount_factor': [0.95],
     'num_env_steps_between_updates': [10, ],
     'seed': list(range(5)),
-    'networks': [0],
+    'networks': [0,],
     'batch_size': [256],
     'action_repeat': [1,],
     'reward_scaling': [5.0, ],

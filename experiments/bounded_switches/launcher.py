@@ -1,31 +1,31 @@
 import exp
 from experiments.util import generate_run_commands, generate_base_command, dict_permutations
 
-PROJECT_NAME = 'BoundedSwitches_Feb_29_14_00'
+PROJECT_NAME = 'GreenhouseBoundedSwitchesApr22_15_00'
 
 general_configs = {
-    'backend': ['generalized', ],
     'project_name': [PROJECT_NAME],
-    'num_timesteps': [1_000_000, ],
-    'episode_length': [1000, ],
-    'learning_discount_factor': [0.99],
-    'min_reps': [1],
-    'max_reps': [10, ],
-    'seed': list(range(5))
+    'env_name': ['GreenHouse', ],
+    'sac_train_steps': [200_000, ],
+    'training_seed': list(range(5)),
+    'plot_progress': [0, ],
+    'episode_length': [300, ],
 }
 
-hopper = {'env_name': ['hopper',],
-          'num_switches': [150,],
-          } | general_configs
+bounded_switches_config = {'wrapper': [1, ],
+                           'action_repeat': [1, ],
+                           'num_switches': list(range(3, 21)) + [25, 30, 35],
+                           } | general_configs
 
-halfcheetah = {'env_name': ['halfcheetah',],
-               'num_switches': [250,],
-               } | general_configs
+action_repeat_configs = {'wrapper': [0, ],
+                         'num_switches': [-1, ],
+                         'action_repeat': [4, 5, 6, 10, 12, 15, 20, 25, 30, 50, 60, 75, 100, 150],
+                         } | general_configs
 
 
 def main():
     command_list = []
-    flags_combinations = dict_permutations(hopper) + dict_permutations(halfcheetah)
+    flags_combinations = dict_permutations(bounded_switches_config) + dict_permutations(action_repeat_configs)
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)
         command_list.append(cmd)
@@ -33,7 +33,7 @@ def main():
     # submit jobs
     generate_run_commands(command_list,
                           num_cpus=1,
-                          num_gpus=1,
+                          num_gpus=0,
                           mode='euler',
                           duration='3:59:00',
                           prompt=True,

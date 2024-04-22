@@ -51,10 +51,10 @@ if __name__ == '__main__':
     environments = ['reacher']
     tracks = [False]
     for env, track in zip(environments[:1], tracks[:1]):
-        for index in range(10):
+        for index in range(2, 3):
             experiment(env_name=env,
                        backend='generalized',
                        filename=f'trajectory_{index}.pkl',
                        track=track,
-                       dir=f'trajectories/{env}/Apr17_16_30',
+                       dir=f'trajectories/{env}/Apr18_12_00',
                        plot=True)
