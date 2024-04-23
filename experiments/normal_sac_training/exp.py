@@ -18,7 +18,7 @@ from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 
 from wtc.envs.drone import Crazyflie2
 from wtc.envs.greenhouse import GreenHouseEnv
-from wtc.wrappers.change_integration_dt import ChangeIntegrationStep
+from wtc.envs.reacher_dm_control import ReacherDMControl
 
 ENTITY = 'trevenl'
 
@@ -45,8 +45,11 @@ def experiment(env_name: str = 'inverted_pendulum',
                         'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse',
                         'swimmer']
     episode_length = int(episode_length / action_repeat)
-    env = envs.get_environment(env_name=env_name,
-                               backend=backend)
+    if env_name == 'reacher':
+        env = ReacherDMControl(backend=backend)
+    else:
+        env = envs.get_environment(env_name=env_name,
+                                   backend=backend)
 
     if networks == 0:
         policy_hidden_layer_sizes = (32,) * 5
@@ -135,8 +138,11 @@ def experiment(env_name: str = 'inverted_pendulum',
     ########################## Evaluation ##########################
     ################################################################
 
-    base_env = envs.get_environment(env_name=env_name,
-                                    backend=backend)
+    if env_name == 'reacher':
+        base_env = ReacherDMControl(backend=backend)
+    else:
+        base_env = envs.get_environment(env_name=env_name,
+                                        backend=backend)
     step_fn = jax.jit(env.step)
 
     for index in range(num_final_evals):

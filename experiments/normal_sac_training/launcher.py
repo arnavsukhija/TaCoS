@@ -38,7 +38,7 @@ hopper_configs = {
 reacher_configs = {
     'env_name': ['reacher'],
     'backend': ['generalized', ],
-    'project_name': ['ReacherTestSAC_Apr18_10_15'],
+    'project_name': ['ReacherTestSACCPU_Apr23_13_15'],
     'num_timesteps': [1_000_000, ],
     'episode_length': [200],
     'num_envs': [256],
@@ -66,7 +66,7 @@ def main():
     # submit jobs
     generate_run_commands(command_list,
                           num_cpus=1,
-                          num_gpus=1,
+                          num_gpus=0,
                           mode='euler',
                           duration='23:59:00',
                           prompt=True,
