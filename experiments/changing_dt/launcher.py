@@ -9,7 +9,7 @@ PROJECT_NAME = 'RCCarNoSwitchCostApr17_14_00'
 
 reacher_switch_cost = {'env_name': ['reacher', ],
                        'backend': ['generalized', ],
-                       'project_name': ["ReachSwitchCostApr23_10_20"],
+                       'project_name': ["ReachSwitchCostCPUApr23_10_30"],
                        'num_timesteps': [1_000_000, ],
                        'episode_time': [20.0, ],
                        'base_dt_divisor': [1, 2, 5, 10, 25, 50, ],
@@ -182,7 +182,7 @@ def main():
     # submit jobs
     generate_run_commands(command_list,
                           num_cpus=1,
-                          num_gpus=1,
+                          num_gpus=0,
                           mode='euler',
                           duration='23:59:00',
                           prompt=True,
