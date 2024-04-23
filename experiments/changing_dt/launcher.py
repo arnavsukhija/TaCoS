@@ -7,29 +7,26 @@ PROJECT_NAME = 'RCCarNoSwitchCostApr17_14_00'
 #################### Reacher ###################
 ################################################
 
-general_configs = {
-    'project_name': ["ReachSwitchCostApr18_11_00"],
-    'backend': ['generalized', ],
-    'num_timesteps': [1_000_000, ],
-    'base_discount_factor': [0.95],
-    'num_envs': [256],
-    'num_env_steps_between_updates': [10, ],
-    'seed': list(range(5)),
-    'networks': [0, ],
-    'batch_size': [256],
-    'action_repeat': [5, ],
-}
-
 reacher_switch_cost = {'env_name': ['reacher', ],
-                       'reward_scaling': [5.0, ],
+                       'backend': ['generalized', ],
+                       'project_name': ["ReachSwitchCostApr23_10_20"],
+                       'num_timesteps': [1_000_000, ],
                        'episode_time': [20.0, ],
                        'base_dt_divisor': [1, 2, 5, 10, 25, 50, ],
+                       'base_discount_factor': [0.95],
+                       'seed': list(range(5)),
+                       'num_envs': [256],
+                       'num_env_steps_between_updates': [10, ],
+                       'networks': [0, ],
+                       'batch_size': [256],
+                       'action_repeat': [1, ],
+                       'reward_scaling': [5.0, ],
                        'switch_cost_wrapper': [1, ],
                        'switch_cost': [0.1, 0.5, 1.0, 2.0],
                        'max_time_between_switches': [0.1],
                        'time_as_part_of_state': [1, ],
                        'num_final_evals': [10, ]
-                       } | general_configs
+                       }
 
 ################################################
 #################### RC Car ####################

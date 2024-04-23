@@ -61,13 +61,12 @@ def experiment(env_name: str = 'inverted_pendulum',
                                    backend=backend)
 
         base_dt = env.dt
-        base_episode_steps = episode_time // (env.dt * action_repeat)
+        base_episode_steps = episode_time // env.dt
         print(f'Base integration dt {base_dt}')
         print(f'Base episode steps: {base_episode_steps}')
 
         env = ChangeIntegrationStep(env=env,
-                                    dt_divisor=base_dt_divisor,
-                                    action_repeat=action_repeat)
+                                    dt_divisor=base_dt_divisor)
 
     print(f'New integration dt {env.dt}')
     print(f'New episode steps: {episode_time // env.dt}')
@@ -241,8 +240,7 @@ def experiment(env_name: str = 'inverted_pendulum',
             env = envs.get_environment(env_name=env_name,
                                        backend=backend)
             env = ChangeIntegrationStep(env=env,
-                                        dt_divisor=base_dt_divisor,
-                                        action_repeat=action_repeat)
+                                        dt_divisor=base_dt_divisor)
 
         env = IHSwitchCostWrapper(env=env,
                                   num_integrator_steps=int(episode_time // env.dt),
@@ -359,8 +357,7 @@ def experiment(env_name: str = 'inverted_pendulum',
             env = envs.get_environment(env_name=env_name,
                                        backend=backend)
             env = ChangeIntegrationStep(env=env,
-                                        dt_divisor=base_dt_divisor,
-                                        action_repeat=action_repeat)
+                                        dt_divisor=base_dt_divisor)
 
         state = env.reset(rng=jr.PRNGKey(0))
         step_fn = jax.jit(env.step)
