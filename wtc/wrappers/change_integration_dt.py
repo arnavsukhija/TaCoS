@@ -5,13 +5,11 @@ from brax.envs.base import PipelineEnv, State, Env
 class ChangeIntegrationStep(Env):
     def __init__(self,
                  env: PipelineEnv,
-                 dt_divisor: float = 1.0,
-                 action_repeat: int = 1):
+                 dt_divisor: float = 1.0
+                 ):
         self.dt_divisor = dt_divisor
-        self.action_repeat = action_repeat
         self.env = env
         self.base_dt = self.env.sys.dt
-        self.env._n_frames = env._n_frames * action_repeat
         self.env.sys = self.env.sys.replace(dt=self.base_dt / self.dt_divisor)
 
     def reset(self, rng: jax.Array) -> State:
@@ -19,7 +17,7 @@ class ChangeIntegrationStep(Env):
 
     def step(self, state: State, action: jax.Array) -> State:
         next_step = self.env.step(state, action)
-        next_step = next_step.replace(reward=(next_step.reward / self.dt_divisor) * self.action_repeat)
+        next_step = next_step.replace(reward=(next_step.reward / self.dt_divisor))
         return next_step
 
     @property
@@ -53,7 +51,6 @@ if __name__ == "__main__":
     env = envs.get_environment(env_name=env_name,
                                backend=backend)
     print(env.dt)
-    env = ChangeIntegrationStep(env=env,
-                                action_repeat=5)
+    env = ChangeIntegrationStep(env=env)
     print(env.dt)
     print(env.dt * 200)
