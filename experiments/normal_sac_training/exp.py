@@ -47,7 +47,6 @@ def experiment(env_name: str = 'inverted_pendulum',
     episode_length = int(episode_length / action_repeat)
     env = envs.get_environment(env_name=env_name,
                                backend=backend)
-    env = ChangeIntegrationStep(env, action_repeat=action_repeat)
 
     if networks == 0:
         policy_hidden_layer_sizes = (32,) * 5
@@ -78,7 +77,7 @@ def experiment(env_name: str = 'inverted_pendulum',
         environment=env,
         num_timesteps=num_timesteps,
         episode_length=episode_length,
-        action_repeat=1,
+        action_repeat=action_repeat,
         num_env_steps_between_updates=num_env_steps_between_updates,
         num_envs=num_envs,
         num_eval_envs=32,
@@ -137,10 +136,7 @@ def experiment(env_name: str = 'inverted_pendulum',
     ################################################################
 
     base_env = envs.get_environment(env_name=env_name,
-                               backend=backend)
-
-    env = ChangeIntegrationStep(base_env, action_repeat=action_repeat)
-
+                                    backend=backend)
     step_fn = jax.jit(env.step)
 
     for index in range(num_final_evals):
@@ -215,7 +211,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_env_steps_between_updates', type=int, default=10)
     parser.add_argument('--networks', type=int, default=1)
     parser.add_argument('--batch_size', type=int, default=32)
-    parser.add_argument('--action_repeat', type=int, default=5)
+    parser.add_argument('--action_repeat', type=int, default=1)
     parser.add_argument('--reward_scaling', type=float, default=5.0)
     parser.add_argument('--video_track', type=int, default=1)
     parser.add_argument('--num_final_evals', type=int, default=1)
