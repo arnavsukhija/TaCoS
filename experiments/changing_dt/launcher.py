@@ -9,9 +9,9 @@ PROJECT_NAME = 'RCCarNoSwitchCostApr17_14_00'
 
 reacher_switch_cost = {'env_name': ['reacher', ],
                        'backend': ['generalized', ],
-                       'project_name': ["ReachSwitchCostApr23_14_30"],
-                       'num_timesteps': [250_000, ],
-                       'episode_time': [4.0, ],
+                       'project_name': ["ReacherSwitchCostApr24_09_45"],
+                       'num_timesteps': [100_000, ],
+                       'episode_time': [2.0, ],
                        'base_dt_divisor': [1, 2, 5, 10, 25, 50],
                        'base_discount_factor': [0.95],
                        'seed': list(range(5)),
@@ -22,7 +22,7 @@ reacher_switch_cost = {'env_name': ['reacher', ],
                        'action_repeat': [1, ],
                        'reward_scaling': [5.0, ],
                        'switch_cost_wrapper': [1, ],
-                       'switch_cost': [0.1, 0.5, 1.0, 2.0],
+                       'switch_cost': [0.1, ],
                        'max_time_between_switches': [0.02],
                        'time_as_part_of_state': [1, ],
                        'num_final_evals': [10, ]
@@ -31,8 +31,8 @@ reacher_switch_cost = {'env_name': ['reacher', ],
 reacher_no_switch_cost_base_configs = {
     'env_name': ['reacher', ],
     'backend': ['generalized', ],
-    'project_name': ["ReacherNoSwitchCostApr23_15_30"],
-    'episode_time': [4.0],
+    'project_name': ["ReacherNoSwitchCostApr24_10_00"],
+    'episode_time': [2.0],
     'base_discount_factor': [0.95],
     'seed': list(range(5)),
     'num_envs': [256],
@@ -48,7 +48,7 @@ reacher_no_switch_cost_base_configs = {
 
 reacher_no_switch_cost_configs = []
 base_dt_divisor = [1, 2, 5, 10, 25, 50, ]
-base_numsteps = 250_000
+base_numsteps = 100_000
 for dt_divisor in base_dt_divisor:
     cur_configs = reacher_no_switch_cost_base_configs | {'base_dt_divisor': [dt_divisor],
                                                          'num_timesteps': [base_numsteps * dt_divisor]}

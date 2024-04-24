@@ -38,9 +38,9 @@ hopper_configs = {
 reacher_configs = {
     'env_name': ['reacher'],
     'backend': ['generalized', ],
-    'project_name': ['ReacherTestSACCPU_Apr23_13_15'],
-    'num_timesteps': [1_000_000, ],
-    'episode_length': [200],
+    'project_name': ['ReacherTestSACCPU_Apr23_17_00'],
+    'num_timesteps': [100_000, ],
+    'episode_length': [100],
     'num_envs': [256],
     'learning_discount_factor': [0.95],
     'num_env_steps_between_updates': [10, ],
