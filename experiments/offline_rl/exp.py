@@ -35,15 +35,27 @@ max_time_between_switches = 30 * env.dt
 # Wrap env with IHSwitchCostWrapper
 env = IHSwitchCostWrapper(env,
                           num_integrator_steps=episode_len,
-                          min_time_between_switches=1 * env.dt,
-                          max_time_between_switches=30 * env.dt,
+                          min_time_between_switches=min_time_between_switches,
+                          max_time_between_switches=max_time_between_switches,
                           switch_cost=ConstantSwitchCost(value=jnp.array(0.0)),
-                          time_as_part_of_state=False,
+                          time_as_part_of_state=True,
                           discounting=1.0
                           )
 
+
+def compute_time(pseudo_time: chex.Array,
+                 dt: chex.Array,
+                 t_min: chex.Array,
+                 t_max: chex.Array,
+                 env_time: chex.Array,
+                 time_horizon: chex.Array
+                 ) -> chex.Array:
+    time_for_action = ((t_max - t_min) / 2 * pseudo_time + (t_max + t_min) / 2)
+    return jnp.minimum((time_for_action // dt) * dt, time_horizon - env_time)
+
+
 # Prepare input data
-number_offline_data = 200
+number_offline_data = 10_000
 seed = 0
 
 key = jr.PRNGKey(seed)
@@ -56,10 +68,11 @@ actions = jr.uniform(key=key_actions, shape=(number_offline_data, env.action_siz
 key, key_angle, key_angular_velocity = jr.split(key, 3)
 angle = jr.uniform(key=key_angle, shape=(number_offline_data, 1), minval=-jnp.pi, maxval=jnp.pi)
 velocity = jr.uniform(key=key_angular_velocity, shape=(number_offline_data, 1), minval=-5, maxval=5)
+times = jnp.zeros(shape=(number_offline_data, 1))
 
 # Transform data to cos ant sin
 cos, sin = jnp.cos(angle), jnp.sin(angle)
-obs = jnp.concatenate([cos, sin, velocity], axis=-1)
+obs = jnp.concatenate([cos, sin, velocity, times], axis=-1)
 
 key, key_init = jr.split(key)
 key_init = jr.split(key_init, number_offline_data)
@@ -67,8 +80,20 @@ init_state = vmap(env.reset)(key_init)
 init_state = init_state.replace(obs=obs)
 next_state = vmap(env.step)(init_state, actions)
 
-inputs = jnp.concatenate([init_state.obs, actions], axis=-1)
-outputs = jnp.concatenate([next_state.obs, next_state.reward.reshape(-1, 1)], axis=-1)
+# We transfrom actions from  [-1, 1]^{d_u} x [-1, 1] -> [-1, 1]^{d_u} x [t_min, min(t_max, time_horizon)]
+env_states, env_times = init_state.obs[..., :-1], init_state.obs[..., 1]
+env_actions, pseudo_times_for_action = actions[..., :-1], actions[..., 1]
+times_for_action = compute_time(pseudo_times_for_action,
+                                dt=env.dt,
+                                t_min=min_time_between_switches,
+                                t_max=max_time_between_switches,
+                                env_time=env_times,
+                                time_horizon=episode_time)
+
+# Inputs consists of [xs, us, times_for_actions]
+inputs = jnp.concatenate([env_states, env_actions, times_for_action[..., None]], axis=-1)
+# Outputs consists of [xs, integrated_rewards]
+outputs = jnp.concatenate([next_state.obs[..., :-1], next_state.reward.reshape(-1, 1)], axis=-1)
 
 data = Data(inputs=inputs, outputs=outputs)
 
@@ -77,18 +102,18 @@ wandb.init(
 )
 
 model = BNNStatisticalModel(
-    input_dim=env.observation_size + env.action_size,
-    output_dim=env.observation_size + 1,  # One more for the reward
-    output_stds=0.1 * jnp.ones(shape=(env.observation_size + 1,)),
+    input_dim=env.observation_size + env.action_size - 1,
+    output_dim=env.observation_size + 1 - 1,  # One more for the reward one less for not including the time
+    output_stds=0.1 * jnp.ones(shape=(env.observation_size + 1 - 1,)),
     logging_wandb=True,
-    beta=1.0 * jnp.ones(shape=(env.observation_size + 1,)),
+    beta=1.0 * jnp.ones(shape=(env.observation_size + 1 - 1,)),
     num_particles=5,
-    features=(128,) * 5,
+    features=(64,) * 3,
     bnn_type=DeterministicEnsemble,
-    batch_size=128,
+    batch_size=64,
     train_share=0.8,
     num_training_steps=2_000,
-    eval_frequency=100,
+    eval_frequency=400,
     weight_decay=0.0,
     return_best_model=True,
 )
@@ -157,7 +182,7 @@ class PendulumTrainedEnv(Env):
         done = 1 - (1 - done) * (1 - state.done)
 
         # Integrate dynamics forward for the num_steps
-        model_input = jnp.concatenate([obs, action])
+        model_input = jnp.concatenate([obs, u.reshape(-1), time_for_action.reshape(-1)])
         model_output = self.model(model_input, self.model_state)
         mean_pred = model_output.mean
         next_obs = mean_pred[:-1]
@@ -351,8 +376,8 @@ rewards_full_trajectory = jnp.concatenate([init_state.reward.reshape(1, ), full_
 ts_full_trajectory = jnp.arange(0, xs_full_trajectory.shape[0]) * env.env.dt
 
 fig, axs = plt.subplots(nrows=1, ncols=4, figsize=(20, 4))
-xs = trajectory[0][:, :-1]
-us = trajectory[1][:, :-1]
+env_states = trajectory[0][:, :-1]
+env_actions = trajectory[1][:, :-1]
 rewards = trajectory[2]
 if time_as_part_of_state:
     times = trajectory[0][:, -1]
@@ -365,7 +390,7 @@ total_time = env.time_horizon
 all_ts = times
 all_ts = jnp.concatenate([jnp.array([0.0]), all_ts])
 
-all_xs = jnp.concatenate([state.obs[:-1].reshape(1, -1), xs])
+all_xs = jnp.concatenate([state.obs[:-1].reshape(1, -1), env_states])
 
 state_dict = {0: r'cos($\theta$)',
               1: r'sin($\theta$)',
@@ -383,7 +408,7 @@ else:
 axs[0].set_xlabel('Time', fontsize=LABEL_SIZE)
 axs[0].set_ylabel('State', fontsize=LABEL_SIZE)
 
-axs[1].step(all_ts, jnp.concatenate([us, us[-1].reshape(1, -1)]), where='post', label=r'$u$')
+axs[1].step(all_ts, jnp.concatenate([env_actions, env_actions[-1].reshape(1, -1)]), where='post', label=r'$u$')
 axs[1].set_xlabel('Time', fontsize=LABEL_SIZE)
 axs[1].set_ylabel('Action', fontsize=LABEL_SIZE)
 
@@ -411,6 +436,6 @@ plt.tight_layout()
 plt.savefig('pendulum_switch_cost.pdf')
 plt.show()
 print(f'Total reward: {jnp.sum(rewards_full_trajectory[:episode_len])}')
-print(f'Total number of actions {len(us)}')
+print(f'Total number of actions {len(env_actions)}')
 
 wandb.finish()

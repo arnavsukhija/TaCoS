@@ -15,6 +15,12 @@ class ReacherDMControl(reacher.Reacher):
                                                 value_at_margin=value_at_margin,
                                                 sigmoid='long_tail')
 
+    def reward(self, obs, action):
+        reward_dist = self.tolerance_reward(jnp.sqrt(jnp.sum(obs[-3:] ** 2)))
+        reward_ctrl = -jnp.square(action).sum()
+        reward = reward_dist + 0.1 * reward_ctrl
+        return reward
+
     def step(self, state: State, action: jax.Array) -> State:
         pipeline_state = self.pipeline_step(state.pipeline_state, action)
         obs = self._get_obs(pipeline_state)

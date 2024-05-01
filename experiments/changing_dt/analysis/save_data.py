@@ -10,15 +10,15 @@ api = wandb.Api()
 entity = "trevenl"
 
 ############### Reacher 4.0 sec horizon ###############
-# env_name = 'reacher'
-# runs_to_download = {"no_switch_cost": 'ReacherNoSwitchCostApr23_15_30',
-#                     "switch_cost": 'ReachSwitchCostApr23_14_30'}
+env_name = 'reacher'
+runs_to_download = {"no_switch_cost": 'ReacherNoSwitchCostApr23_15_30',
+                    "switch_cost": 'ReachSwitchCostApr23_14_30'}
 
 
 ############### Reacher 2.0 sec horizon ###############
-env_name = 'reacher'
-runs_to_download = {"no_switch_cost": 'ReacherNoSwitchCostApr24_10_00',
-                    "switch_cost": 'ReacherSwitchCostApr24_09_45'}
+# env_name = 'reacher'
+# runs_to_download = {"no_switch_cost": 'ReacherNoSwitchCostApr24_10_00',
+#                     "switch_cost": 'ReacherSwitchCostApr24_09_45'}
 
 
 # Fetch all runs from the project

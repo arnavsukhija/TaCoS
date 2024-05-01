@@ -36,7 +36,7 @@ if __name__ == "__main__":
                                   num_integrator_steps=episode_length,
                                   min_time_between_switches=min_time_between_switches,
                                   max_time_between_switches=max_time_between_switches,
-                                  switch_cost=ConstantSwitchCost(value=jnp.array(1.0)),
+                                  switch_cost=ConstantSwitchCost(value=jnp.array(0.1)),
                                   time_as_part_of_state=time_as_part_of_state,
                                   discounting=discrete_discounting)
 
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     num_envs = 128
     optimizer = SAC(
         environment=env,
-        num_timesteps=100_000,
+        num_timesteps=20_000,
         episode_length=episode_length,
         action_repeat=action_repeat,
         num_env_steps_between_updates=num_env_steps_between_updates,

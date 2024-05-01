@@ -68,9 +68,9 @@ def main():
                           num_cpus=1,
                           num_gpus=0,
                           mode='euler',
-                          duration='23:59:00',
+                          duration='3:59:00',
                           prompt=True,
-                          mem=16000)
+                          mem=124000)
 
 
 if __name__ == '__main__':
