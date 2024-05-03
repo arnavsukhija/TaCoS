@@ -20,12 +20,12 @@ if __name__ == "__main__":
     PLOT_TRUE_TRAJECTORIES = True
     swing_up = True
     action_repeat = 1
-    episode_length = 100
+    episode_length = 200
     time_as_part_of_state = True
 
     if swing_up:
         env = PendulumEnv(reward_source='dm-control',
-                          add_process_noise=True,
+                          add_process_noise=False,
                           process_noise_scale=0.0 * jnp.array([0.01, 0.01, 0.1]))
     else:
         env = PendulumEnvSwingDown(reward_source='dm-control')
@@ -143,6 +143,7 @@ if __name__ == "__main__":
         r'\usepackage{amsmath}'
         r'\usepackage{bm}'
         r'\def\vx{{\bm{x}}}'
+        r'\def\vu{{\bm{u}}}'
         r'\def\vf{{\bm{f}}}')
 
         import matplotlib as mpl
@@ -170,6 +171,7 @@ if __name__ == "__main__":
         ts_full_trajectory = jnp.arange(0, xs_full_trajectory.shape[0]) * env.env.dt
 
         fig, axs = plt.subplots(nrows=1, ncols=4, figsize=(20, 4))
+        LINEWIDTH = 3
         xs = trajectory[0][:, :-1]
         us = trajectory[1][:, :-1]
         rewards = trajectory[2]
@@ -192,40 +194,41 @@ if __name__ == "__main__":
 
         if PLOT_TRUE_TRAJECTORIES:
             for i in range(3):
-                axs[0].plot(ts_full_trajectory, xs_full_trajectory[:, i], label=state_dict[i])
+                axs[0].plot(ts_full_trajectory, xs_full_trajectory[:, i], label=state_dict[i], linewidth=LINEWIDTH)
             for h in all_ts[:-1]:
-                axs[0].axvline(x=h, color='black', ls='--', alpha=0.4)
+                axs[0].axvline(x=h, color='black', ls='--', alpha=0.4, linewidth=LINEWIDTH)
         else:
             for i in range(3):
-                axs[0].plot(all_ts, all_xs[:, i], label=state_dict[i])
+                axs[0].plot(all_ts, all_xs[:, i], label=state_dict[i], linewidth=LINEWIDTH)
 
         axs[0].set_xlabel('Time', fontsize=LABEL_SIZE)
         axs[0].set_ylabel('State', fontsize=LABEL_SIZE)
 
-        axs[1].step(all_ts, jnp.concatenate([us, us[-1].reshape(1, -1)]), where='post', label=r'$u$')
+        axs[1].step(all_ts, jnp.concatenate([us, us[-1].reshape(1, -1)]), where='post', label=r'$u$', linewidth=LINEWIDTH)
         axs[1].set_xlabel('Time', fontsize=LABEL_SIZE)
         axs[1].set_ylabel('Action', fontsize=LABEL_SIZE)
 
         integrated_rewards = rewards / jnp.diff(all_ts) * 0.05
 
         if PLOT_TRUE_TRAJECTORIES:
-            axs[2].plot(ts_full_trajectory, rewards_full_trajectory, label='Rewards')
+            axs[2].plot(ts_full_trajectory, rewards_full_trajectory, label='Rewards', linewidth=LINEWIDTH)
             for h in all_ts[:-1]:
-                axs[2].axvline(x=h, color='black', ls='--', alpha=0.4)
+                axs[2].axvline(x=h, color='black', ls='--', alpha=0.4, linewidth=LINEWIDTH)
         else:
-            axs[2].step(all_ts, jnp.concatenate([integrated_rewards, integrated_rewards[-1].reshape(1, )]),
+            axs[2].step(all_ts, jnp.concatenate([integrated_rewards, integrated_rewards[-1].reshape(1, )], linewidth=LINEWIDTH),
                         where='post', label='Rewards')
         axs[2].set_xlabel('Time', fontsize=LABEL_SIZE)
-        axs[2].set_ylabel('Instance reward', fontsize=LABEL_SIZE)
+        axs[2].set_ylabel('Running reward', fontsize=LABEL_SIZE)
 
-        axs[3].plot(jnp.diff(all_ts), label='Times for actions')
+        axs[3].plot(jnp.diff(all_ts), label='Times for actions', linewidth=LINEWIDTH)
         axs[3].set_xlabel('Action Steps', fontsize=LABEL_SIZE)
         axs[3].set_ylabel('Time for action', fontsize=LABEL_SIZE)
 
         # axs[4].plot(times_to_go, label='Time to go')
         # axs[3].plot(times_for_actions, label='Time for actions NORMALIZED')
-        for ax in axs:
-            ax.legend(fontsize=LEGEND_SIZE)
+
+        axs[0].legend(fontsize=LEGEND_SIZE)
+        fig.suptitle(r'Pendulum Swing Up Task [Duration=10.0s, $c(\vx, \vu, t)$ = 0.1]', fontsize=25)
         plt.tight_layout()
         plt.savefig('pendulum_switch_cost.pdf')
         plt.show()
