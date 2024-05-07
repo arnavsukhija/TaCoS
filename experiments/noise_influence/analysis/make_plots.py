@@ -30,7 +30,7 @@ class Statistics(NamedTuple):
     xs: np.ndarray
     ys_mean: np.ndarray
     ys_std: np.ndarray
-    color: str = "Blue"
+    color: str = "C0"
     linestyle: str = "--"
     linewidth: float = LINE_WIDTH
 
@@ -39,10 +39,11 @@ data = pd.read_csv('data/noise_influence_Apr17_11_40.csv')
 data['results/reward_with_switch_cost'] = data['results/total_reward'] - data['switch_cost'] * data[
     'results/num_actions']
 
-fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(16, 8))
-SWITCH_COST = 1.0
+fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(16, 5))
+SWITCH_COST = 0.1
 
 envs = ['Pendulum', 'Greenhouse']
+envs_labels = ['Pendulum Swing-up \n [Duration=10s]', 'Greenhouse Temperature Tracking \n [Duration=25h]', ]
 
 for index, env_name in enumerate(envs):
     cur_data = data[(data['switch_cost'] == SWITCH_COST) &
@@ -73,7 +74,7 @@ for index, env_name in enumerate(envs):
         xs=np.array(cur_data_reward_without_switch_cost['scale']),
         ys_mean=np.array(cur_data_reward_without_switch_cost['mean']),
         ys_std=np.array(cur_data_reward_without_switch_cost['std']),
-        color='Blue',
+        color='C0',
         linestyle='-'
     )
 
@@ -82,7 +83,7 @@ for index, env_name in enumerate(envs):
         xs=np.array(cur_data_reward_with_switch_cost['scale']),
         ys_mean=np.array(cur_data_reward_with_switch_cost['mean']),
         ys_std=np.array(cur_data_reward_with_switch_cost['std']),
-        color='Blue',
+        color='C0',
         linestyle='dashed'
     )
 
@@ -102,7 +103,7 @@ for index, env_name in enumerate(envs):
         ax[index].tick_params(axis='y', labelcolor=baseline_stat.color)
         ax[index].set_ylabel('Reward', fontsize=LABEL_FONT_SIZE, color=baseline_stat.color)
 
-    ax[index].set_title(f'{env_name}', fontsize=LABEL_FONT_SIZE)
+    ax[index].set_title(envs_labels[index], fontsize=LABEL_FONT_SIZE, pad=60)
     ax[index].set_xlabel(r'Noise scale', fontsize=LABEL_FONT_SIZE)
 
     ax_right_side = ax[index].twinx()
@@ -134,13 +135,13 @@ by_label = dict(zip(labels, handles))
 fig.legend(by_label.values(), by_label.keys(),
            ncols=3,
            loc='upper center',
-           bbox_to_anchor=(0.5, 0.89),
+           bbox_to_anchor=(0.5, 0.85),
            fontsize=LEGEND_FONT_SIZE,
            frameon=True)
-
-fig.suptitle(f'Noise influence',
-             fontsize=TITLE_FONT_SIZE,
-             y=0.95)
-fig.tight_layout(rect=[0.0, 0.0, 1, 0.86])
+#
+# fig.suptitle(f'Noise influence',
+#              fontsize=TITLE_FONT_SIZE,
+#              y=0.95)
+fig.tight_layout(rect=[0.0, 0.0, 1, 1])
 plt.savefig('noise_influence.pdf')
 plt.show()

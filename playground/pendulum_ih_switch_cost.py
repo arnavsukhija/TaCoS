@@ -31,7 +31,7 @@ if __name__ == "__main__":
         env = PendulumEnvSwingDown(reward_source='dm-control')
 
     min_time_between_switches = 1 * env.dt
-    max_time_between_switches = 30 * env.dt
+    max_time_between_switches = 50 * env.dt
 
     discount_factor = 0.99
     continuous_discounting = discrete_to_continuous_discounting(discrete_discounting=discount_factor,
@@ -39,9 +39,9 @@ if __name__ == "__main__":
     if wrapper:
         env = IHSwitchCostWrapper(env,
                                   num_integrator_steps=episode_length,
-                                  min_time_between_switches=1 * env.dt,
-                                  max_time_between_switches=30 * env.dt,
-                                  switch_cost=ConstantSwitchCost(value=jnp.array(0.1)),
+                                  min_time_between_switches=min_time_between_switches,
+                                  max_time_between_switches=max_time_between_switches,
+                                  switch_cost=ConstantSwitchCost(value=jnp.array(1.0)),
                                   time_as_part_of_state=time_as_part_of_state,
                                   discounting=discount_factor)
 
@@ -53,7 +53,7 @@ if __name__ == "__main__":
     optimizer = SAC(
         target_entropy=None,
         environment=env,
-        num_timesteps=20_000,
+        num_timesteps=100_000,
         episode_length=episode_length,
         action_repeat=action_repeat,
         num_env_steps_between_updates=num_env_steps_between_updates,
