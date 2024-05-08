@@ -74,6 +74,12 @@ data_equidistant = pd.read_csv('data/rccar/no_switch_cost.csv')
 data_equidistant['results/reward_with_switch_cost'] = data_equidistant['results/total_reward'] - SWITCH_COST * \
                                                       data_equidistant['results/num_actions']
 
+data_naive = pd.read_csv('data/rccar/naive_model.csv')
+data_naive['results/total_reward'] = data_naive['results/total_reward_0']
+data_naive['results/num_actions'] = data_naive['results/num_actions_0']
+data_naive['results/reward_with_switch_cost'] = data_naive['results/total_reward_0'] - SWITCH_COST * \
+                                                      data_naive['results/num_actions_0']
+
 data_same_gd = data_equidistant[data_equidistant['same_amount_of_gradient_updates'] == True]
 data_more_gd = data_equidistant[data_equidistant['same_amount_of_gradient_updates'] == False]
 
@@ -97,6 +103,12 @@ baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update
 baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
     cur_data=data_more_gd,
     baseline_name="More Compute, Same Physical interaction time",
+    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
+    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
+
+baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
+    cur_data=data_naive,
+    baseline_name="Same Compute, Less Physical interaction time, Naive",
     cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
     cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
 

@@ -121,6 +121,12 @@ for index in range(NUM_EVALS):
                                                                        f'results/total_reward_{index}'] - SWITCH_COST * \
                                                                    data_equidistant[f'results/num_actions_{index}']
 
+data_equidistant_naive = pd.read_csv('data/reacher/naive_model.csv')
+for index in range(NUM_EVALS):
+    data_equidistant[f'results/reward_with_switch_cost_{index}'] = data_equidistant[
+                                                                       f'results/total_reward_{index}'] - SWITCH_COST * \
+                                                                   data_equidistant[f'results/num_actions_{index}']
+
 data_same_gd = data_equidistant[data_equidistant['same_amount_of_gradient_updates'] == True]
 data_more_gd = data_equidistant[data_equidistant['same_amount_of_gradient_updates'] == False]
 
@@ -142,7 +148,13 @@ baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update
     cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
     cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
 
-systems['Reacher \n [Duration = 4 sec]'] = baselines_reward_without_switch_cost
+baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
+    cur_data=data_equidistant_naive,
+    baseline_name=BASELINE_NAMES['basline3'],
+    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
+    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
+
+systems['Reacher \n [Duration = 2 sec]'] = baselines_reward_without_switch_cost
 
 
 ########################## RCCar ############################
@@ -191,6 +203,12 @@ data_equidistant['results/reward_with_switch_cost'] = data_equidistant['results/
 data_same_gd = data_equidistant[data_equidistant['same_amount_of_gradient_updates'] == True]
 data_more_gd = data_equidistant[data_equidistant['same_amount_of_gradient_updates'] == False]
 
+data_naive = pd.read_csv('data/rccar/naive_model.csv')
+data_naive['results/total_reward'] = data_naive['results/total_reward_0']
+data_naive['results/num_actions'] = data_naive['results/num_actions_0']
+data_naive['results/reward_with_switch_cost'] = data_naive['results/total_reward_0'] - SWITCH_COST * \
+                                                      data_naive['results/num_actions_0']
+
 baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
     cur_data=filtered_df,
     baseline_name=BASELINE_NAMES['basline0'],
@@ -206,6 +224,12 @@ baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update
 baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
     cur_data=data_more_gd,
     baseline_name=BASELINE_NAMES['basline2'],
+    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
+    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
+
+baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
+    cur_data=data_naive,
+    baseline_name=BASELINE_NAMES['basline3'],
     cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
     cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
 

@@ -90,6 +90,14 @@ for index in range(NUM_EVALS):
                                                                        f'results/total_reward_{index}'] - SWITCH_COST * \
                                                                    data_equidistant[f'results/num_actions_{index}']
 
+
+data_equidistant_naive = pd.read_csv('data/reacher/naive_model.csv')
+for index in range(NUM_EVALS):
+    data_equidistant[f'results/reward_with_switch_cost_{index}'] = data_equidistant[
+                                                                       f'results/total_reward_{index}'] - SWITCH_COST * \
+                                                                   data_equidistant[f'results/num_actions_{index}']
+
+
 data_same_gd = data_equidistant[data_equidistant['same_amount_of_gradient_updates'] == True]
 data_more_gd = data_equidistant[data_equidistant['same_amount_of_gradient_updates'] == False]
 
@@ -108,6 +116,12 @@ baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update
 baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
     cur_data=data_more_gd,
     baseline_name="More Compute, Same Physical interaction time",
+    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
+    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
+
+baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
+    cur_data=data_equidistant_naive,
+    baseline_name="Same Compute, Less Physical interaction time, Naive",
     cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
     cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
 

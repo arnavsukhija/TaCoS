@@ -2,7 +2,6 @@ import wandb
 import pandas as pd
 import os
 
-
 # Initialize wandb API
 api = wandb.Api()
 
@@ -10,16 +9,24 @@ api = wandb.Api()
 entity = "trevenl"
 
 ############### Reacher 4.0 sec horizon ###############
-env_name = 'reacher'
-runs_to_download = {"no_switch_cost": 'ReacherNoSwitchCostApr23_15_30',
-                    "switch_cost": 'ReachSwitchCostApr23_14_30'}
+# env_name = 'reacher'
+# runs_to_download = {"no_switch_cost": 'ReacherNoSwitchCostApr23_15_30',
+#                     "switch_cost": 'ReachSwitchCostApr23_14_30',
+#                     'naive_model': 'ReacherNoSwitchCostMay08_15_45'}
 
 
 ############### Reacher 2.0 sec horizon ###############
 # env_name = 'reacher'
 # runs_to_download = {"no_switch_cost": 'ReacherNoSwitchCostApr24_10_00',
-#                     "switch_cost": 'ReacherSwitchCostApr24_09_45'}
+#                     "switch_cost": 'ReacherSwitchCostApr24_09_45',
+#                     'naive_model': 'ReacherNoSwitchCostMay08_15_45'}
 
+
+############### RCCar 4.0 sec horizon ###############
+env_name = 'rccar'
+runs_to_download = {
+    'naive_model': 'RCCarNoSwitchCostMay08_15_45'
+}
 
 # Fetch all runs from the project
 for filename, run_name in runs_to_download.items():
