@@ -200,7 +200,8 @@ def main(args):
                batch_size=args.batch_size,
                action_repeat=args.action_repeat,
                reward_scaling=args.reward_scaling,
-               video_track=args.video_track
+               video_track=args.video_track,
+               num_final_evals=args.num_final_evals,
                )
 
 
@@ -209,7 +210,7 @@ if __name__ == '__main__':
     parser.add_argument('--env_name', type=str, default='reacher')
     parser.add_argument('--backend', type=str, default='generalized')
     parser.add_argument('--project_name', type=str, default='GPUSpeedTest')
-    parser.add_argument('--num_timesteps', type=int, default=20_000)
+    parser.add_argument('--num_timesteps', type=int, default=100_000)
     parser.add_argument('--episode_length', type=int, default=200)
     parser.add_argument('--learning_discount_factor', type=float, default=0.95)
     parser.add_argument('--seed', type=int, default=20)

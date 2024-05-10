@@ -308,7 +308,7 @@ grouped_data = data.groupby('new_integration_dt')['results/total_reward'].agg(['
 grouped_data = grouped_data.reset_index()
 
 baselines_reward_without_switch_cost[BASELINE_NAMES['basline2']] = Statistics(
-    xs=np.array(grouped_data['new_integration_dt']),
+    xs=np.array(grouped_data['new_integration_dt']),w
     ys_mean=np.array(grouped_data['mean']),
     ys_std=np.array(grouped_data['std'])
 )

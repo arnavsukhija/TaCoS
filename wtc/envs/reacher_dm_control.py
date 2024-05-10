@@ -2,11 +2,13 @@ import jax
 from brax.envs import reacher, State
 from wtc.utils.tolerance_reward import ToleranceReward
 import jax.numpy as jnp
+import jax.random as jr
 
 
 class ReacherDMControl(reacher.Reacher):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, seed=1, **kwargs):
         super().__init__(*args, **kwargs)
+        self.seed = seed
         bound = 0.01
         value_at_margin = 0.2
         margin_factor = 10.0
@@ -14,6 +16,12 @@ class ReacherDMControl(reacher.Reacher):
                                                 margin=margin_factor * bound,
                                                 value_at_margin=value_at_margin,
                                                 sigmoid='long_tail')
+
+    def reset(self, rng: jax.Array) -> State:
+        """
+        We always reset to the same position
+        """
+        return super().reset(jr.PRNGKey(self.seed))
 
     def reward(self, obs, action):
         reward_dist = self.tolerance_reward(jnp.sqrt(jnp.sum(obs[-3:] ** 2)))
