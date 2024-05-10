@@ -1,12 +1,13 @@
-import pandas as pd
+from typing import NamedTuple, Dict, Any
+import matplotlib.gridspec as gridspec
+
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-import matplotlib as mpl
-from scipy.ndimage import gaussian_filter1d
-from typing import NamedTuple, Dict, Any
+import pandas as pd
 
-LEGEND_FONT_SIZE = 22
-TITLE_FONT_SIZE = 30
+LEGEND_FONT_SIZE = 28
+TITLE_FONT_SIZE = 33
 TABLE_FONT_SIZE = 20
 LABEL_FONT_SIZE = 26
 TICKS_SIZE = 24
@@ -16,16 +17,16 @@ NUM_SAMPLES_PER_SEED = 5
 LINE_WIDTH = 5
 
 BASELINE_NAMES = {
-    'basline0': 'Switch-Cost-CTRL',
-    'basline1': 'Same Compute \n Same Real Time \n More \# measurements',
-    'basline2': 'More Compute \n Same Real Time \n More \# measurements',
-    'basline3': 'Same Compute \n Less Real Time \n Same \# measurements',
+    'basline0': 'SAC-WTC',
+    'basline1': 'SAC-MS',
+    'basline2': 'SAC-MCMS',
+    'basline3': 'SAC',
 }
 
 LINESTYLES = {
     'basline0': 'solid',
     'basline1': 'dashed',
-    'basline2': 'dotted',
+    'basline2': (0, (3, 1, 1, 1)),
     'basline3': 'dashdot',
 }
 
@@ -95,9 +96,9 @@ def compute_num_measurements(baseline_name: str, stats: Statistics):
 
 
 ENV_NAME_CONVERSION = {
-    'reacher': 'Reacher \n [Duration = 2 sec]',
-    'rccar': 'RC Car \n [Duration = 4 sec]',
-    'halfcheetah': 'Halfcheetah \n [Duration = 10 sec]'
+    'reacher': 'Reacher',
+    'rccar': 'RC Car',
+    'halfcheetah': 'Halfcheetah'
 }
 
 ENV_NAME_CONVERSION_REVERT = {value: key for key, value in ENV_NAME_CONVERSION.items()}
@@ -220,7 +221,7 @@ baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update
     cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
     cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
 
-systems['Reacher \n [Duration = 2 sec]'] = baselines_reward_without_switch_cost
+systems['Reacher'] = baselines_reward_without_switch_cost
 
 
 ########################## RCCar ############################
@@ -301,7 +302,7 @@ baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update
     cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
     cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
 
-systems['RC Car \n [Duration = 4 sec]'] = baselines_reward_without_switch_cost
+systems['RC Car'] = baselines_reward_without_switch_cost
 
 ########################## Halfcheetah ######################
 #############################################################
@@ -439,89 +440,106 @@ baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update
     cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost,
 )
 
-systems['Halfcheetah \n [Duration = 10 sec]'] = baselines_reward_without_switch_cost
+systems['Halfcheetah'] = baselines_reward_without_switch_cost
 
 #############################################################
 #############################################################
 
-fig, ax = plt.subplots(nrows=4, ncols=3, figsize=(20, 16))
+fig = plt.figure(figsize=(20, 16))
+handles, labels = [], []
+
+gs = gridspec.GridSpec(4, 3, height_ratios=[1, 1, 1, 1])
 
 for index, (title, baselines) in enumerate(systems.items()):
+    ax = fig.add_subplot(gs[0, index])
     for baseline_name, baseline_stat in baselines.items():
-        ax[0, index].plot(1 / baseline_stat.xs, baseline_stat.ys_mean,
-                          label=baseline_name,
-                          linewidth=LINE_WIDTH,
-                          linestyle=LINESTYLES_FROM_NAMES[baseline_name],
-                          color=COLORS_FROM_NAMES[baseline_name], )
-        ax[0, index].fill_between(1 / baseline_stat.xs,
-                                  baseline_stat.ys_mean - baseline_stat.ys_std / np.sqrt(NUM_SAMPLES_PER_SEED),
-                                  baseline_stat.ys_mean + baseline_stat.ys_std / np.sqrt(NUM_SAMPLES_PER_SEED),
-                                  color=COLORS_FROM_NAMES[baseline_name],
-                                  alpha=0.2)
+        ax.plot(1 / baseline_stat.xs, baseline_stat.ys_mean,
+                label=baseline_name,
+                linewidth=LINE_WIDTH,
+                linestyle=LINESTYLES_FROM_NAMES[baseline_name],
+                color=COLORS_FROM_NAMES[baseline_name], )
+        ax.fill_between(1 / baseline_stat.xs,
+                        baseline_stat.ys_mean - baseline_stat.ys_std / np.sqrt(NUM_SAMPLES_PER_SEED),
+                        baseline_stat.ys_mean + baseline_stat.ys_std / np.sqrt(NUM_SAMPLES_PER_SEED),
+                        color=COLORS_FROM_NAMES[baseline_name],
+                        alpha=0.2)
 
-    ax[0, index].set_xscale('log')
-    ax[0, index].set_title(title, fontsize=TITLE_FONT_SIZE, pad=85)
+    ax.set_xscale('log')
+    ax.set_title(title, fontsize=TITLE_FONT_SIZE, pad=50)
     if index == 0:
-        ax[0, index].set_ylabel(r'Reward [Without $c(\vx, \vu, t)$]', fontsize=LABEL_FONT_SIZE)
+        ax.set_ylabel(r'Reward [Without $c(\vx, \vu, t)$]', fontsize=LABEL_FONT_SIZE)
+
+for handle, label in zip(*ax.get_legend_handles_labels()):
+    handles.append(handle)
+    labels.append(label)
 
 for index, (title, baselines) in enumerate(systems.items()):
+    ax = fig.add_subplot(gs[1, index])
     for baseline_name, baseline_stat in baselines.items():
         print(f'Title: {title}, baseline: {baseline_name}')
         print(compute_num_measurements(REVERT_BASELINE_NAMES[baseline_name], baseline_stat))
-        ax[1, index].plot(1 / baseline_stat.xs,
-                          compute_num_measurements(REVERT_BASELINE_NAMES[baseline_name], baseline_stat),
-                          label=baseline_name,
-                          linewidth=LINE_WIDTH,
-                          linestyle=LINESTYLES_FROM_NAMES[baseline_name],
-                          color=COLORS_FROM_NAMES[baseline_name], )
+        ax.plot(1 / baseline_stat.xs,
+                compute_num_measurements(REVERT_BASELINE_NAMES[baseline_name], baseline_stat),
+                label=baseline_name,
+                linewidth=LINE_WIDTH,
+                linestyle=LINESTYLES_FROM_NAMES[baseline_name],
+                color=COLORS_FROM_NAMES[baseline_name], )
 
-    ax[1, index].set_xscale('log')
-    ax[1, index].set_yscale('log')
+    ax.set_xscale('log')
+    ax.set_yscale('log')
     if index == 0:
-        ax[1, index].set_ylabel(r'\# Samples', fontsize=LABEL_FONT_SIZE)
+        ax.set_ylabel(r'\# Samples', fontsize=LABEL_FONT_SIZE)
+
+for handle, label in zip(*ax.get_legend_handles_labels()):
+    handles.append(handle)
+    labels.append(label)
 
 for index, (title, baselines) in enumerate(systems.items()):
+    ax = fig.add_subplot(gs[2, index])
     for baseline_name, baseline_stat in baselines.items():
-        ax[2, index].plot(1 / baseline_stat.xs,
-                          compute_num_gradient_updates(REVERT_BASELINE_NAMES[baseline_name], baseline_stat),
-                          label=baseline_name,
-                          linewidth=LINE_WIDTH,
-                          linestyle=LINESTYLES_FROM_NAMES[baseline_name],
-                          color=COLORS_FROM_NAMES[baseline_name], )
+        ax.plot(1 / baseline_stat.xs,
+                compute_num_gradient_updates(REVERT_BASELINE_NAMES[baseline_name], baseline_stat),
+                label=baseline_name,
+                linewidth=LINE_WIDTH,
+                linestyle=LINESTYLES_FROM_NAMES[baseline_name],
+                color=COLORS_FROM_NAMES[baseline_name], )
 
-    ax[2, index].set_xscale('log')
-    ax[2, index].set_yscale('log')
+    ax.set_xscale('log')
+    ax.set_yscale('log')
     if index == 0:
-        ax[2, index].set_ylabel(r'Computation', fontsize=LABEL_FONT_SIZE)
+        ax.set_ylabel(r'Computation', fontsize=LABEL_FONT_SIZE)
+
+for handle, label in zip(*ax.get_legend_handles_labels()):
+    handles.append(handle)
+    labels.append(label)
 
 for index, (title, baselines) in enumerate(systems.items()):
+    ax = fig.add_subplot(gs[3, index])
     for baseline_name, baseline_stat in baselines.items():
-        ax[3, index].plot(1 / baseline_stat.xs,
-                          compute_physcal_time(REVERT_BASELINE_NAMES[baseline_name], baseline_stat) * get_dt(
-                              ENV_NAME_CONVERSION_REVERT[title]),
-                          label=baseline_name,
-                          linewidth=LINE_WIDTH,
-                          linestyle=LINESTYLES_FROM_NAMES[baseline_name],
-                          color=COLORS_FROM_NAMES[baseline_name], )
+        ax.plot(1 / baseline_stat.xs,
+                compute_physcal_time(REVERT_BASELINE_NAMES[baseline_name], baseline_stat) * get_dt(
+                    ENV_NAME_CONVERSION_REVERT[title]),
+                label=baseline_name,
+                linewidth=LINE_WIDTH,
+                linestyle=LINESTYLES_FROM_NAMES[baseline_name],
+                color=COLORS_FROM_NAMES[baseline_name], )
 
-    ax[3, index].set_xscale('log')
-    ax[3, index].set_yscale('log')
-    ax[3, index].set_xlabel(r'Frequency', fontsize=LABEL_FONT_SIZE)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel(r'Frequency', fontsize=LABEL_FONT_SIZE)
     if index == 0:
-        ax[3, index].set_ylabel(r'Physical Time [sec]', fontsize=LABEL_FONT_SIZE)
+        ax.set_ylabel(r'Env Time [sec]', fontsize=LABEL_FONT_SIZE)
 
-handles, labels = [], []
-for _axs in ax:
-    for axs in _axs:
-        for handle, label in zip(*axs.get_legend_handles_labels()):
-            handles.append(handle)
-            labels.append(label)
+for handle, label in zip(*ax.get_legend_handles_labels()):
+    handles.append(handle)
+    labels.append(label)
+
 by_label = dict(zip(labels, handles))
 
 fig.legend(by_label.values(), by_label.keys(),
            ncols=4,
            loc='upper center',
-           bbox_to_anchor=(0.5, 0.86),
+           bbox_to_anchor=(0.5, 0.98),
            fontsize=LEGEND_FONT_SIZE,
            frameon=False)
 
