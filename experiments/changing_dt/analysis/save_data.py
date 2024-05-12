@@ -23,10 +23,17 @@ entity = "trevenl"
 
 
 ############### RCCar 4.0 sec horizon ###############
-env_name = 'rccar'
-runs_to_download = {
-    'naive_model': 'RCCarNoSwitchCostMay08_15_45'
-}
+# env_name = 'rccar'
+# runs_to_download = {
+#     'naive_model': 'RCCarNoSwitchCostMay08_15_45'
+# }
+
+############### Humanoid 3.0 sec horizon ###############
+env_name = 'humanoid'
+runs_to_download = {"no_switch_cost": 'HumanoidNoSwitchCostMay10_17_45',
+                    "switch_cost": 'HumanoidSwitchCostMay10_17_45',
+                    'naive_model': 'HumanoidNoSwitchCostMay10_16_20'}
+
 
 # Fetch all runs from the project
 for filename, run_name in runs_to_download.items():

@@ -40,7 +40,7 @@ def experiment(env_name: str = 'inverted_pendulum',
         os.mkdir(video_dir)
     new_filename = filename.replace('.pkl', '.mp4')
 
-    with imageio.get_writer(os.path.join(video_dir, new_filename), fps=int(1 / env.dt)) as writer:
+    with imageio.get_writer(os.path.join(video_dir, new_filename), fps=int(10 / env.dt)) as writer:
         for frame in video_frames:
             writer.append_data(frame)
 
@@ -48,13 +48,13 @@ def experiment(env_name: str = 'inverted_pendulum',
 
 
 if __name__ == '__main__':
-    environments = ['reacher']
-    tracks = [False]
+    environments = ['humanoid']
+    tracks = [True]
     for env, track in zip(environments[:1], tracks[:1]):
-        for index in range(10):
+        for index in range(1):
             experiment(env_name=env,
                        backend='generalized',
                        filename=f'trajectory_{index}.pkl',
                        track=track,
-                       dir=f'trajectories/{env}/Apr23_11_10',
+                       dir=f'trajectories/{env}/May11_15_30',
                        plot=True)

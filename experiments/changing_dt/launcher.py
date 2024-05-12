@@ -2,6 +2,78 @@ import exp
 from experiments.util import generate_run_commands, generate_base_command, dict_permutations
 
 ################################################
+#################### Humanoid ###################
+################################################
+
+# humanoid_no_switch_cost = {
+#     'env_name': ['humanoid', ],
+#     'backend': ['generalized', ],
+#     'project_name': ["HumanoidNoSwitchCostMay10_16_20"],
+#     'episode_time': [3.0],
+#     'base_discount_factor': [0.97],
+#     'seed': list(range(5)),
+#     'num_envs': [256],
+#     'num_env_steps_between_updates': [10, ],
+#     'networks': [0, ],
+#     'batch_size': [256],
+#     'action_repeat': [1, ],
+#     'reward_scaling': [0.1, ],
+#     'switch_cost_wrapper': [0, ],
+#     'same_amount_of_gradient_updates': [0, ],
+#     'num_final_evals': [1, ],
+#     'base_dt_divisor': [1, 2, 5, 10, 25, 50, ],
+#     'num_timesteps': [5_000_000, ]
+# }
+
+# humanoid_switch_cost = {'env_name': ['humanoid', ],
+#                         'backend': ['generalized', ],
+#                         'project_name': ["HumanoidSwitchCostMay10_17_45"],
+#                         'num_timesteps': [5_000_000, ],
+#                         'episode_time': [3.0, ],
+#                         'base_dt_divisor': [1, 2, 5, 10, 25, 50],
+#                         'base_discount_factor': [0.97],
+#                         'seed': list(range(5)),
+#                         'num_envs': [256],
+#                         'num_env_steps_between_updates': [10, ],
+#                         'networks': [0, ],
+#                         'batch_size': [256],
+#                         'action_repeat': [1, ],
+#                         'reward_scaling': [0.1, ],
+#                         'switch_cost_wrapper': [1, ],
+#                         'switch_cost': [0.1, 1.0],
+#                         'max_time_between_switches': [0.015],
+#                         'time_as_part_of_state': [1, ],
+#                         'num_final_evals': [1, ]
+#                         }
+
+humanoid_no_switch_cost_base_configs = {
+    'env_name': ['humanoid', ],
+    'backend': ['generalized', ],
+    'project_name': ["HumanoidNoSwitchCostMay10_17_45"],
+    'episode_time': [3.0],
+    'base_discount_factor': [0.97],
+    'seed': list(range(5)),
+    'num_envs': [256],
+    'num_env_steps_between_updates': [10, ],
+    'networks': [0, ],
+    'batch_size': [256],
+    'action_repeat': [1, ],
+    'reward_scaling': [0.1, ],
+    'switch_cost_wrapper': [0, ],
+    'same_amount_of_gradient_updates': [0, 1, ],
+    'num_final_evals': [1, ]
+}
+
+humanoid_no_switch_cost_configs = []
+base_dt_divisor = [1, 2, 5, 10, 25, 50, ]
+base_numsteps = 5_000_000
+for dt_divisor in base_dt_divisor:
+    cur_configs = humanoid_no_switch_cost_base_configs | {'base_dt_divisor': [dt_divisor],
+                                                         'num_timesteps': [base_numsteps * dt_divisor]}
+    humanoid_no_switch_cost_configs.append(cur_configs)
+
+
+################################################
 #################### Reacher ###################
 ################################################
 
@@ -52,25 +124,25 @@ from experiments.util import generate_run_commands, generate_base_command, dict_
 #                                                          'num_timesteps': [base_numsteps * dt_divisor]}
 #     reacher_no_switch_cost_configs.append(cur_configs)
 #
-reacher_no_switch_cost = {
-    'env_name': ['reacher', ],
-    'backend': ['generalized', ],
-    'project_name': ["ReacherNoSwitchCostMay08_15_45"],
-    'episode_time': [2.0],
-    'base_discount_factor': [0.95],
-    'seed': list(range(5)),
-    'num_envs': [256],
-    'num_env_steps_between_updates': [10, ],
-    'networks': [0, ],
-    'batch_size': [256],
-    'action_repeat': [1, ],
-    'reward_scaling': [5.0, ],
-    'switch_cost_wrapper': [0, ],
-    'same_amount_of_gradient_updates': [0, ],
-    'num_final_evals': [10, ],
-    'base_dt_divisor': [1, 2, 5, 10, 25, 50, ],
-    'num_timesteps': [100_000, ]
-}
+# reacher_no_switch_cost = {
+#     'env_name': ['reacher', ],
+#     'backend': ['generalized', ],
+#     'project_name': ["ReacherNoSwitchCostMay08_15_45"],
+#     'episode_time': [2.0],
+#     'base_discount_factor': [0.95],
+#     'seed': list(range(5)),
+#     'num_envs': [256],
+#     'num_env_steps_between_updates': [10, ],
+#     'networks': [0, ],
+#     'batch_size': [256],
+#     'action_repeat': [1, ],
+#     'reward_scaling': [5.0, ],
+#     'switch_cost_wrapper': [0, ],
+#     'same_amount_of_gradient_updates': [0, ],
+#     'num_final_evals': [10, ],
+#     'base_dt_divisor': [1, 2, 5, 10, 25, 50, ],
+#     'num_timesteps': [100_000, ]
+# }
 
 
 ################################################
@@ -235,12 +307,12 @@ reacher_no_switch_cost = {
 def main():
     command_list = []
     flags_combinations = None
-    # for conf in reacher_no_switch_cost_configs:
-    #     if flags_combinations is None:
-    #         flags_combinations = dict_permutations(conf)
-    #     else:
-    #         flags_combinations += dict_permutations(conf)
-    flags_combinations = dict_permutations(reacher_no_switch_cost)
+    for conf in humanoid_no_switch_cost_configs:
+        if flags_combinations is None:
+            flags_combinations = dict_permutations(conf)
+        else:
+            flags_combinations += dict_permutations(conf)
+    # flags_combinations = dict_permutations(humanoid_switch_cost)
 
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)
@@ -249,7 +321,7 @@ def main():
     # submit jobs
     generate_run_commands(command_list,
                           num_cpus=1,
-                          num_gpus=0,
+                          num_gpus=1,
                           mode='euler',
                           duration='23:59:00',
                           prompt=True,

@@ -26,7 +26,7 @@ class ReacherDMControl(reacher.Reacher):
     def reward(self, obs, action):
         reward_dist = self.tolerance_reward(jnp.sqrt(jnp.sum(obs[-3:] ** 2)))
         reward_ctrl = -jnp.square(action).sum()
-        reward = reward_dist + 0.1 * reward_ctrl
+        reward = reward_dist + 0.01 * reward_ctrl
         return reward
 
     def step(self, state: State, action: jax.Array) -> State:
