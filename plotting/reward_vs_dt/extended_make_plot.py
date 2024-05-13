@@ -33,7 +33,8 @@ LINESTYLES = {
 BASE_NUMBER_OF_STEPS = {
     'reacher': 100_000,
     'rccar': 50_000,
-    'halfcheetah': 1_000_000
+    'halfcheetah': 1_000_000,
+    'humanoid': 5_000_000
 }
 
 COLORS = {
@@ -98,7 +99,8 @@ def compute_num_measurements(baseline_name: str, stats: Statistics):
 ENV_NAME_CONVERSION = {
     'reacher': 'Reacher',
     'rccar': 'RC Car',
-    'halfcheetah': 'Halfcheetah'
+    'halfcheetah': 'Halfcheetah',
+    'humanoid': 'Humanoid'
 }
 
 ENV_NAME_CONVERSION_REVERT = {value: key for key, value in ENV_NAME_CONVERSION.items()}
@@ -111,6 +113,8 @@ def get_dt(env_name: str):
         return 0.5
     elif env_name == 'halfcheetah':
         return 0.05
+    elif env_name == 'humanoid':
+        return 0.015
 
 
 def compute_physcal_time(baseline_name: str, stats: Statistics):
@@ -445,13 +449,127 @@ systems['Halfcheetah'] = baselines_reward_without_switch_cost
 #############################################################
 #############################################################
 
-fig = plt.figure(figsize=(20, 16))
+########################## Humanoid #########################
+#############################################################
+
+SWITCH_COST = 1.0  # [0.1, 1, 2, 3]
+MAX_TIME_BETWEEN_SWITCHES = 0.015
+NUM_EVALS = 1
+MIN_TIME = 0.015 / 10
+
+statistics = 'median'  # Can be median or mean
+
+def update_baselines(cur_data: pd.DataFrame,
+                     baseline_name: str,
+                     cur_baselines_reward_with_switch_cost: Dict[str, Statistics],
+                     cur_baselines_reward_without_switch_cost: Dict[str, Statistics], ):
+    # Identify columns that follow the pattern 'total_reward_{index}'
+    columns_to_mean = [col for col in cur_data.columns if col.startswith('results/total_reward_')]
+
+    # Compute the mean of these columns and add as a new column
+    cur_data['results/total_reward'] = cur_data[columns_to_mean].mean(axis=1)
+
+    # Identify columns that follow the pattern 'total_reward_{index}'
+    columns_to_mean = [col for col in cur_data.columns if col.startswith('results/num_actions_')]
+
+    # Compute the mean of these columns and add as a new column
+    cur_data['results/num_actions'] = cur_data[columns_to_mean].mean(axis=1)
+
+    grouped_data = cur_data.groupby('new_integration_dt')[f'results/total_reward'].agg([statistics, 'std'])
+    grouped_data = grouped_data.reset_index()
+
+    cur_baselines_reward_without_switch_cost[baseline_name] = Statistics(
+        xs=np.array(grouped_data['new_integration_dt']),
+        ys_mean=np.array(grouped_data[statistics]),
+        ys_std=np.array(grouped_data['std']),
+        base_number_of_steps=BASE_NUMBER_OF_STEPS['humanoid']
+    )
+
+    cur_data['results/reward_with_switch_cost'] = cur_data['results/total_reward'] - SWITCH_COST * cur_data[
+        'results/num_actions']
+    grouped_data_with_switch_cost = cur_data.groupby('new_integration_dt')['results/reward_with_switch_cost'].agg(
+        [statistics, 'std'])
+    grouped_data_with_switch_cost = grouped_data_with_switch_cost.reset_index()
+
+    cur_baselines_reward_with_switch_cost[baseline_name] = Statistics(
+        xs=np.array(grouped_data_with_switch_cost['new_integration_dt']),
+        ys_mean=np.array(grouped_data_with_switch_cost[statistics]),
+        ys_std=np.array(grouped_data_with_switch_cost['std'])
+    )
+    return cur_baselines_reward_with_switch_cost, cur_baselines_reward_without_switch_cost
+
+
+baselines_reward_without_switch_cost: Dict[str, Statistics] = {}
+baselines_reward_with_switch_cost: Dict[str, Statistics] = {}
+
+data_adaptive = pd.read_csv('data/humanoid/switch_cost.csv')
+data_adaptive = data_adaptive[data_adaptive['new_integration_dt'] >= MIN_TIME]
+filtered_df = data_adaptive[data_adaptive['switch_cost'] == SWITCH_COST]
+
+for index in range(NUM_EVALS):
+    filtered_df[f'results/reward_with_switch_cost_{index}'] = filtered_df[
+                                                                  f'results/total_reward_{index}'] - SWITCH_COST * \
+                                                              filtered_df[f'results/num_actions_{index}']
+
+data_equidistant = pd.read_csv('data/humanoid/no_switch_cost.csv')
+data_equidistant = data_equidistant[data_equidistant['new_integration_dt'] >= MIN_TIME]
+
+for index in range(NUM_EVALS):
+    data_equidistant[f'results/reward_with_switch_cost_{index}'] = data_equidistant[
+                                                                       f'results/total_reward_{index}'] - SWITCH_COST * \
+                                                                   data_equidistant[f'results/num_actions_{index}']
+
+data_equidistant_naive = pd.read_csv('data/humanoid/naive_model.csv')
+data_equidistant_naive = data_equidistant_naive[data_equidistant_naive['new_integration_dt'] >= MIN_TIME]
+
+for index in range(NUM_EVALS):
+    data_equidistant[f'results/reward_with_switch_cost_{index}'] = data_equidistant[
+                                                                       f'results/total_reward_{index}'] - SWITCH_COST * \
+                                                                   data_equidistant[f'results/num_actions_{index}']
+
+data_same_gd = data_equidistant[data_equidistant['same_amount_of_gradient_updates'] == True]
+data_more_gd = data_equidistant[data_equidistant['same_amount_of_gradient_updates'] == False]
+
+baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
+    cur_data=filtered_df,
+    baseline_name=BASELINE_NAMES['basline0'],
+    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
+    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
+
+baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
+    cur_data=data_same_gd,
+    baseline_name=BASELINE_NAMES['basline1'],
+    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
+    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
+
+baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
+    cur_data=data_more_gd,
+    baseline_name=BASELINE_NAMES['basline2'],
+    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
+    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
+
+baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
+    cur_data=data_equidistant_naive,
+    baseline_name=BASELINE_NAMES['basline3'],
+    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
+    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
+
+
+systems['Humanoid'] = baselines_reward_without_switch_cost
+
+#############################################################
+#############################################################
+
+fig = plt.figure(figsize=(20, 14))
 handles, labels = [], []
 
-gs = gridspec.GridSpec(4, 3, height_ratios=[1, 1, 1, 1])
+gs = gridspec.GridSpec(4, 4, height_ratios=[1, 1, 1, 1])
+
+init_row = []
 
 for index, (title, baselines) in enumerate(systems.items()):
     ax = fig.add_subplot(gs[0, index])
+    init_row.append(ax)
     for baseline_name, baseline_stat in baselines.items():
         ax.plot(1 / baseline_stat.xs, baseline_stat.ys_mean,
                 label=baseline_name,
@@ -467,14 +585,17 @@ for index, (title, baselines) in enumerate(systems.items()):
     ax.set_xscale('log')
     ax.set_title(title, fontsize=TITLE_FONT_SIZE, pad=50)
     if index == 0:
-        ax.set_ylabel(r'Reward [Without $c(\vx, \vu, t)$]', fontsize=LABEL_FONT_SIZE)
+        ax.set_ylabel(r'Reward [No $c(\vx, \vu, t)$]', fontsize=LABEL_FONT_SIZE)
+
+    plt.setp(ax.get_xticklabels(), visible=False)
+
 
 for handle, label in zip(*ax.get_legend_handles_labels()):
     handles.append(handle)
     labels.append(label)
 
 for index, (title, baselines) in enumerate(systems.items()):
-    ax = fig.add_subplot(gs[1, index])
+    ax = fig.add_subplot(gs[1, index], sharex=init_row[index])
     for baseline_name, baseline_stat in baselines.items():
         print(f'Title: {title}, baseline: {baseline_name}')
         print(compute_num_measurements(REVERT_BASELINE_NAMES[baseline_name], baseline_stat))
@@ -490,12 +611,14 @@ for index, (title, baselines) in enumerate(systems.items()):
     if index == 0:
         ax.set_ylabel(r'\# Samples', fontsize=LABEL_FONT_SIZE)
 
+    plt.setp(ax.get_xticklabels(), visible=False)
+
 for handle, label in zip(*ax.get_legend_handles_labels()):
     handles.append(handle)
     labels.append(label)
 
 for index, (title, baselines) in enumerate(systems.items()):
-    ax = fig.add_subplot(gs[2, index])
+    ax = fig.add_subplot(gs[2, index], sharex=init_row[index])
     for baseline_name, baseline_stat in baselines.items():
         ax.plot(1 / baseline_stat.xs,
                 compute_num_gradient_updates(REVERT_BASELINE_NAMES[baseline_name], baseline_stat),
@@ -508,13 +631,15 @@ for index, (title, baselines) in enumerate(systems.items()):
     ax.set_yscale('log')
     if index == 0:
         ax.set_ylabel(r'Computation', fontsize=LABEL_FONT_SIZE)
+    plt.setp(ax.get_xticklabels(), visible=False)
+
 
 for handle, label in zip(*ax.get_legend_handles_labels()):
     handles.append(handle)
     labels.append(label)
 
 for index, (title, baselines) in enumerate(systems.items()):
-    ax = fig.add_subplot(gs[3, index])
+    ax = fig.add_subplot(gs[3, index], sharex=init_row[index])
     for baseline_name, baseline_stat in baselines.items():
         ax.plot(1 / baseline_stat.xs,
                 compute_physcal_time(REVERT_BASELINE_NAMES[baseline_name], baseline_stat) * get_dt(
