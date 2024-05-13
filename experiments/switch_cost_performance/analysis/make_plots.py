@@ -63,7 +63,7 @@ for index, env_name in enumerate(envs):
         xs=np.array(cur_data_num_actions['switch_cost']),
         ys_mean=np.array(cur_data_num_actions['mean']),
         ys_std=np.array(cur_data_num_actions['std']),
-        color='Green',
+        color='C1',
         linestyle='-'
     )
 
@@ -99,10 +99,10 @@ for index, env_name in enumerate(envs):
                                color=baseline_stat.color,
                                )
         ax[index].tick_params(axis='y', labelcolor=baseline_stat.color)
-        ax[index].set_ylabel('Reward', fontsize=LABEL_FONT_SIZE, color=baseline_stat.color)
+        ax[index].set_ylabel('Episode reward', fontsize=LABEL_FONT_SIZE, color=baseline_stat.color)
 
     ax[index].set_title(envs_labels[index], fontsize=LABEL_FONT_SIZE, pad=60)
-    ax[index].set_xlabel(r'Switch Cost', fontsize=LABEL_FONT_SIZE)
+    ax[index].set_xlabel(r'Transition cost', fontsize=LABEL_FONT_SIZE)
 
     ax_right_side = ax[index].twinx()
     for baseline_name, baseline_stat in baseline_num_actions.items():
@@ -118,7 +118,7 @@ for index, env_name in enumerate(envs):
                                    color=baseline_stat.color,
                                    )
         ax_right_side.tick_params(axis='y', labelcolor=baseline_stat.color)
-        ax_right_side.set_ylabel('\# Actions', fontsize=LABEL_FONT_SIZE, color=baseline_stat.color)
+        ax_right_side.set_ylabel('\# Interactions', fontsize=LABEL_FONT_SIZE, color=baseline_stat.color)
 
 handles, labels = [], []
 for axs in ax:

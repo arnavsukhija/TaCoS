@@ -191,9 +191,9 @@ for index, (stat_opt, stat_equi) in enumerate(zip(stats_optimized, stats_equidis
                             alpha=0.3)
 
     axs[index].set_xlim(*stat_equi.ax_lim)
-    axs[index].set_xlabel('Number of applied actions', fontsize=LABEL_FONT_SIZE)
+    axs[index].set_xlabel('\# Senses and controls', fontsize=LABEL_FONT_SIZE)
     if index == 0:
-        axs[index].set_ylabel('Total reward', fontsize=LABEL_FONT_SIZE)
+        axs[index].set_ylabel('Episode reward', fontsize=LABEL_FONT_SIZE)
     axs[index].set_title(stat_opt.title, fontsize=TITLE_FONT_SIZE, pad=60)
 
 
