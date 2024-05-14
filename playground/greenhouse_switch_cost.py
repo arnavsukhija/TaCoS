@@ -23,7 +23,7 @@ if __name__ == "__main__":
     episode_length = 200
     time_as_part_of_state = True
     discrete_discounting = 0.997
-    process_noise_scale = jnp.array(2.0)
+    process_noise_scale = jnp.array(0.0)
 
     env = GreenHouseEnv(add_process_noise=True,
                         process_noise_scale=process_noise_scale)
@@ -38,7 +38,7 @@ if __name__ == "__main__":
                                   num_integrator_steps=episode_length,
                                   min_time_between_switches=min_time_between_switches,
                                   max_time_between_switches=max_time_between_switches,
-                                  switch_cost=ConstantSwitchCost(value=jnp.array(0.2)),
+                                  switch_cost=ConstantSwitchCost(value=jnp.array(1.0)),
                                   time_as_part_of_state=time_as_part_of_state,
                                   discounting=discrete_discounting)
 
