@@ -13,13 +13,13 @@ import matplotlib.pyplot as plt
 import wandb
 from brax import envs
 from jax.nn import swish
-from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 from mbpo.optimizers.policy_optimizers.ppo.ppo_brax_env import PPO
 
 from wtc.wrappers.change_integration_dt import ChangeIntegrationStep
 from wtc.utils import discrete_to_continuous_discounting
 from wtc.wrappers.ih_switching_cost import ConstantSwitchCost, IHSwitchCostWrapper
 from wtc.envs.rccar import RCCar, plot_rc_trajectory
+from wtc.envs.reacher_dm_control import ReacherDMControl
 
 from jax import config
 
@@ -36,17 +36,19 @@ def experiment(env_name: str = 'inverted_pendulum',
                base_dt_divisor: int = 1,
                base_discount_factor: int = 0.99,
                seed: int = 0,
-               num_envs: int = 32,
-               num_env_steps_between_updates: int = 10,
-               networks: int = 0,
+               num_envs: int = 4096,
+               num_eval_envs: int = 128,
+               entropy_cost: int = 1e-2,
+               unroll_length: int = 5,
+               num_minibatches: int = 32,
+               num_updates_per_batch: int = 4,
                batch_size: int = 64,
-               action_repeat: int = 1,
+               networks: int = 0,
                reward_scaling: float = 1.0,
                switch_cost_wrapper: bool = False,
                switch_cost: float = 0.1,
                max_time_between_switches: float = 0.1,
                time_as_part_of_state: bool = True,
-               same_amount_of_gradient_updates: bool = True,
                num_final_evals: int = 10
                ):
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
@@ -58,8 +60,11 @@ def experiment(env_name: str = 'inverted_pendulum',
         new_dt = base_dt / base_dt_divisor
         env = RCCar(margin_factor=20, dt=new_dt)
     else:
-        env = envs.get_environment(env_name=env_name,
-                                   backend=backend)
+        if env_name == 'reacher':
+            env = ReacherDMControl(backend=backend)
+        else:
+            env = envs.get_environment(env_name=env_name,
+                                       backend=backend)
 
         base_dt = env.dt
         base_episode_steps = episode_time // env.dt
@@ -96,6 +101,7 @@ def experiment(env_name: str = 'inverted_pendulum',
         critic_hidden_layer_sizes = (64, 64)
 
     config = dict(env_name=env_name,
+                  backend=backend,
                   num_timesteps=num_timesteps,
                   episode_time=episode_time,
                   base_integration_dt=base_dt,
@@ -107,16 +113,18 @@ def experiment(env_name: str = 'inverted_pendulum',
                   new_discount_factor=new_discount_factor,
                   seed=seed,
                   num_envs=num_envs,
-                  num_env_steps_between_updates=num_env_steps_between_updates,
+                  num_eval_envs=num_eval_envs,
+                  entropy_cost=entropy_cost,
+                  unroll_length=unroll_length,
+                  num_minibatches=num_minibatches,
+                  num_updates_per_batch=num_updates_per_batch,
                   networks=networks,
                   batch_size=batch_size,
-                  action_repeat=action_repeat,
                   reward_scaling=reward_scaling,
                   switch_cost_wrapper=switch_cost_wrapper,
                   switch_cost=switch_cost,
                   max_time_between_switches=max_time_between_switches,
                   time_as_part_of_state=time_as_part_of_state,
-                  same_amount_of_gradient_updates=same_amount_of_gradient_updates,
                   num_final_evals=num_final_evals
                   )
 
@@ -131,26 +139,26 @@ def experiment(env_name: str = 'inverted_pendulum',
             environment=env,
             num_timesteps=num_timesteps,
             episode_length=int(episode_time // env.dt),
-            action_repeat=action_repeat,
+            action_repeat=1,
             num_envs=num_envs,
-            num_eval_envs=64,
+            num_eval_envs=num_eval_envs,
             lr=3e-4,
             wd=0.,
-            entropy_cost=1e-3,
-            unroll_length=50,
-            discounting=0.95,
+            entropy_cost=entropy_cost,
+            unroll_length=unroll_length,
+            discounting=new_discount_factor,
             batch_size=batch_size,
-            num_minibatches=32,
-            num_updates_per_batch=8,
+            num_minibatches=num_minibatches,
+            num_updates_per_batch=num_updates_per_batch,
             num_evals=20,
             normalize_observations=True,
             reward_scaling=reward_scaling,
             max_grad_norm=1e5,
             clipping_epsilon=0.3,
             gae_lambda=0.95,
-            policy_hidden_layer_sizes=(32,) * 4,
+            policy_hidden_layer_sizes=policy_hidden_layer_sizes,
             policy_activation=swish,
-            critic_hidden_layer_sizes=(256,) * 5,
+            critic_hidden_layer_sizes=critic_hidden_layer_sizes,
             critic_activation=swish,
             deterministic_eval=True,
             normalize_advantage=True,
@@ -162,80 +170,34 @@ def experiment(env_name: str = 'inverted_pendulum',
             max_time_between_switches=max_time_between_switches,
             env_dt=env.dt,
         )
-
-        # optimizer = SAC(
-        #     environment=env,
-        #     num_timesteps=num_timesteps,
-        #     episode_length=int(episode_time // env.dt),
-        #     action_repeat=action_repeat,
-        #     num_env_steps_between_updates=num_env_steps_between_updates,
-        #     num_envs=num_envs,
-        #     num_eval_envs=64,
-        #     lr_alpha=3e-4,
-        #     lr_policy=3e-4,
-        #     lr_q=3e-4,
-        #     wd_alpha=0.,
-        #     wd_policy=0.,
-        #     wd_q=0.,
-        #     max_grad_norm=1e5,
-        #     discounting=new_discount_factor,
-        #     batch_size=batch_size,
-        #     num_evals=20,
-        #     normalize_observations=True,
-        #     reward_scaling=reward_scaling,
-        #     tau=0.005,
-        #     min_replay_size=10 ** 3,
-        #     max_replay_size=10 ** 6,
-        #     grad_updates_per_step=num_env_steps_between_updates * num_envs,
-        #     deterministic_eval=True,
-        #     init_log_alpha=0.,
-        #     policy_hidden_layer_sizes=policy_hidden_layer_sizes,
-        #     policy_activation=swish,
-        #     critic_hidden_layer_sizes=critic_hidden_layer_sizes,
-        #     critic_activation=swish,
-        #     wandb_logging=True,
-        #     return_best_model=True,
-        #     non_equidistant_time=True,
-        #     continuous_discounting=continuous_discounting,
-        #     min_time_between_switches=1 * env.dt,
-        #     max_time_between_switches=max_time_between_switches,
-        #     env_dt=env.dt,
-        # )
     else:
-        if same_amount_of_gradient_updates:
-            grad_updates_per_step = math.ceil(num_env_steps_between_updates * num_envs / base_dt_divisor)
-        else:
-            grad_updates_per_step = num_env_steps_between_updates * num_envs
-        optimizer = SAC(
+        optimizer = PPO(
             environment=env,
             num_timesteps=num_timesteps,
             episode_length=int(episode_time // env.dt),
-            action_repeat=action_repeat,
-            num_env_steps_between_updates=num_env_steps_between_updates,
+            action_repeat=1,
             num_envs=num_envs,
-            num_eval_envs=64,
-            lr_alpha=3e-4,
-            lr_policy=3e-4,
-            lr_q=3e-4,
-            wd_alpha=0.,
-            wd_policy=0.,
-            wd_q=0.,
-            max_grad_norm=1e5,
-            discounting=new_discount_factor,
+            num_eval_envs=num_eval_envs,
+            lr=3e-4,
+            wd=0.,
+            entropy_cost=entropy_cost,
+            unroll_length=unroll_length,
+            discounting=discrete_to_continuous_discounting(),
             batch_size=batch_size,
+            num_minibatches=num_minibatches,
+            num_updates_per_batch=num_updates_per_batch,
             num_evals=20,
             normalize_observations=True,
             reward_scaling=reward_scaling,
-            tau=0.005,
-            min_replay_size=10 ** 3,
-            max_replay_size=10 ** 6,
-            grad_updates_per_step=grad_updates_per_step,
-            deterministic_eval=True,
-            init_log_alpha=0.,
+            max_grad_norm=1e5,
+            clipping_epsilon=0.3,
+            gae_lambda=0.95,
             policy_hidden_layer_sizes=policy_hidden_layer_sizes,
             policy_activation=swish,
             critic_hidden_layer_sizes=critic_hidden_layer_sizes,
             critic_activation=swish,
+            deterministic_eval=True,
+            normalize_advantage=True,
             wandb_logging=True,
             return_best_model=True,
         )
@@ -274,8 +236,11 @@ def experiment(env_name: str = 'inverted_pendulum',
             new_dt = base_dt / base_dt_divisor
             env = RCCar(margin_factor=20, dt=new_dt)
         else:
-            env = envs.get_environment(env_name=env_name,
-                                       backend=backend)
+            if env_name == 'reacher':
+                env = ReacherDMControl(backend=backend)
+            else:
+                env = envs.get_environment(env_name=env_name,
+                                           backend=backend)
             env = ChangeIntegrationStep(env=env,
                                         dt_divisor=base_dt_divisor)
 
@@ -391,42 +356,46 @@ def experiment(env_name: str = 'inverted_pendulum',
             new_dt = base_dt / base_dt_divisor
             env = RCCar(margin_factor=20, dt=new_dt)
         else:
-            env = envs.get_environment(env_name=env_name,
-                                       backend=backend)
+            if env_name == 'reacher':
+                env = ReacherDMControl(backend=backend)
+            else:
+                env = envs.get_environment(env_name=env_name,
+                                           backend=backend)
             env = ChangeIntegrationStep(env=env,
                                         dt_divisor=base_dt_divisor)
 
-        state = env.reset(rng=jr.PRNGKey(0))
         step_fn = jax.jit(env.step)
+        reset_fn = jax.jit(env.reset)
+        for index in range(num_final_evals):
+            state = reset_fn(rng=jr.PRNGKey(index))
+            trajectory = []
+            total_steps = 0
+            while (not state.done) and (total_steps < (episode_time // env.dt)):
+                action = policy(state.obs)[0]
+                for _ in range(1):
+                    state = step_fn(state, action)
+                    total_steps += 1
+                    trajectory.append(state)
 
-        trajectory = []
-        total_steps = 0
-        while (not state.done) and (total_steps < (episode_time // env.dt)):
-            action = policy(state.obs)[0]
-            for _ in range(action_repeat):
-                state = step_fn(state, action)
-                total_steps += 1
-                trajectory.append(state)
+            trajectory = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *trajectory)
+            wandb.log({f'results/total_reward_{index}': jnp.sum(trajectory.reward),
+                       f'results/num_actions_{index}': len(trajectory.reward)})
 
-        trajectory = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *trajectory)
-        wandb.log({'results/total_reward': jnp.sum(trajectory.reward),
-                   'results/num_actions': len(trajectory.reward)})
+            print(f'Total reward {index}: {jnp.sum(trajectory.reward)}')
+            print(f'Total steps {index}: {total_steps}')
 
-        print(f'Total reward: {jnp.sum(trajectory.reward)}')
-        print(f'Total steps: {total_steps}')
+            plt.plot(trajectory.reward)
+            plt.show()
 
-        plt.plot(trajectory.reward)
-        plt.show()
-
-        # We save full_trajectory to wandb
-        # Save trajectory rather than rendered video
-        directory = os.path.join(wandb.run.dir, 'results')
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        model_path = os.path.join(directory, 'trajectory_1.pkl')
-        with open(model_path, 'wb') as handle:
-            pickle.dump(trajectory, handle)
-        wandb.save(model_path, wandb.run.dir)
+            # We save full_trajectory to wandb
+            # Save trajectory rather than rendered video
+            directory = os.path.join(wandb.run.dir, 'results')
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+            model_path = os.path.join(directory, f'trajectory_{index}.pkl')
+            with open(model_path, 'wb') as handle:
+                pickle.dump(trajectory, handle)
+            wandb.save(model_path, wandb.run.dir)
 
     wandb.finish()
 
@@ -441,16 +410,18 @@ def main(args):
                base_discount_factor=args.base_discount_factor,
                seed=args.seed,
                num_envs=args.num_envs,
-               num_env_steps_between_updates=args.num_env_steps_between_updates,
-               networks=args.networks,
+               num_eval_envs=args.num_eval_envs,
+               entropy_cost=args.entropy_cost,
+               unroll_length=args.unroll_length,
+               num_minibatches=args.num_minibatches,
+               num_updates_per_batch=args.num_updates_per_batch,
                batch_size=args.batch_size,
-               action_repeat=args.action_repeat,
+               networks=args.networks,
                reward_scaling=args.reward_scaling,
                switch_cost_wrapper=bool(args.switch_cost_wrapper),
                switch_cost=args.switch_cost,
                max_time_between_switches=args.max_time_between_switches,
                time_as_part_of_state=bool(args.time_as_part_of_state),
-               same_amount_of_gradient_updates=bool(args.same_amount_of_gradient_updates),
                num_final_evals=args.num_final_evals
                )
 
@@ -461,21 +432,23 @@ if __name__ == '__main__':
     parser.add_argument('--backend', type=str, default='generalized')
     parser.add_argument('--project_name', type=str, default='GPUSpeedTest')
     parser.add_argument('--num_timesteps', type=int, default=100_000)
-    parser.add_argument('--episode_time', type=float, default=4.0)
+    parser.add_argument('--episode_time', type=float, default=2.0)
     parser.add_argument('--base_dt_divisor', type=int, default=1)
     parser.add_argument('--base_discount_factor', type=float, default=0.95)
     parser.add_argument('--seed', type=int, default=20)
     parser.add_argument('--num_envs', type=int, default=64)
-    parser.add_argument('--num_env_steps_between_updates', type=int, default=10)
-    parser.add_argument('--networks', type=int, default=1)
+    parser.add_argument('--num_eval_envs', type=int, default=64)
+    parser.add_argument('--entropy_cost', type=float, default=5.0)
+    parser.add_argument('--unroll_length', type=int, default=10)
+    parser.add_argument('--num_minibatches', type=int, default=10)
+    parser.add_argument('--num_updates_per_batch', type=int, default=10)
     parser.add_argument('--batch_size', type=int, default=64)
-    parser.add_argument('--action_repeat', type=int, default=1)
+    parser.add_argument('--networks', type=int, default=1)
     parser.add_argument('--reward_scaling', type=float, default=5.0)
     parser.add_argument('--switch_cost_wrapper', type=int, default=1)
     parser.add_argument('--switch_cost', type=float, default=1.0)
     parser.add_argument('--max_time_between_switches', type=float, default=0.1)
     parser.add_argument('--time_as_part_of_state', type=int, default=1)
-    parser.add_argument('--same_amount_of_gradient_updates', type=int, default=1)
     parser.add_argument('--num_final_evals', type=int, default=10)
 
     args = parser.parse_args()
