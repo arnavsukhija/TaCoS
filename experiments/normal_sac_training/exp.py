@@ -19,6 +19,7 @@ from mbpo.optimizers.policy_optimizers.sac.sac_brax_env import SAC
 from wtc.envs.drone import Crazyflie2
 from wtc.envs.greenhouse import GreenHouseEnv
 from wtc.envs.reacher_dm_control import ReacherDMControl
+from wtc.envs.rccar import RCCar, plot_rc_trajectory
 
 ENTITY = 'trevenl'
 
@@ -43,9 +44,14 @@ def experiment(env_name: str = 'inverted_pendulum',
     envs.register_environment('greenhouse', GreenHouseEnv)
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
                         'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse',
-                        'swimmer']
+                        'swimmer', 'rccar']
     episode_length = int(episode_length / action_repeat)
-    if env_name == 'reacher':
+    if env_name == 'rccar':
+        base_dt = 0.5
+        base_episode_steps = 8
+        new_dt = base_dt / 1
+        env = RCCar(margin_factor=20, dt=new_dt)
+    elif env_name == 'reacher':
         env = ReacherDMControl(backend=backend)
     else:
         env = envs.get_environment(env_name=env_name,
@@ -138,8 +144,13 @@ def experiment(env_name: str = 'inverted_pendulum',
     ########################## Evaluation ##########################
     ################################################################
 
-    if env_name == 'reacher':
-        base_env = ReacherDMControl(backend=backend)
+    if env_name == 'rccar':
+        base_dt = 0.5
+        base_episode_steps = 8
+        new_dt = base_dt / 1
+        env = RCCar(margin_factor=20, dt=new_dt)
+    elif env_name == 'reacher':
+        env = ReacherDMControl(backend=backend)
     else:
         base_env = envs.get_environment(env_name=env_name,
                                         backend=backend)
@@ -207,19 +218,19 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env_name', type=str, default='reacher')
+    parser.add_argument('--env_name', type=str, default='rccar')
     parser.add_argument('--backend', type=str, default='generalized')
     parser.add_argument('--project_name', type=str, default='GPUSpeedTest')
-    parser.add_argument('--num_timesteps', type=int, default=100_000)
-    parser.add_argument('--episode_length', type=int, default=200)
-    parser.add_argument('--learning_discount_factor', type=float, default=0.95)
+    parser.add_argument('--num_timesteps', type=int, default=50_000)
+    parser.add_argument('--episode_length', type=int, default=8)
+    parser.add_argument('--learning_discount_factor', type=float, default=0.9)
     parser.add_argument('--seed', type=int, default=20)
-    parser.add_argument('--num_envs', type=int, default=32)
+    parser.add_argument('--num_envs', type=int, default=128)
     parser.add_argument('--num_env_steps_between_updates', type=int, default=10)
     parser.add_argument('--networks', type=int, default=1)
-    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--action_repeat', type=int, default=1)
-    parser.add_argument('--reward_scaling', type=float, default=5.0)
+    parser.add_argument('--reward_scaling', type=float, default=1.0)
     parser.add_argument('--video_track', type=int, default=1)
     parser.add_argument('--num_final_evals', type=int, default=1)
 

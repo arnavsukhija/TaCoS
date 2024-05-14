@@ -13,6 +13,7 @@ import wandb
 from brax import envs
 from jax.nn import swish
 from mbpo.optimizers.policy_optimizers.ppo.ppo_brax_env import PPO
+from wtc.envs.rccar import RCCar, plot_rc_trajectory
 
 ENTITY = 'trevenl'
 
@@ -43,9 +44,16 @@ def experiment(env_name: str = 'ant',
                ):
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
                         'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse',
-                        'swimmer']
-    env = envs.get_environment(env_name=env_name,
-                               backend=backend)
+                        'swimmer', 'rccar']
+    if env_name == 'rccar':
+        base_dt = 0.5
+        base_episode_steps = 8
+        new_dt = base_dt / 1
+        env = RCCar(margin_factor=20, dt=new_dt)
+
+    else:
+        env = envs.get_environment(env_name=env_name,
+                                   backend=backend)
 
     config = dict(env_name=env_name,
                   num_timesteps=num_timesteps,
@@ -135,8 +143,15 @@ def experiment(env_name: str = 'ant',
     ########################## Evaluation ##########################
     ################################################################
 
-    env = envs.get_environment(env_name=env_name,
-                               backend=backend)
+    if env_name == 'rccar':
+        base_dt = 0.5
+        base_episode_steps = 8
+        new_dt = base_dt / 1
+        env = RCCar(margin_factor=20, dt=new_dt)
+
+    else:
+        env = envs.get_environment(env_name=env_name,
+                                   backend=backend)
 
     state = env.reset(rng=jr.PRNGKey(0))
     step_fn = jax.jit(env.step)
@@ -196,25 +211,25 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env_name', type=str, default='reacher')
+    parser.add_argument('--env_name', type=str, default='rccar')
     parser.add_argument('--backend', type=str, default='generalized')
     parser.add_argument('--project_name', type=str, default='GPUSpeedTest')
-    parser.add_argument('--num_timesteps', type=int, default=1_000_000)
-    parser.add_argument('--episode_length', type=int, default=200)
-    parser.add_argument('--action_repeat', type=int, default=5)
+    parser.add_argument('--num_timesteps', type=int, default=2_000_000)
+    parser.add_argument('--episode_length', type=int, default=8)
+    parser.add_argument('--action_repeat', type=int, default=1)
     parser.add_argument('--num_envs', type=int, default=2048)
-    parser.add_argument('--num_eval_envs', type=int, default=128)
+    parser.add_argument('--num_eval_envs', type=int, default=32)
     parser.add_argument('--learning_rate', type=float, default=3e-4)
-    parser.add_argument('--entropy_cost', type=float, default=1e-3)
-    parser.add_argument('--discounting', type=float, default=0.95)
+    parser.add_argument('--entropy_cost', type=float, default=1e-2)
+    parser.add_argument('--discounting', type=float, default=0.9)
     parser.add_argument('--seed', type=int, default=20)
-    parser.add_argument('--unroll_length', type=int, default=50)
-    parser.add_argument('--batch_size', type=int, default=256)
+    parser.add_argument('--unroll_length', type=int, default=10)
+    parser.add_argument('--batch_size', type=int, default=1024)
     parser.add_argument('--num_minibatches', type=int, default=32)
-    parser.add_argument('--num_updates_per_batch', type=int, default=8)
+    parser.add_argument('--num_updates_per_batch', type=int, default=4)
     parser.add_argument('--num_evals', type=int, default=20)
     parser.add_argument('--normalize_observations', type=int, default=1)
-    parser.add_argument('--reward_scaling', type=float, default=5.0)
+    parser.add_argument('--reward_scaling', type=float, default=1.0)
     parser.add_argument('--clipping_epsilon', type=float, default=0.3)
     parser.add_argument('--gae_lambda', type=float, default=0.95)
     parser.add_argument('--deterministic_eval', type=int, default=1)

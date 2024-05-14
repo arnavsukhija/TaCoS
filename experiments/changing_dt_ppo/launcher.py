@@ -388,10 +388,10 @@ def main():
     #         flags_combinations = dict_permutations(conf)
     #     else:
     #         flags_combinations += dict_permutations(conf)
-    flags_combinations = dict_permutations(rccar_switch_cost)
-    # flags_combinations += dict_permutations(reacher_switch_cost)
-    # flags_combinations += dict_permutations(halfcheetah_switch_cost)
-    # flags_combinations += dict_permutations(humanoid_switch_cost)
+    # flags_combinations = dict_permutations(rccar_switch_cost)
+    flags_combinations = dict_permutations(reacher_switch_cost)
+    flags_combinations += dict_permutations(halfcheetah_switch_cost)
+    flags_combinations += dict_permutations(humanoid_switch_cost)
 
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)

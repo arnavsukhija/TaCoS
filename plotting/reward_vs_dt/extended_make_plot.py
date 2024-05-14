@@ -21,6 +21,7 @@ BASELINE_NAMES = {
     'basline1': 'SAC-MS',
     'basline2': 'SAC-MCMS',
     'basline3': 'SAC',
+    'basline4': 'PPO-WTC',
 }
 
 LINESTYLES = {
@@ -28,13 +29,14 @@ LINESTYLES = {
     'basline1': 'dashed',
     'basline2': (0, (3, 1, 1, 1)),
     'basline3': 'dashdot',
+    'basline4': 'solid',
 }
 
 BASE_NUMBER_OF_STEPS = {
     'reacher': 100_000,
     'rccar': 50_000,
     'halfcheetah': 1_000_000,
-    'humanoid': 5_000_000
+    'humanoid': 5_000_000,
 }
 
 COLORS = {
@@ -42,6 +44,7 @@ COLORS = {
     'basline1': 'C1',
     'basline2': 'C2',
     'basline3': 'C3',
+    'basline4': 'C4',
 }
 
 REVERT_BASELINE_NAMES = {value: key for key, value in BASELINE_NAMES.items()}
@@ -82,6 +85,8 @@ def compute_num_gradient_updates(baseline_name: str, stats: Statistics):
         return stats.base_number_of_steps / (stats.xs / stats.xs[-1])
     elif baseline_name == 'basline3':
         return stats.base_number_of_steps * np.ones_like(stats.xs)
+    else:
+        return stats.base_number_of_steps * np.ones_like(stats.xs)
 
 
 def compute_num_measurements(baseline_name: str, stats: Statistics):
@@ -93,6 +98,8 @@ def compute_num_measurements(baseline_name: str, stats: Statistics):
     elif baseline_name == 'basline2':
         return stats.base_number_of_steps / (stats.xs / stats.xs[-1])
     elif baseline_name == 'basline3':
+        return stats.base_number_of_steps * np.ones_like(stats.xs)
+    else:
         return stats.base_number_of_steps * np.ones_like(stats.xs)
 
 
@@ -127,6 +134,8 @@ def compute_physcal_time(baseline_name: str, stats: Statistics):
         return stats.base_number_of_steps * np.ones_like(stats.xs)
     elif baseline_name == 'basline3':
         return stats.base_number_of_steps * (stats.xs / stats.xs[-1])
+    else:
+        return stats.base_number_of_steps * np.ones_like(stats.xs)
 
 
 systems: Dict[str, Any] = {}
@@ -305,6 +314,61 @@ baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update
     baseline_name=BASELINE_NAMES['basline3'],
     cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
     cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
+
+data_adaptive = pd.read_csv('data/rccar/ppo_switch_cost.csv')
+
+for index in range(1):
+    data_adaptive[f'results/reward_with_switch_cost_{index}'] = data_adaptive[
+                                                                  f'results/total_reward_{index}'] - SWITCH_COST * \
+                                                              data_adaptive[f'results/num_actions_{index}']
+
+statistics = 'mean' # Can be median or mean
+
+def update_baselines(cur_data: pd.DataFrame,
+                     baseline_name: str,
+                     cur_baselines_reward_with_switch_cost: Dict[str, Statistics],
+                     cur_baselines_reward_without_switch_cost: Dict[str, Statistics], ):
+    # Identify columns that follow the pattern 'total_reward_{index}'
+    columns_to_mean = [col for col in cur_data.columns if col.startswith('results/total_reward_')]
+
+    # Compute the mean of these columns and add as a new column
+    cur_data['results/total_reward'] = cur_data[columns_to_mean].mean(axis=1)
+
+    # Identify columns that follow the pattern 'total_reward_{index}'
+    columns_to_mean = [col for col in cur_data.columns if col.startswith('results/num_actions_')]
+
+    # Compute the mean of these columns and add as a new column
+    cur_data['results/num_actions'] = cur_data[columns_to_mean].mean(axis=1)
+
+    grouped_data = cur_data.groupby('new_integration_dt')[f'results/total_reward'].agg([statistics, 'std'])
+    grouped_data = grouped_data.reset_index()
+
+    cur_baselines_reward_without_switch_cost[baseline_name] = Statistics(
+        xs=np.array(grouped_data['new_integration_dt']),
+        ys_mean=np.array(grouped_data[statistics]),
+        ys_std=np.array(grouped_data['std']),
+        base_number_of_steps=BASE_NUMBER_OF_STEPS['rccar']
+    )
+
+    cur_data['results/reward_with_switch_cost'] = cur_data['results/total_reward'] - SWITCH_COST * cur_data[
+        'results/num_actions']
+    grouped_data_with_switch_cost = cur_data.groupby('new_integration_dt')['results/reward_with_switch_cost'].agg(
+        [statistics, 'std'])
+    grouped_data_with_switch_cost = grouped_data_with_switch_cost.reset_index()
+
+    cur_baselines_reward_with_switch_cost[baseline_name] = Statistics(
+        xs=np.array(grouped_data_with_switch_cost['new_integration_dt']),
+        ys_mean=np.array(grouped_data_with_switch_cost[statistics]),
+        ys_std=np.array(grouped_data_with_switch_cost['std'])
+    )
+    return cur_baselines_reward_with_switch_cost, cur_baselines_reward_without_switch_cost
+
+baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
+    cur_data=data_adaptive,
+    baseline_name=BASELINE_NAMES['basline4'],
+    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
+    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
+
 
 systems['RC Car'] = baselines_reward_without_switch_cost
 
@@ -590,9 +654,9 @@ for index, (title, baselines) in enumerate(systems.items()):
     plt.setp(ax.get_xticklabels(), visible=False)
 
 
-for handle, label in zip(*ax.get_legend_handles_labels()):
-    handles.append(handle)
-    labels.append(label)
+    for handle, label in zip(*ax.get_legend_handles_labels()):
+        handles.append(handle)
+        labels.append(label)
 
 for index, (title, baselines) in enumerate(systems.items()):
     ax = fig.add_subplot(gs[1, index], sharex=init_row[index])
@@ -613,9 +677,9 @@ for index, (title, baselines) in enumerate(systems.items()):
 
     plt.setp(ax.get_xticklabels(), visible=False)
 
-for handle, label in zip(*ax.get_legend_handles_labels()):
-    handles.append(handle)
-    labels.append(label)
+    for handle, label in zip(*ax.get_legend_handles_labels()):
+        handles.append(handle)
+        labels.append(label)
 
 for index, (title, baselines) in enumerate(systems.items()):
     ax = fig.add_subplot(gs[2, index], sharex=init_row[index])
@@ -634,9 +698,9 @@ for index, (title, baselines) in enumerate(systems.items()):
     plt.setp(ax.get_xticklabels(), visible=False)
 
 
-for handle, label in zip(*ax.get_legend_handles_labels()):
-    handles.append(handle)
-    labels.append(label)
+    for handle, label in zip(*ax.get_legend_handles_labels()):
+        handles.append(handle)
+        labels.append(label)
 
 for index, (title, baselines) in enumerate(systems.items()):
     ax = fig.add_subplot(gs[3, index], sharex=init_row[index])
@@ -655,14 +719,14 @@ for index, (title, baselines) in enumerate(systems.items()):
     if index == 0:
         ax.set_ylabel(r'Env Time [sec]', fontsize=LABEL_FONT_SIZE)
 
-for handle, label in zip(*ax.get_legend_handles_labels()):
-    handles.append(handle)
-    labels.append(label)
+    for handle, label in zip(*ax.get_legend_handles_labels()):
+        handles.append(handle)
+        labels.append(label)
 
 by_label = dict(zip(labels, handles))
 
 fig.legend(by_label.values(), by_label.keys(),
-           ncols=4,
+           ncols=5,
            loc='upper center',
            bbox_to_anchor=(0.5, 0.98),
            fontsize=LEGEND_FONT_SIZE,
