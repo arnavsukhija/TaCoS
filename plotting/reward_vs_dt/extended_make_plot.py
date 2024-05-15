@@ -234,6 +234,16 @@ baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update
     cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
     cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
 
+data_adaptive = pd.read_csv('data/reacher/ppo_switch_cost.csv')
+
+baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
+    cur_data=data_adaptive,
+    baseline_name=BASELINE_NAMES['basline4'],
+    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
+    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
+
+
+
 systems['Reacher'] = baselines_reward_without_switch_cost
 
 
@@ -615,6 +625,60 @@ baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update
 baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
     cur_data=data_equidistant_naive,
     baseline_name=BASELINE_NAMES['basline3'],
+    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
+    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
+
+
+statistics = 'mean' # Can be median or mean
+
+
+def update_baselines(cur_data: pd.DataFrame,
+                     baseline_name: str,
+                     cur_baselines_reward_with_switch_cost: Dict[str, Statistics],
+                     cur_baselines_reward_without_switch_cost: Dict[str, Statistics], ):
+    # Identify columns that follow the pattern 'total_reward_{index}'
+    columns_to_mean = [col for col in cur_data.columns if col.startswith('results/total_reward_')]
+
+    # Compute the mean of these columns and add as a new column
+    cur_data['results/total_reward'] = cur_data[columns_to_mean].mean(axis=1)
+
+    # Identify columns that follow the pattern 'total_reward_{index}'
+    columns_to_mean = [col for col in cur_data.columns if col.startswith('results/num_actions_')]
+
+    # Compute the mean of these columns and add as a new column
+    cur_data['results/num_actions'] = cur_data[columns_to_mean].mean(axis=1)
+
+    grouped_data = cur_data.groupby('new_integration_dt')[f'results/total_reward'].agg([statistics, 'std'])
+    grouped_data = grouped_data.reset_index()
+
+    cur_baselines_reward_without_switch_cost[baseline_name] = Statistics(
+        xs=np.array(grouped_data['new_integration_dt']),
+        ys_mean=np.array(grouped_data[statistics]),
+        ys_std=np.array(grouped_data['std']),
+        base_number_of_steps=BASE_NUMBER_OF_STEPS['humanoid']
+    )
+
+    cur_data['results/reward_with_switch_cost'] = cur_data['results/total_reward'] - SWITCH_COST * cur_data[
+        'results/num_actions']
+    grouped_data_with_switch_cost = cur_data.groupby('new_integration_dt')['results/reward_with_switch_cost'].agg(
+        [statistics, 'std'])
+    grouped_data_with_switch_cost = grouped_data_with_switch_cost.reset_index()
+
+    cur_baselines_reward_with_switch_cost[baseline_name] = Statistics(
+        xs=np.array(grouped_data_with_switch_cost['new_integration_dt']),
+        ys_mean=np.array(grouped_data_with_switch_cost[statistics]),
+        ys_std=np.array(grouped_data_with_switch_cost['std']),
+        base_number_of_steps=BASE_NUMBER_OF_STEPS['humanoid']
+    )
+    return cur_baselines_reward_with_switch_cost, cur_baselines_reward_without_switch_cost
+
+
+data_adaptive = pd.read_csv('data/humanoid/ppo_switch_cost.csv')
+
+
+baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
+    cur_data=data_adaptive,
+    baseline_name=BASELINE_NAMES['basline4'],
     cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
     cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
 

@@ -9,10 +9,9 @@ api = wandb.Api()
 entity = "trevenl"
 
 ############### Reacher 4.0 sec horizon ###############
-# env_name = 'reacher'
-# runs_to_download = {"no_switch_cost": 'ReacherNoSwitchCostApr23_15_30',
-#                     "switch_cost": 'ReachSwitchCostApr23_14_30',
-#                     'naive_model': 'ReacherNoSwitchCostMay08_15_45'}
+env_name = 'reacher'
+runs_to_download = {"switch_cost": 'ReacherPPOSwitchCostMay14_14_20',
+}
 
 
 ############### Reacher 2.0 sec horizon ###############
@@ -23,17 +22,15 @@ entity = "trevenl"
 
 
 ############### RCCar 4.0 sec horizon ###############
-env_name = 'rccar'
-runs_to_download = {
-    'switch_cost': 'RCCARPPOSwitchCostMay14_16_05'
-}
+# env_name = 'rccar'
+# runs_to_download = {
+#     'switch_cost': 'RCCARPPOSwitchCostMay14_16_05'
+# }
 
 ############### Humanoid 3.0 sec horizon ###############
 # env_name = 'humanoid'
-# runs_to_download = {"no_switch_cost": 'HumanoidNoSwitchCostMay10_17_45',
-#                     "switch_cost": 'HumanoidSwitchCostMay10_17_45',
-#                     'naive_model': 'HumanoidNoSwitchCostMay10_16_20'}
-
+# runs_to_download = {"switch_cost": 'HumanoidPPOSwitchCostMay14_14_20',
+#                     }
 
 # Fetch all runs from the project
 for filename, run_name in runs_to_download.items():
