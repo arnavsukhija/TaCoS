@@ -9,9 +9,10 @@ api = wandb.Api()
 entity = "trevenl"
 
 ############### Reacher 4.0 sec horizon ###############
-env_name = 'reacher'
-runs_to_download = {"switch_cost": 'ReacherPPOSwitchCostMay14_14_20',
-}
+# env_name = 'reacher'
+# runs_to_download = {"switch_cost": 'ReacherPPOSwitchCostMay14_14_20',
+#                     'low_freq': "ReacherPPOSwitchCostLowFreqMay20_09_20"
+# }
 
 
 ############### Reacher 2.0 sec horizon ###############
@@ -22,10 +23,11 @@ runs_to_download = {"switch_cost": 'ReacherPPOSwitchCostMay14_14_20',
 
 
 ############### RCCar 4.0 sec horizon ###############
-# env_name = 'rccar'
-# runs_to_download = {
-#     'switch_cost': 'RCCARPPOSwitchCostMay14_16_05'
-# }
+env_name = 'rccar'
+runs_to_download = {
+    'switch_cost': 'RCCARPPOSwitchCostMay14_16_05',
+    'low_freq': "RCCARPPOSwitchCostMay14_16_05"
+}
 
 ############### Humanoid 3.0 sec horizon ###############
 # env_name = 'humanoid'

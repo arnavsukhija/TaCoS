@@ -70,6 +70,11 @@ filtered_df = data_adaptive[(data_adaptive['switch_cost'] == SWITCH_COST) &
 filtered_df['results/reward_with_switch_cost'] = filtered_df['results/total_reward'] - SWITCH_COST * filtered_df[
     'results/num_actions']
 
+data_low_freq = pd.read_csv('data/rccar/low_freq.csv')
+data_low_freq['new_integration_dt'] = data_low_freq['new_integration_dt'] * data_low_freq['min_time_repeat']
+data_low_freq['results/total_reward'] = data_low_freq['results/total_reward_0']
+filtered_df = pd.concat([filtered_df, data_low_freq])
+
 data_equidistant = pd.read_csv('data/rccar/no_switch_cost.csv')
 data_equidistant['results/reward_with_switch_cost'] = data_equidistant['results/total_reward'] - SWITCH_COST * \
                                                       data_equidistant['results/num_actions']

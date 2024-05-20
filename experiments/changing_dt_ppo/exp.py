@@ -48,8 +48,9 @@ def experiment(env_name: str = 'inverted_pendulum',
                switch_cost_wrapper: bool = False,
                switch_cost: float = 0.1,
                max_time_between_switches: float = 0.1,
+               min_time_repeat: int = 1,
                time_as_part_of_state: bool = True,
-               num_final_evals: int = 10
+               num_final_evals: int = 10,
                ):
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
                         'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse', 'rccar']
@@ -85,7 +86,8 @@ def experiment(env_name: str = 'inverted_pendulum',
 
         env = IHSwitchCostWrapper(env=env,
                                   num_integrator_steps=int(episode_time // env.dt),
-                                  min_time_between_switches=1 * env.dt,  # Hardcoded to be at least the integration step
+                                  min_time_between_switches=min_time_repeat * env.dt,
+                                  # Hardcoded to be at least the integration step
                                   max_time_between_switches=max_time_between_switches,
                                   switch_cost=ConstantSwitchCost(value=jnp.array(switch_cost)),
                                   discounting=new_discount_factor,
@@ -125,7 +127,8 @@ def experiment(env_name: str = 'inverted_pendulum',
                   switch_cost=switch_cost,
                   max_time_between_switches=max_time_between_switches,
                   time_as_part_of_state=time_as_part_of_state,
-                  num_final_evals=num_final_evals
+                  num_final_evals=num_final_evals,
+                  min_time_repeat=min_time_repeat
                   )
 
     wandb.init(
@@ -166,7 +169,7 @@ def experiment(env_name: str = 'inverted_pendulum',
             return_best_model=True,
             non_equidistant_time=True,
             continuous_discounting=continuous_discounting,
-            min_time_between_switches=1 * env.dt,
+            min_time_between_switches=min_time_repeat * env.dt,
             max_time_between_switches=max_time_between_switches,
             env_dt=env.dt,
         )
@@ -246,7 +249,7 @@ def experiment(env_name: str = 'inverted_pendulum',
 
         env = IHSwitchCostWrapper(env=env,
                                   num_integrator_steps=int(episode_time // env.dt),
-                                  min_time_between_switches=1 * env.dt,
+                                  min_time_between_switches=min_time_repeat * env.dt,
                                   max_time_between_switches=max_time_between_switches,
                                   switch_cost=ConstantSwitchCost(value=jnp.array(0.0)),
                                   discounting=1.0,
@@ -422,13 +425,14 @@ def main(args):
                switch_cost=args.switch_cost,
                max_time_between_switches=args.max_time_between_switches,
                time_as_part_of_state=bool(args.time_as_part_of_state),
-               num_final_evals=args.num_final_evals
+               num_final_evals=args.num_final_evals,
+               min_time_repeat=args.min_time_repeat
                )
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env_name', type=str, default='reacher')
+    parser.add_argument('--env_name', type=str, default='humanoid')
     parser.add_argument('--backend', type=str, default='generalized')
     parser.add_argument('--project_name', type=str, default='GPUSpeedTest')
     parser.add_argument('--num_timesteps', type=int, default=100_000)
@@ -448,6 +452,7 @@ if __name__ == '__main__':
     parser.add_argument('--switch_cost_wrapper', type=int, default=1)
     parser.add_argument('--switch_cost', type=float, default=1.0)
     parser.add_argument('--max_time_between_switches', type=float, default=0.1)
+    parser.add_argument('--min_time_repeat', type=int, default=1)
     parser.add_argument('--time_as_part_of_state', type=int, default=1)
     parser.add_argument('--num_final_evals', type=int, default=10)
 

@@ -190,6 +190,10 @@ baselines_reward_with_switch_cost: Dict[str, Statistics] = {}
 
 data_adaptive = pd.read_csv('data/reacher/switch_cost.csv')
 filtered_df = data_adaptive[data_adaptive['switch_cost'] == SWITCH_COST]
+data_low_freq = pd.read_csv('data/reacher/low_freq.csv')
+data_low_freq['new_integration_dt'] = data_low_freq['new_integration_dt'] * data_low_freq['min_time_repeat']
+filtered_df = pd.concat([filtered_df, data_low_freq])
+
 for index in range(NUM_EVALS):
     filtered_df[f'results/reward_with_switch_cost_{index}'] = filtered_df[
                                                                   f'results/total_reward_{index}'] - SWITCH_COST * \
@@ -235,9 +239,12 @@ baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update
     cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
 
 data_adaptive = pd.read_csv('data/reacher/ppo_switch_cost.csv')
+data_low_freq = pd.read_csv('data/reacher/ppo_low_freq.csv')
+data_low_freq['new_integration_dt'] = data_low_freq['new_integration_dt'] * data_low_freq['min_time_repeat']
+data = pd.concat([data_adaptive, data_low_freq])
 
 baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
-    cur_data=data_adaptive,
+    cur_data=data,
     baseline_name=BASELINE_NAMES['basline4'],
     cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
     cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
@@ -288,6 +295,11 @@ filtered_df = data_adaptive[(data_adaptive['switch_cost'] == SWITCH_COST) &
 filtered_df['results/reward_with_switch_cost'] = filtered_df['results/total_reward'] - SWITCH_COST * filtered_df[
     'results/num_actions']
 
+data_low_freq = pd.read_csv('data/rccar/low_freq.csv')
+data_low_freq['new_integration_dt'] = data_low_freq['new_integration_dt'] * data_low_freq['min_time_repeat']
+data_low_freq['results/total_reward'] = data_low_freq['results/total_reward_0']
+filtered_df = pd.concat([filtered_df, data_low_freq])
+
 data_equidistant = pd.read_csv('data/rccar/no_switch_cost.csv')
 data_equidistant['results/reward_with_switch_cost'] = data_equidistant['results/total_reward'] - SWITCH_COST * \
                                                       data_equidistant['results/num_actions']
@@ -326,6 +338,11 @@ baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update
     cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
 
 data_adaptive = pd.read_csv('data/rccar/ppo_switch_cost.csv')
+
+data_low_freq = pd.read_csv('data/rccar/ppo_low_freq.csv')
+data_low_freq = data_low_freq[data_low_freq['min_time_repeat'].notnull()]
+data_low_freq['new_integration_dt'] = data_low_freq['new_integration_dt'] * data_low_freq['min_time_repeat']
+data_adaptive = pd.concat([data_adaptive, data_low_freq])
 
 for index in range(1):
     data_adaptive[f'results/reward_with_switch_cost_{index}'] = data_adaptive[
@@ -399,6 +416,12 @@ filtered_df = data_adaptive[(data_adaptive['switch_cost'] == SWITCH_COST) &
                             (data_adaptive['time_as_part_of_state'] == True)]
 filtered_df['results/reward_with_switch_cost'] = filtered_df['results/total_reward'] - SWITCH_COST * filtered_df[
     'results/num_actions']
+
+data_low_freq = pd.read_csv('data/halfcheetah/low_freq.csv')
+data_low_freq['new_integration_dt'] = data_low_freq['new_integration_dt'] * data_low_freq['min_time_repeat']
+data_low_freq['results/total_reward'] = data_low_freq['results/total_reward_0']
+filtered_df = pd.concat([filtered_df, data_low_freq])
+
 ########################################################################################
 ########################################################################################
 

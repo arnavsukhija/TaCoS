@@ -81,10 +81,12 @@ baselines_reward_without_switch_cost: Dict[str, Statistics] = {}
 baselines_reward_with_switch_cost: Dict[str, Statistics] = {}
 
 data_adaptive = pd.read_csv('data/reacher/ppo_switch_cost.csv')
-
+data_low_freq = pd.read_csv('data/reacher/ppo_low_freq.csv')
+data_low_freq['new_integration_dt'] = data_low_freq['new_integration_dt'] * data_low_freq['min_time_repeat']
+data = pd.concat([data_adaptive, data_low_freq])
 
 baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
-    cur_data=data_adaptive,
+    cur_data=data,
     baseline_name="Switch-Cost-CTRL",
     cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
     cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)

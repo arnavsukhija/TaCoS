@@ -5,7 +5,7 @@ from brax import envs
 
 ENTITY = 'trevenl'
 
-env_name = 'reacher'
+env_name = 'humanoid'
 backend = 'generalized'
 project_name = 'GPUSpeedTest'
 num_timesteps = 1_000_000
@@ -48,6 +48,7 @@ init_state = env.reset(rng=jax.random.PRNGKey(0))
 action = 0.1 * jnp.ones(shape=(env.action_size,))
 base_dt = env.sys.dt
 num_steps = 10
+print(f'Observations dimension: {env.observation_size}, action dimension: {env.action_size}')
 
 # # Do 10 base steps
 # num_divisors = 1

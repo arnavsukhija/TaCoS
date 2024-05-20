@@ -28,7 +28,7 @@ SWITCH_COST = 0.1  # [0.1, 1, 2, 3]
 MAX_TIME_BETWEEN_SWITCHES = 0.5
 NUM_EVALS = 10
 
-statistics = 'median' # Can be mean or median
+statistics = 'mean' # Can be mean or median
 
 class Statistics(NamedTuple):
     xs: np.ndarray
@@ -80,6 +80,12 @@ baselines_reward_with_switch_cost: Dict[str, Statistics] = {}
 
 data_adaptive = pd.read_csv('data/reacher/switch_cost.csv')
 filtered_df = data_adaptive[data_adaptive['switch_cost'] == SWITCH_COST]
+
+data_low_freq = pd.read_csv('data/reacher/low_freq.csv')
+data_low_freq['new_integration_dt'] = data_low_freq['new_integration_dt'] * data_low_freq['min_time_repeat']
+filtered_df = pd.concat([filtered_df, data_low_freq])
+
+
 for index in range(NUM_EVALS):
     filtered_df[f'results/reward_with_switch_cost_{index}'] = filtered_df[
                                                                   f'results/total_reward_{index}'] - SWITCH_COST * \

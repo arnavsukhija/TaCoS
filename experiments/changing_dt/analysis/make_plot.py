@@ -45,6 +45,14 @@ filtered_df = data_adaptive[(data_adaptive['switch_cost'] == SWITCH_COST) &
                             (data_adaptive['time_as_part_of_state'] == True)]
 filtered_df['results/reward_with_switch_cost'] = filtered_df['results/total_reward'] - SWITCH_COST * filtered_df[
     'results/num_actions']
+
+
+data_low_freq = pd.read_csv('data/halfcheetah/low_freq.csv')
+data_low_freq['new_integration_dt'] = data_low_freq['new_integration_dt'] * data_low_freq['min_time_repeat']
+data_low_freq['results/total_reward'] = data_low_freq['results/total_reward_0']
+filtered_df = pd.concat([filtered_df, data_low_freq])
+
+
 ########################################################################################
 ########################################################################################
 
