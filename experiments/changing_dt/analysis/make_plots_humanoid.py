@@ -84,6 +84,10 @@ data_adaptive = pd.read_csv('data/humanoid/switch_cost.csv')
 data_adaptive = data_adaptive[data_adaptive['new_integration_dt'] >= MIN_TIME]
 filtered_df = data_adaptive[data_adaptive['switch_cost'] == SWITCH_COST]
 
+data_low_freq = pd.read_csv('data/humanoid/low_freq.csv')
+data_low_freq['new_integration_dt'] = data_low_freq['new_integration_dt'] * data_low_freq['min_time_repeat']
+filtered_df = pd.concat([filtered_df, data_low_freq])
+
 
 
 for index in range(NUM_EVALS):

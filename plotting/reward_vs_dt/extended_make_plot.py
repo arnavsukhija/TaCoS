@@ -39,6 +39,14 @@ BASE_NUMBER_OF_STEPS = {
     'humanoid': 5_000_000,
 }
 
+BASE_DISCRETIZATION_STEPS = {
+    'Reacher': 0.02,
+    'RC Car': 0.5,
+    'Halfcheetah': 0.05,
+    'Humanoid': 0.015,
+}
+
+
 COLORS = {
     'basline0': 'C0',
     'basline1': 'C1',
@@ -603,6 +611,10 @@ data_adaptive = pd.read_csv('data/humanoid/switch_cost.csv')
 data_adaptive = data_adaptive[data_adaptive['new_integration_dt'] >= MIN_TIME]
 filtered_df = data_adaptive[data_adaptive['switch_cost'] == SWITCH_COST]
 
+data_low_freq = pd.read_csv('data/humanoid/low_freq.csv')
+data_low_freq['new_integration_dt'] = data_low_freq['new_integration_dt'] * data_low_freq['min_time_repeat']
+filtered_df = pd.concat([filtered_df, data_low_freq])
+
 for index in range(NUM_EVALS):
     filtered_df[f'results/reward_with_switch_cost_{index}'] = filtered_df[
                                                                   f'results/total_reward_{index}'] - SWITCH_COST * \
@@ -721,6 +733,11 @@ init_row = []
 for index, (title, baselines) in enumerate(systems.items()):
     ax = fig.add_subplot(gs[0, index])
     init_row.append(ax)
+    ax.axvline(x=1 / BASE_DISCRETIZATION_STEPS[title],
+               color='black',
+               ls='--',
+               alpha=0.4,
+               linewidth=LINE_WIDTH,)
     for baseline_name, baseline_stat in baselines.items():
         ax.plot(1 / baseline_stat.xs, baseline_stat.ys_mean,
                 label=baseline_name,
@@ -802,7 +819,7 @@ for index, (title, baselines) in enumerate(systems.items()):
 
     ax.set_xscale('log')
     ax.set_yscale('log')
-    ax.set_xlabel(r'Frequency', fontsize=LABEL_FONT_SIZE)
+    ax.set_xlabel(r'1/$t_{\min}$', fontsize=LABEL_FONT_SIZE)
     if index == 0:
         ax.set_ylabel(r'Env Time [sec]', fontsize=LABEL_FONT_SIZE)
 
