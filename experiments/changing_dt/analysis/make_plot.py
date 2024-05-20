@@ -155,6 +155,12 @@ def update_baselines(cur_data: pd.DataFrame,
 data = pd.read_csv('data/halfcheetah/no_switch_cost.csv')
 data = data[data['same_amount_of_gradient_updates'] == True]
 
+data_low_freq_pure_sac = pd.read_csv('data/halfcheetah/low_freq_pure_sac.csv')
+data_low_freq_pure_sac['new_integration_dt'] = data_low_freq_pure_sac['new_integration_dt'] * data_low_freq_pure_sac['action_repeat']
+data_low_freq_pure_sac['same_amount_of_gradient_updates'] = True
+data_low_freq_pure_sac['results/total_reward'] = data_low_freq_pure_sac['results/total_reward_0']
+data = pd.concat([data, data_low_freq_pure_sac])
+
 baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
     cur_data=data,
     baseline_name=r'Standard RL [Episodes=5000, GD updates=$10^6$, Measurements=$10^6\times \frac{0.05}{\text{Integration }dt}$]',

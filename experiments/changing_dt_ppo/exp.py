@@ -97,7 +97,9 @@ def experiment(env_name: str = 'inverted_pendulum',
     if networks == 0:
         policy_hidden_layer_sizes = (32,) * 5
         critic_hidden_layer_sizes = (128,) * 4
-
+    elif networks == 1:
+        policy_hidden_layer_sizes = (256,) * 2
+        critic_hidden_layer_sizes = (256,) * 4
     else:
         policy_hidden_layer_sizes = (64, 64)
         critic_hidden_layer_sizes = (64, 64)

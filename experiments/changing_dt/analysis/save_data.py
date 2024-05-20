@@ -21,13 +21,16 @@ entity = "trevenl"
 #     # "no_switch_cost": 'ReacherNoSwitchCostApr24_10_00',
 #     # "switch_cost": 'ReacherSwitchCostApr24_09_45',
 #     # 'naive_model': 'ReacherNoSwitchCostMay08_15_45',
-#     'low_freq': 'ReacherSACSwitchCostLowFreqMay20_10_10'}
+#     # 'low_freq': 'ReacherSACSwitchCostLowFreqMay20_10_10',
+#     'low_freq_pure_sac': 'ReacherSACNoSwitchCostLowFreqMay20_13_30'
+# }
 
 ############### RCCar 4.0 sec horizon ###############
 # env_name = 'rccar'
 # runs_to_download = {
 # 'naive_model': 'RCCarNoSwitchCostMay08_15_45',
 # 'low_freq': 'RCCarSACSwitchCostLowFreqMay20_10_15',
+#     'low_freq_pure_sac': 'RCCarSACNoSwitchCostLowFreqMay20_13_30'
 # }
 
 ############### Humanoid 3.0 sec horizon ###############
@@ -36,11 +39,14 @@ runs_to_download = {
     # "no_switch_cost": 'HumanoidNoSwitchCostMay10_17_45',
     # "switch_cost": 'HumanoidSwitchCostMay10_17_45',
     # 'naive_model': 'HumanoidNoSwitchCostMay10_16_20',
-    'low_freq': 'HumanoidSACSwitchCostLowFreqMay20_10_00'}
+    # 'low_freq': 'HumanoidSACSwitchCostLowFreqMay20_10_00',
+    'low_freq_pure_sac': 'HumanoidSACNoSwitchCostLowFreqMay20_13_30'}
 
 ############### Halfcheetah 10.0 sec horizon ###############
 # env_name = 'halfcheetah'
-# runs_to_download = {'low_freq': 'HalfcheetahSACSwitchCostLowFreqMay20_10_00'}
+# runs_to_download = {
+#     # 'low_freq': 'HalfcheetahSACSwitchCostLowFreqMay20_10_00',
+#     'low_freq_pure_sac': 'HalfcheetahSACNoSwitchCostLowFreqMay20_13_30'}
 
 # Fetch all runs from the project
 for filename, run_name in runs_to_download.items():

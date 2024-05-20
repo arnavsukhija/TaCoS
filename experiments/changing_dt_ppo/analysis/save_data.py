@@ -23,16 +23,21 @@ entity = "trevenl"
 
 
 ############### RCCar 4.0 sec horizon ###############
-env_name = 'rccar'
-runs_to_download = {
-    'switch_cost': 'RCCARPPOSwitchCostMay14_16_05',
-    'low_freq': "RCCARPPOSwitchCostMay14_16_05"
-}
+# env_name = 'rccar'
+# runs_to_download = {
+#     'switch_cost': 'RCCARPPOSwitchCostMay14_16_05',
+#     'low_freq': "RCCARPPOSwitchCostMay14_16_05"
+# }
 
 ############### Humanoid 3.0 sec horizon ###############
 # env_name = 'humanoid'
 # runs_to_download = {"switch_cost": 'HumanoidPPOSwitchCostMay14_14_20',
 #                     }
+
+############### Halfcheetah 10.0 sec horizon ###############
+env_name = 'halfcheetah'
+runs_to_download = {"switch_cost": 'HalfcheetahPPOSwitchCostMay14_14_20',
+                    }
 
 # Fetch all runs from the project
 for filename, run_name in runs_to_download.items():

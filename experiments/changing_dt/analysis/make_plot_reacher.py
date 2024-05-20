@@ -92,6 +92,12 @@ for index in range(NUM_EVALS):
                                                               filtered_df[f'results/num_actions_{index}']
 
 data_equidistant = pd.read_csv('data/reacher/no_switch_cost.csv')
+data_low_freq_pure_sac = pd.read_csv('data/reacher/low_freq_pure_sac.csv')
+data_low_freq_pure_sac['new_integration_dt'] = data_low_freq_pure_sac['new_integration_dt'] * data_low_freq_pure_sac['action_repeat']
+data_low_freq_pure_sac['same_amount_of_gradient_updates'] = False
+
+data_equidistant = pd.concat([data_equidistant, data_low_freq_pure_sac])
+
 for index in range(NUM_EVALS):
     data_equidistant[f'results/reward_with_switch_cost_{index}'] = data_equidistant[
                                                                        f'results/total_reward_{index}'] - SWITCH_COST * \
