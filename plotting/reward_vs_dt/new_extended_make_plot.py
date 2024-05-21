@@ -148,125 +148,6 @@ def compute_physcal_time(baseline_name: str, stats: Statistics):
 
 systems: Dict[str, Any] = {}
 
-
-def update_baselines(cur_data: pd.DataFrame,
-                     baseline_name: str,
-                     cur_baselines_reward_with_switch_cost: Dict[str, Statistics],
-                     cur_baselines_reward_without_switch_cost: Dict[str, Statistics], ):
-    # Identify columns that follow the pattern 'total_reward_{index}'
-    columns_to_mean = [col for col in cur_data.columns if col.startswith('results/total_reward_')]
-
-    # Compute the mean of these columns and add as a new column
-    cur_data['results/total_reward'] = cur_data[columns_to_mean].mean(axis=1)
-
-    # Identify columns that follow the pattern 'total_reward_{index}'
-    columns_to_mean = [col for col in cur_data.columns if col.startswith('results/num_actions_')]
-
-    # Compute the mean of these columns and add as a new column
-    cur_data['results/num_actions'] = cur_data[columns_to_mean].mean(axis=1)
-
-    grouped_data = cur_data.groupby('new_integration_dt')[f'results/total_reward'].agg(['mean', 'std'])
-    grouped_data = grouped_data.reset_index()
-
-    cur_baselines_reward_without_switch_cost[baseline_name] = Statistics(
-        xs=np.array(grouped_data['new_integration_dt']),
-        ys_mean=np.array(grouped_data['mean']),
-        ys_std=np.array(grouped_data['std']),
-        base_number_of_steps=BASE_NUMBER_OF_STEPS['reacher']
-    )
-
-    cur_data['results/reward_with_switch_cost'] = cur_data['results/total_reward'] - SWITCH_COST * cur_data[
-        'results/num_actions']
-    grouped_data_with_switch_cost = cur_data.groupby('new_integration_dt')['results/reward_with_switch_cost'].agg(
-        ['mean', 'std'])
-    grouped_data_with_switch_cost = grouped_data_with_switch_cost.reset_index()
-
-    cur_baselines_reward_with_switch_cost[baseline_name] = Statistics(
-        xs=np.array(grouped_data_with_switch_cost['new_integration_dt']),
-        ys_mean=np.array(grouped_data_with_switch_cost['mean']),
-        ys_std=np.array(grouped_data_with_switch_cost['std']),
-        base_number_of_steps=BASE_NUMBER_OF_STEPS['reacher']
-    )
-    return cur_baselines_reward_with_switch_cost, cur_baselines_reward_without_switch_cost
-
-
-########################## Reacher ##########################
-#############################################################
-
-baselines_reward_without_switch_cost: Dict[str, Statistics] = {}
-baselines_reward_with_switch_cost: Dict[str, Statistics] = {}
-
-data_adaptive = pd.read_csv('data/reacher/switch_cost.csv')
-filtered_df = data_adaptive[data_adaptive['switch_cost'] == SWITCH_COST]
-data_low_freq = pd.read_csv('data/reacher/low_freq.csv')
-data_low_freq['new_integration_dt'] = data_low_freq['new_integration_dt'] * data_low_freq['min_time_repeat']
-filtered_df = pd.concat([filtered_df, data_low_freq])
-
-for index in range(NUM_EVALS):
-    filtered_df[f'results/reward_with_switch_cost_{index}'] = filtered_df[
-                                                                  f'results/total_reward_{index}'] - SWITCH_COST * \
-                                                              filtered_df[f'results/num_actions_{index}']
-
-data_equidistant = pd.read_csv('data/reacher/no_switch_cost.csv')
-data_low_freq_pure_sac = pd.read_csv('data/reacher/low_freq_pure_sac.csv')
-data_low_freq_pure_sac['new_integration_dt'] = data_low_freq_pure_sac['new_integration_dt'] * data_low_freq_pure_sac['action_repeat']
-data_low_freq_pure_sac['same_amount_of_gradient_updates'] = True
-
-data_equidistant = pd.concat([data_equidistant, data_low_freq_pure_sac])
-for index in range(NUM_EVALS):
-    data_equidistant[f'results/reward_with_switch_cost_{index}'] = data_equidistant[
-                                                                       f'results/total_reward_{index}'] - SWITCH_COST * \
-                                                                   data_equidistant[f'results/num_actions_{index}']
-
-data_equidistant_naive = pd.read_csv('data/reacher/naive_model.csv')
-for index in range(NUM_EVALS):
-    data_equidistant[f'results/reward_with_switch_cost_{index}'] = data_equidistant[
-                                                                       f'results/total_reward_{index}'] - SWITCH_COST * \
-                                                                   data_equidistant[f'results/num_actions_{index}']
-
-data_same_gd = data_equidistant[data_equidistant['same_amount_of_gradient_updates'] == True]
-data_more_gd = data_equidistant[data_equidistant['same_amount_of_gradient_updates'] == False]
-
-baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
-    cur_data=filtered_df,
-    baseline_name=BASELINE_NAMES['basline0'],
-    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
-    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
-
-baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
-    cur_data=data_same_gd,
-    baseline_name=BASELINE_NAMES['basline1'],
-    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
-    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
-
-baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
-    cur_data=data_more_gd,
-    baseline_name=BASELINE_NAMES['basline2'],
-    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
-    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
-
-# baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
-#     cur_data=data_equidistant_naive,
-#     baseline_name=BASELINE_NAMES['basline3'],
-#     cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
-#     cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
-
-data_adaptive = pd.read_csv('data/reacher/ppo_switch_cost.csv')
-data_low_freq = pd.read_csv('data/reacher/ppo_low_freq.csv')
-data_low_freq['new_integration_dt'] = data_low_freq['new_integration_dt'] * data_low_freq['min_time_repeat']
-data = pd.concat([data_adaptive, data_low_freq])
-
-baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
-    cur_data=data,
-    baseline_name=BASELINE_NAMES['basline4'],
-    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
-    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
-
-
-
-systems['Reacher'] = baselines_reward_without_switch_cost
-
-
 ########################## RCCar ############################
 #############################################################
 
@@ -419,6 +300,129 @@ baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update
 
 
 systems['RC Car'] = baselines_reward_without_switch_cost
+#####################################################################################
+#####################################################################################
+#####################################################################################
+
+
+def update_baselines(cur_data: pd.DataFrame,
+                     baseline_name: str,
+                     cur_baselines_reward_with_switch_cost: Dict[str, Statistics],
+                     cur_baselines_reward_without_switch_cost: Dict[str, Statistics], ):
+    # Identify columns that follow the pattern 'total_reward_{index}'
+    columns_to_mean = [col for col in cur_data.columns if col.startswith('results/total_reward_')]
+
+    # Compute the mean of these columns and add as a new column
+    cur_data['results/total_reward'] = cur_data[columns_to_mean].mean(axis=1)
+
+    # Identify columns that follow the pattern 'total_reward_{index}'
+    columns_to_mean = [col for col in cur_data.columns if col.startswith('results/num_actions_')]
+
+    # Compute the mean of these columns and add as a new column
+    cur_data['results/num_actions'] = cur_data[columns_to_mean].mean(axis=1)
+
+    grouped_data = cur_data.groupby('new_integration_dt')[f'results/total_reward'].agg(['mean', 'std'])
+    grouped_data = grouped_data.reset_index()
+
+    cur_baselines_reward_without_switch_cost[baseline_name] = Statistics(
+        xs=np.array(grouped_data['new_integration_dt']),
+        ys_mean=np.array(grouped_data['mean']),
+        ys_std=np.array(grouped_data['std']),
+        base_number_of_steps=BASE_NUMBER_OF_STEPS['reacher']
+    )
+
+    cur_data['results/reward_with_switch_cost'] = cur_data['results/total_reward'] - SWITCH_COST * cur_data[
+        'results/num_actions']
+    grouped_data_with_switch_cost = cur_data.groupby('new_integration_dt')['results/reward_with_switch_cost'].agg(
+        ['mean', 'std'])
+    grouped_data_with_switch_cost = grouped_data_with_switch_cost.reset_index()
+
+    cur_baselines_reward_with_switch_cost[baseline_name] = Statistics(
+        xs=np.array(grouped_data_with_switch_cost['new_integration_dt']),
+        ys_mean=np.array(grouped_data_with_switch_cost['mean']),
+        ys_std=np.array(grouped_data_with_switch_cost['std']),
+        base_number_of_steps=BASE_NUMBER_OF_STEPS['reacher']
+    )
+    return cur_baselines_reward_with_switch_cost, cur_baselines_reward_without_switch_cost
+
+
+########################## Reacher ##########################
+#############################################################
+
+baselines_reward_without_switch_cost: Dict[str, Statistics] = {}
+baselines_reward_with_switch_cost: Dict[str, Statistics] = {}
+
+data_adaptive = pd.read_csv('data/reacher/switch_cost.csv')
+filtered_df = data_adaptive[data_adaptive['switch_cost'] == SWITCH_COST]
+data_low_freq = pd.read_csv('data/reacher/low_freq.csv')
+data_low_freq['new_integration_dt'] = data_low_freq['new_integration_dt'] * data_low_freq['min_time_repeat']
+filtered_df = pd.concat([filtered_df, data_low_freq])
+
+for index in range(NUM_EVALS):
+    filtered_df[f'results/reward_with_switch_cost_{index}'] = filtered_df[
+                                                                  f'results/total_reward_{index}'] - SWITCH_COST * \
+                                                              filtered_df[f'results/num_actions_{index}']
+
+data_equidistant = pd.read_csv('data/reacher/no_switch_cost.csv')
+data_low_freq_pure_sac = pd.read_csv('data/reacher/low_freq_pure_sac.csv')
+data_low_freq_pure_sac['new_integration_dt'] = data_low_freq_pure_sac['new_integration_dt'] * data_low_freq_pure_sac['action_repeat']
+data_low_freq_pure_sac['same_amount_of_gradient_updates'] = True
+
+data_equidistant = pd.concat([data_equidistant, data_low_freq_pure_sac])
+for index in range(NUM_EVALS):
+    data_equidistant[f'results/reward_with_switch_cost_{index}'] = data_equidistant[
+                                                                       f'results/total_reward_{index}'] - SWITCH_COST * \
+                                                                   data_equidistant[f'results/num_actions_{index}']
+
+data_equidistant_naive = pd.read_csv('data/reacher/naive_model.csv')
+for index in range(NUM_EVALS):
+    data_equidistant[f'results/reward_with_switch_cost_{index}'] = data_equidistant[
+                                                                       f'results/total_reward_{index}'] - SWITCH_COST * \
+                                                                   data_equidistant[f'results/num_actions_{index}']
+
+data_same_gd = data_equidistant[data_equidistant['same_amount_of_gradient_updates'] == True]
+data_more_gd = data_equidistant[data_equidistant['same_amount_of_gradient_updates'] == False]
+
+baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
+    cur_data=filtered_df,
+    baseline_name=BASELINE_NAMES['basline0'],
+    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
+    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
+
+baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
+    cur_data=data_same_gd,
+    baseline_name=BASELINE_NAMES['basline1'],
+    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
+    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
+
+baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
+    cur_data=data_more_gd,
+    baseline_name=BASELINE_NAMES['basline2'],
+    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
+    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
+
+# baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
+#     cur_data=data_equidistant_naive,
+#     baseline_name=BASELINE_NAMES['basline3'],
+#     cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
+#     cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
+
+data_adaptive = pd.read_csv('data/reacher/ppo_switch_cost.csv')
+data_low_freq = pd.read_csv('data/reacher/ppo_low_freq.csv')
+data_low_freq['new_integration_dt'] = data_low_freq['new_integration_dt'] * data_low_freq['min_time_repeat']
+data = pd.concat([data_adaptive, data_low_freq])
+
+baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
+    cur_data=data,
+    baseline_name=BASELINE_NAMES['basline4'],
+    cur_baselines_reward_with_switch_cost=baselines_reward_with_switch_cost,
+    cur_baselines_reward_without_switch_cost=baselines_reward_without_switch_cost)
+
+
+
+systems['Reacher'] = baselines_reward_without_switch_cost
+
+
 
 ########################## Halfcheetah ######################
 #############################################################
