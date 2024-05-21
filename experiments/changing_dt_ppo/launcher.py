@@ -5,59 +5,60 @@ from experiments.util import generate_run_commands, generate_base_command, dict_
 #################### Humanoid ###################
 ################################################
 
-# humanoid_switch_cost_low_freq_base = {'env_name': ['humanoid', ],
-#                                       'backend': ['generalized', ],
-#                                       'project_name': ["HumanoidPPOSwitchCostLowFreqMay20_09_20"],
-#                                       'num_timesteps': [50_000_000, ],
-#                                       'episode_time': [3.0, ],
-#                                       'base_dt_divisor': [1, ],
-#                                       'base_discount_factor': [0.97],
-#                                       'seed': list(range(5)),
-#                                       'num_envs': [2048],
-#                                       'num_eval_envs': [256],
-#                                       'entropy_cost': [1e-3],
-#                                       'unroll_length': [20],
-#                                       'num_minibatches': [32],
-#                                       'num_updates_per_batch': [8],
-#                                       'batch_size': [1024],
-#                                       'networks': [0, ],
-#                                       'reward_scaling': [0.1, ],
-#                                       'switch_cost_wrapper': [1, ],
-#                                       'switch_cost': [1.0, ],
-#                                       'time_as_part_of_state': [1, ],
-#                                       'num_final_evals': [1, ]
-#                                       }
-#
-# humanoid_switch_cost_low_freq = []
-# min_time_multipliers = [2, 3, 5, 10]
-# for min_time_multiplier in min_time_multipliers:
-#     cur_configs = humanoid_switch_cost_low_freq_base | {'min_time_repeat': [min_time_multiplier],
-#                                                         'max_time_between_switches': [min_time_multiplier * 0.015]}
-#     humanoid_switch_cost_low_freq.append(cur_configs)
+humanoid_switch_cost_low_freq_base = {'env_name': ['humanoid', ],
+                                      'backend': ['generalized', ],
+                                      'project_name': ["HumanoidPPOSwitchCostLowFreqMay20_09_20"],
+                                      'num_timesteps': [50_000_000, ],
+                                      'episode_time': [3.0, ],
+                                      'base_dt_divisor': [1, ],
+                                      'base_discount_factor': [0.97],
+                                      'seed': list(range(5)),
+                                      'num_envs': [2048],
+                                      'num_eval_envs': [256],
+                                      'entropy_cost': [1e-3],
+                                      'unroll_length': [20],
+                                      'num_minibatches': [32],
+                                      'num_updates_per_batch': [8],
+                                      'batch_size': [1024],
+                                      'networks': [0, ],
+                                      'reward_scaling': [0.1, ],
+                                      'switch_cost_wrapper': [1, ],
+                                      'switch_cost': [1.0, ],
+                                      'time_as_part_of_state': [1, ],
+                                      'num_final_evals': [1, ]
+                                      }
 
-humanoid_switch_cost = {'env_name': ['humanoid', ],
-                        'backend': ['generalized', ],
-                        'project_name': ["HumanoidPPOSwitchCostMay14_14_20"],
-                        'num_timesteps': [50_000_000, ],
-                        'episode_time': [3.0, ],
-                        'base_dt_divisor': [1, 2, 5, 10, ],
-                        'base_discount_factor': [0.97],
-                        'seed': list(range(5)),
-                        'num_envs': [2048],
-                        'num_eval_envs': [256],
-                        'entropy_cost': [1e-3],
-                        'unroll_length': [20],
-                        'num_minibatches': [32],
-                        'num_updates_per_batch': [8],
-                        'batch_size': [1024],
-                        'networks': [0, ],
-                        'reward_scaling': [0.1, ],
-                        'switch_cost_wrapper': [1, ],
-                        'switch_cost': [1.0, ],
-                        'max_time_between_switches': [0.015],
-                        'time_as_part_of_state': [1, ],
-                        'num_final_evals': [1, ]
-                        }
+humanoid_switch_cost_low_freq = []
+# min_time_multipliers = [2, 3, 5, 10]
+min_time_multipliers = [10, ]
+for min_time_multiplier in min_time_multipliers:
+    cur_configs = humanoid_switch_cost_low_freq_base | {'min_time_repeat': [min_time_multiplier],
+                                                        'max_time_between_switches': [min_time_multiplier * 0.015]}
+    humanoid_switch_cost_low_freq.append(cur_configs)
+
+# humanoid_switch_cost = {'env_name': ['humanoid', ],
+#                         'backend': ['generalized', ],
+#                         'project_name': ["HumanoidPPOSwitchCostMay14_14_20"],
+#                         'num_timesteps': [50_000_000, ],
+#                         'episode_time': [3.0, ],
+#                         'base_dt_divisor': [1, 2, 5, 10, ],
+#                         'base_discount_factor': [0.97],
+#                         'seed': list(range(5)),
+#                         'num_envs': [2048],
+#                         'num_eval_envs': [256],
+#                         'entropy_cost': [1e-3],
+#                         'unroll_length': [20],
+#                         'num_minibatches': [32],
+#                         'num_updates_per_batch': [8],
+#                         'batch_size': [1024],
+#                         'networks': [0, ],
+#                         'reward_scaling': [0.1, ],
+#                         'switch_cost_wrapper': [1, ],
+#                         'switch_cost': [1.0, ],
+#                         'max_time_between_switches': [0.015],
+#                         'time_as_part_of_state': [1, ],
+#                         'num_final_evals': [1, ]
+#                         }
 
 # humanoid_no_switch_cost = {
 #     'env_name': ['humanoid', ],
@@ -131,35 +132,35 @@ humanoid_switch_cost = {'env_name': ['humanoid', ],
 #################### Reacher ###################
 ################################################
 
-reacher_switch_cost_low_freq_base = {'env_name': ['reacher', ],
-                                     'backend': ['generalized', ],
-                                     'project_name': ["ReacherPPOSwitchCostLowFreqMay20_09_20"],
-                                     'num_timesteps': [50_000_000, ],
-                                     'episode_time': [2.0, ],
-                                     'base_dt_divisor': [1, ],
-                                     'base_discount_factor': [0.95],
-                                     'seed': list(range(5)),
-                                     'num_envs': [2048],
-                                     'num_eval_envs': [256],
-                                     'entropy_cost': [1e-3],
-                                     'unroll_length': [20],
-                                     'num_minibatches': [32],
-                                     'num_updates_per_batch': [8],
-                                     'batch_size': [256],
-                                     'networks': [0, ],
-                                     'reward_scaling': [5.0, ],
-                                     'switch_cost_wrapper': [1, ],
-                                     'switch_cost': [0.1, ],
-                                     'time_as_part_of_state': [1, ],
-                                     'num_final_evals': [10, ]
-                                     }
-
-reacher_switch_cost_low_freq = []
-min_time_multipliers = [2, 3, 5, 10, 20]
-for min_time_multiplier in min_time_multipliers:
-    cur_configs = reacher_switch_cost_low_freq_base | {'min_time_repeat': [min_time_multiplier],
-                                                       'max_time_between_switches': [min_time_multiplier * 0.02]}
-    reacher_switch_cost_low_freq.append(cur_configs)
+# reacher_switch_cost_low_freq_base = {'env_name': ['reacher', ],
+#                                      'backend': ['generalized', ],
+#                                      'project_name': ["ReacherPPOSwitchCostLowFreqMay20_09_20"],
+#                                      'num_timesteps': [50_000_000, ],
+#                                      'episode_time': [2.0, ],
+#                                      'base_dt_divisor': [1, ],
+#                                      'base_discount_factor': [0.95],
+#                                      'seed': list(range(5)),
+#                                      'num_envs': [2048],
+#                                      'num_eval_envs': [256],
+#                                      'entropy_cost': [1e-3],
+#                                      'unroll_length': [20],
+#                                      'num_minibatches': [32],
+#                                      'num_updates_per_batch': [8],
+#                                      'batch_size': [256],
+#                                      'networks': [0, ],
+#                                      'reward_scaling': [5.0, ],
+#                                      'switch_cost_wrapper': [1, ],
+#                                      'switch_cost': [0.1, ],
+#                                      'time_as_part_of_state': [1, ],
+#                                      'num_final_evals': [10, ]
+#                                      }
+#
+# reacher_switch_cost_low_freq = []
+# min_time_multipliers = [2, 3, 5, 10, 20]
+# for min_time_multiplier in min_time_multipliers:
+#     cur_configs = reacher_switch_cost_low_freq_base | {'min_time_repeat': [min_time_multiplier],
+#                                                        'max_time_between_switches': [min_time_multiplier * 0.02]}
+#     reacher_switch_cost_low_freq.append(cur_configs)
 
 # reacher_switch_cost = {'env_name': ['reacher', ],
 #                        'backend': ['generalized', ],
@@ -236,35 +237,35 @@ for min_time_multiplier in min_time_multipliers:
 #################### RC Car ####################
 ################################################
 
-rccar_switch_cost_low_freq_base = {'env_name': ['rccar', ],
-                                   'backend': ['generalized', ],
-                                   'project_name': ["RCCARPPOSwitchCostMay14_16_05"],
-                                   'num_timesteps': [2_000_000, ],
-                                   'episode_time': [4.0, ],
-                                   'base_dt_divisor': [1, ],
-                                   'base_discount_factor': [0.9],
-                                   'seed': list(range(5)),
-                                   'num_envs': [2048],
-                                   'num_eval_envs': [32],
-                                   'entropy_cost': [1e-2],
-                                   'unroll_length': [10],
-                                   'num_minibatches': [32],
-                                   'num_updates_per_batch': [4],
-                                   'batch_size': [1024],
-                                   'networks': [0, ],
-                                   'reward_scaling': [1.0, ],
-                                   'switch_cost_wrapper': [1, ],
-                                   'switch_cost': [0.1, ],
-                                   'time_as_part_of_state': [1, ],
-                                   'num_final_evals': [1, ]
-                                   }
-
-rccar_switch_cost_low_freq = []
-min_time_multipliers = [2, 3, 5, ]
-for min_time_multiplier in min_time_multipliers:
-    cur_configs = rccar_switch_cost_low_freq_base | {'min_time_repeat': [min_time_multiplier],
-                                                     'max_time_between_switches': [min_time_multiplier * 0.5]}
-    rccar_switch_cost_low_freq.append(cur_configs)
+# rccar_switch_cost_low_freq_base = {'env_name': ['rccar', ],
+#                                    'backend': ['generalized', ],
+#                                    'project_name': ["RCCARPPOSwitchCostMay14_16_05"],
+#                                    'num_timesteps': [2_000_000, ],
+#                                    'episode_time': [4.0, ],
+#                                    'base_dt_divisor': [1, ],
+#                                    'base_discount_factor': [0.9],
+#                                    'seed': list(range(5)),
+#                                    'num_envs': [2048],
+#                                    'num_eval_envs': [32],
+#                                    'entropy_cost': [1e-2],
+#                                    'unroll_length': [10],
+#                                    'num_minibatches': [32],
+#                                    'num_updates_per_batch': [4],
+#                                    'batch_size': [1024],
+#                                    'networks': [0, ],
+#                                    'reward_scaling': [1.0, ],
+#                                    'switch_cost_wrapper': [1, ],
+#                                    'switch_cost': [0.1, ],
+#                                    'time_as_part_of_state': [1, ],
+#                                    'num_final_evals': [1, ]
+#                                    }
+#
+# rccar_switch_cost_low_freq = []
+# min_time_multipliers = [2, 3, 5, ]
+# for min_time_multiplier in min_time_multipliers:
+#     cur_configs = rccar_switch_cost_low_freq_base | {'min_time_repeat': [min_time_multiplier],
+#                                                      'max_time_between_switches': [min_time_multiplier * 0.5]}
+#     rccar_switch_cost_low_freq.append(cur_configs)
 
 # rccar_switch_cost = {'env_name': ['rccar', ],
 #                      'backend': ['generalized', ],
@@ -392,35 +393,36 @@ for min_time_multiplier in min_time_multipliers:
 
 
 #################### halfcheetah ####################
-halfcheetah_switch_cost_low_freq_base = {'env_name': ['halfcheetah', ],
-                                         'backend': ['generalized', ],
-                                         'project_name': ["HalfcheetahPPOSwitchCostLowFreqMay20_15_00"],
-                                         'num_timesteps': [50_000_000, ],
-                                         'episode_time': [10.0, ],
-                                         'base_dt_divisor': [1, ],
-                                         'base_discount_factor': [0.97],
-                                         'seed': list(range(5)),
-                                         'num_envs': [2048],
-                                         'num_eval_envs': [256],
-                                         'entropy_cost': [1e-2],
-                                         'unroll_length': [20],
-                                         'num_minibatches': [32],
-                                         'num_updates_per_batch': [8],
-                                         'batch_size': [1024],
-                                         'networks': [1, ],
-                                         'reward_scaling': [1.0, ],
-                                         'switch_cost_wrapper': [1, ],
-                                         'switch_cost': [2.0, ],
-                                         'time_as_part_of_state': [1, ],
-                                         'num_final_evals': [1, ]
-                                         }
+# halfcheetah_switch_cost_low_freq_base = {'env_name': ['halfcheetah', ],
+#                                          'backend': ['generalized', ],
+#                                          'project_name': ["HalfcheetahPPOSwitchCostLowFreqMay20_15_00"],
+#                                          'num_timesteps': [50_000_000, ],
+#                                          'episode_time': [10.0, ],
+#                                          'base_dt_divisor': [1, ],
+#                                          'base_discount_factor': [0.97],
+#                                          'seed': list(range(5)),
+#                                          'num_envs': [2048],
+#                                          'num_eval_envs': [256],
+#                                          'entropy_cost': [1e-2],
+#                                          'unroll_length': [20],
+#                                          'num_minibatches': [32],
+#                                          'num_updates_per_batch': [8],
+#                                          'batch_size': [1024],
+#                                          'networks': [1, ],
+#                                          'reward_scaling': [1.0, ],
+#                                          'switch_cost_wrapper': [1, ],
+#                                          'switch_cost': [2.0, ],
+#                                          'time_as_part_of_state': [1, ],
+#                                          'num_final_evals': [1, ]
+#                                          }
+#
+# halfcheetah_switch_cost_low_freq = []
+# min_time_multipliers = [2, 3, 5, 10]
+# for min_time_multiplier in min_time_multipliers:
+#     cur_configs = halfcheetah_switch_cost_low_freq_base | {'min_time_repeat': [min_time_multiplier],
+#                                                            'max_time_between_switches': [min_time_multiplier * 0.05]}
+#     halfcheetah_switch_cost_low_freq.append(cur_configs)
 
-halfcheetah_switch_cost_low_freq = []
-min_time_multipliers = [2, 3, 5, 10]
-for min_time_multiplier in min_time_multipliers:
-    cur_configs = halfcheetah_switch_cost_low_freq_base | {'min_time_repeat': [min_time_multiplier],
-                                                           'max_time_between_switches': [min_time_multiplier * 0.05]}
-    halfcheetah_switch_cost_low_freq.append(cur_configs)
 
 # halfcheetah_switch_cost = {'env_name': ['halfcheetah', ],
 #                            'backend': ['generalized', ],
@@ -503,7 +505,7 @@ for min_time_multiplier in min_time_multipliers:
 def main():
     command_list = []
     flags_combinations = None
-    for conf in halfcheetah_switch_cost_low_freq:
+    for conf in humanoid_switch_cost_low_freq:
         if flags_combinations is None:
             flags_combinations = dict_permutations(conf)
         else:
