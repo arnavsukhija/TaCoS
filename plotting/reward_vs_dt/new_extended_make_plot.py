@@ -569,7 +569,13 @@ baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update
 )
 
 data_adaptive = pd.read_csv('data/halfcheetah/ppo_switch_cost.csv')
+data_adaptive = data_adaptive[data_adaptive['entropy_cost'] == 0.01]
+data_adaptive = data_adaptive[data_adaptive['reward_scaling'] == 1]
 
+
+data_low_freq = pd.read_csv('data/halfcheetah/ppo_low_freq.csv')
+data_low_freq['new_integration_dt'] = data_low_freq['new_integration_dt'] * data_low_freq['min_time_repeat']
+data_adaptive = pd.concat([data_adaptive, data_low_freq])
 def update_baselines(cur_data: pd.DataFrame,
                      baseline_name: str,
                      cur_baselines_reward_with_switch_cost: Dict[str, Statistics],
@@ -779,7 +785,9 @@ def update_baselines(cur_data: pd.DataFrame,
 
 
 data_adaptive = pd.read_csv('data/humanoid/ppo_switch_cost.csv')
-
+data_low_freq = pd.read_csv('data/humanoid/ppo_low_freq.csv')
+data_low_freq['new_integration_dt'] = data_low_freq['new_integration_dt'] * data_low_freq['min_time_repeat']
+data_adaptive = pd.concat([data_adaptive, data_low_freq])
 
 baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
     cur_data=data_adaptive,
@@ -807,7 +815,8 @@ for index, (title, baselines) in enumerate(systems.items()):
                color='black',
                ls='--',
                alpha=0.4,
-               linewidth=LINE_WIDTH,)
+               linewidth=LINE_WIDTH,
+               label=r'1/$t^*$')
     for baseline_name, baseline_stat in baselines.items():
         ax.plot(1 / baseline_stat.xs, baseline_stat.ys_mean,
                 label=baseline_name,

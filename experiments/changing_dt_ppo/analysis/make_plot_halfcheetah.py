@@ -29,7 +29,7 @@ SWITCH_COST = 0.1  # [0.1, 1, 2, 3]
 NUM_EVALS = 1
 # MIN_TIME = 0.015 / 10
 
-statistics = 'mean' # Can be median or mean
+statistics = 'mean'  # Can be median or mean
 
 
 class Statistics(NamedTuple):
@@ -81,7 +81,13 @@ baselines_reward_without_switch_cost: Dict[str, Statistics] = {}
 baselines_reward_with_switch_cost: Dict[str, Statistics] = {}
 
 data_adaptive = pd.read_csv('data/halfcheetah/ppo_switch_cost.csv')
+data_adaptive = data_adaptive[data_adaptive['entropy_cost'] == 0.01]
+data_adaptive = data_adaptive[data_adaptive['reward_scaling'] == 1]
 
+
+data_low_freq = pd.read_csv('data/halfcheetah/ppo_low_freq.csv')
+data_low_freq['new_integration_dt'] = data_low_freq['new_integration_dt'] * data_low_freq['min_time_repeat']
+data_adaptive = pd.concat([data_adaptive, data_low_freq])
 
 baselines_reward_with_switch_cost, baselines_reward_without_switch_cost = update_baselines(
     cur_data=data_adaptive,
@@ -127,7 +133,7 @@ fig.legend(by_label.values(), by_label.keys(),
            fontsize=LEGEND_FONT_SIZE,
            frameon=False)
 
-fig.suptitle(f'RCCar [Duration = 4 sec], [Switch Cost = {SWITCH_COST}]',
+fig.suptitle(f'Halfcheetah [Duration = 10 sec], [Switch Cost = {SWITCH_COST}]',
              fontsize=TITLE_FONT_SIZE,
              y=0.95)
 fig.tight_layout(rect=[0.0, 0.0, 1, 0.8])

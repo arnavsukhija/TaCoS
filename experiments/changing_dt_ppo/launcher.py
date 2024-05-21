@@ -392,31 +392,60 @@ for min_time_multiplier in min_time_multipliers:
 
 
 #################### halfcheetah ####################
+halfcheetah_switch_cost_low_freq_base = {'env_name': ['halfcheetah', ],
+                                         'backend': ['generalized', ],
+                                         'project_name': ["HalfcheetahPPOSwitchCostLowFreqMay20_15_00"],
+                                         'num_timesteps': [50_000_000, ],
+                                         'episode_time': [10.0, ],
+                                         'base_dt_divisor': [1, ],
+                                         'base_discount_factor': [0.97],
+                                         'seed': list(range(5)),
+                                         'num_envs': [2048],
+                                         'num_eval_envs': [256],
+                                         'entropy_cost': [1e-2],
+                                         'unroll_length': [20],
+                                         'num_minibatches': [32],
+                                         'num_updates_per_batch': [8],
+                                         'batch_size': [1024],
+                                         'networks': [1, ],
+                                         'reward_scaling': [1.0, ],
+                                         'switch_cost_wrapper': [1, ],
+                                         'switch_cost': [2.0, ],
+                                         'time_as_part_of_state': [1, ],
+                                         'num_final_evals': [1, ]
+                                         }
 
-halfcheetah_switch_cost = {'env_name': ['halfcheetah', ],
-                           'backend': ['generalized', ],
-                           'project_name': ["HalfcheetahPPOSwitchCostMay20_15_00"],
-                           'num_timesteps': [50_000_000, ],
-                           'episode_time': [10.0, ],
-                           'base_dt_divisor': [1, 2, 4, ],
-                           # 'base_dt_divisor': [1, 2, 4, 10, 15, 20, 25, 30, ],
-                           'base_discount_factor': [0.97],
-                           'seed': list(range(5)),
-                           'num_envs': [2048],
-                           'num_eval_envs': [256],
-                           'entropy_cost': [1e-3, 1e-2, 1e-1],
-                           'unroll_length': [20],
-                           'num_minibatches': [32],
-                           'num_updates_per_batch': [8],
-                           'batch_size': [1024],
-                           'networks': [1, ],
-                           'reward_scaling': [1.0, 0.1],
-                           'switch_cost_wrapper': [1, ],
-                           'switch_cost': [2.0],
-                           'max_time_between_switches': [0.05],
-                           'time_as_part_of_state': [1, ],
-                           'num_final_evals': [1, ]
-                           }
+halfcheetah_switch_cost_low_freq = []
+min_time_multipliers = [2, 3, 5, 10]
+for min_time_multiplier in min_time_multipliers:
+    cur_configs = halfcheetah_switch_cost_low_freq_base | {'min_time_repeat': [min_time_multiplier],
+                                                           'max_time_between_switches': [min_time_multiplier * 0.05]}
+    halfcheetah_switch_cost_low_freq.append(cur_configs)
+
+# halfcheetah_switch_cost = {'env_name': ['halfcheetah', ],
+#                            'backend': ['generalized', ],
+#                            'project_name': ["HalfcheetahPPOSwitchCostMay20_15_00"],
+#                            'num_timesteps': [50_000_000, ],
+#                            'episode_time': [10.0, ],
+#                            'base_dt_divisor': [10, 15, 20, 25, 30, ],
+#                            # 'base_dt_divisor': [1, 2, 4, 10, 15, 20, 25, 30, ],
+#                            'base_discount_factor': [0.97],
+#                            'seed': list(range(5)),
+#                            'num_envs': [2048],
+#                            'num_eval_envs': [256],
+#                            'entropy_cost': [1e-2],
+#                            'unroll_length': [20],
+#                            'num_minibatches': [32],
+#                            'num_updates_per_batch': [8],
+#                            'batch_size': [1024],
+#                            'networks': [1, ],
+#                            'reward_scaling': [1.0, ],
+#                            'switch_cost_wrapper': [1, ],
+#                            'switch_cost': [2.0],
+#                            'max_time_between_switches': [0.05],
+#                            'time_as_part_of_state': [1, ],
+#                            'num_final_evals': [1, ]
+#                            }
 
 
 # general_configs = {
@@ -473,13 +502,13 @@ halfcheetah_switch_cost = {'env_name': ['halfcheetah', ],
 
 def main():
     command_list = []
-    # flags_combinations = None
-    # for conf in rccar_switch_cost_low_freq:
-    #     if flags_combinations is None:
-    #         flags_combinations = dict_permutations(conf)
-    #     else:
-    #         flags_combinations += dict_permutations(conf)
-    flags_combinations = dict_permutations(halfcheetah_switch_cost)
+    flags_combinations = None
+    for conf in halfcheetah_switch_cost_low_freq:
+        if flags_combinations is None:
+            flags_combinations = dict_permutations(conf)
+        else:
+            flags_combinations += dict_permutations(conf)
+    # flags_combinations = dict_permutations(halfcheetah_switch_cost)
     # flags_combinations = dict_permutations(reacher_switch_cost)
     # flags_combinations = dict_permutations(halfcheetah_switch_cost)
     # flags_combinations += dict_permutations(humanoid_switch_cost)
