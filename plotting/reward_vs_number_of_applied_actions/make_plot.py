@@ -173,7 +173,7 @@ axs = np.array(axs).reshape(len(stats_optimized), )
 for index, (stat_opt, stat_equi) in enumerate(zip(stats_optimized, stats_equidistant)):
     axs[index].plot(stat_opt.xs,
                     stat_opt.ys_mean,
-                    label='Optimized time between actions',
+                    label='Optimized time between interactions',
                     linewidth=LINE_WIDTH)
     axs[index].fill_between(stat_opt.xs,
                             stat_opt.ys_mean - 2 * stat_opt.ys_std / np.sqrt(NUMBER_OF_SAMPLES),
@@ -181,7 +181,7 @@ for index, (stat_opt, stat_equi) in enumerate(zip(stats_optimized, stats_equidis
                             alpha=0.3)
 
     axs[index].plot(stat_equi.xs, stat_equi.ys_mean,
-                    label='Equidistant time between actions',
+                    label='Equidistant time between interactions',
                     linewidth=LINE_WIDTH,
                     linestyle='dashed'
                     )
@@ -191,7 +191,7 @@ for index, (stat_opt, stat_equi) in enumerate(zip(stats_optimized, stats_equidis
                             alpha=0.3)
 
     axs[index].set_xlim(*stat_equi.ax_lim)
-    axs[index].set_xlabel('\# Senses and controls', fontsize=LABEL_FONT_SIZE)
+    axs[index].set_xlabel('\# Interactions', fontsize=LABEL_FONT_SIZE)
     if index == 0:
         axs[index].set_ylabel('Episode reward', fontsize=LABEL_FONT_SIZE)
     axs[index].set_title(stat_opt.title, fontsize=TITLE_FONT_SIZE, pad=60)
@@ -210,7 +210,7 @@ fig.legend(by_label.values(), by_label.keys(),
            loc='upper center',
            bbox_to_anchor=(0.5, 0.85),
            fontsize=LEGEND_FONT_SIZE,
-           frameon=True)
+           frameon=False)
 
 fig.tight_layout(rect=[0.0, 0.0, 1, 1])
 

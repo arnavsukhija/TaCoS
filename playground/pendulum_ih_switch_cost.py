@@ -31,7 +31,7 @@ if __name__ == "__main__":
         env = PendulumEnvSwingDown(reward_source='dm-control')
 
     min_time_between_switches = 1 * env.dt
-    max_time_between_switches = 50 * env.dt
+    max_time_between_switches = 30 * env.dt
 
     discount_factor = 0.99
     continuous_discounting = discrete_to_continuous_discounting(discrete_discounting=discount_factor,
@@ -53,7 +53,7 @@ if __name__ == "__main__":
     optimizer = SAC(
         target_entropy=None,
         environment=env,
-        num_timesteps=100_000,
+        num_timesteps=20_000,
         episode_length=episode_length,
         action_repeat=action_repeat,
         num_env_steps_between_updates=num_env_steps_between_updates,
@@ -81,7 +81,7 @@ if __name__ == "__main__":
         policy_activation=swish,
         critic_hidden_layer_sizes=(128,) * 3,
         critic_activation=swish,
-        wandb_logging=False,
+        wandb_logging=True,
         return_best_model=True,
         non_equidistant_time=True,
         continuous_discounting=continuous_discounting,
@@ -104,6 +104,10 @@ if __name__ == "__main__":
         plt.ylabel('reward per episode')
         plt.plot(xdata, ydata)
         plt.show()
+
+    wandb.init(
+        project='Model-Free-Tacos'
+    )
 
 
     print('Before inference')

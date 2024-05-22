@@ -30,17 +30,17 @@ entity = "trevenl"
 # }
 
 ############### Humanoid 3.0 sec horizon ###############
-# env_name = 'humanoid'
-# runs_to_download = {
-#     "switch_cost": 'HumanoidPPOSwitchCostMay14_14_20',
-#     "low_freq": 'HumanoidPPOSwitchCostLowFreqMay20_09_20'
-# }
+env_name = 'humanoid'
+runs_to_download = {
+    "switch_cost": 'HumanoidPPOSwitchCostMay14_14_20',
+    "low_freq": 'HumanoidPPOSwitchCostLowFreqMay20_09_20'
+}
 
 ############### Halfcheetah 10.0 sec horizon ###############
-env_name = 'halfcheetah'
-runs_to_download = {"switch_cost": 'HalfcheetahPPOSwitchCostMay20_15_00',
-                    'low_freq': 'HalfcheetahPPOSwitchCostLowFreqMay20_15_00'
-                    }
+# env_name = 'halfcheetah'
+# runs_to_download = {"switch_cost": 'HalfcheetahPPOSwitchCostMay20_15_00',
+#                     'low_freq': 'HalfcheetahPPOSwitchCostLowFreqMay20_15_00'
+#                     }
 
 # Fetch all runs from the project
 for filename, run_name in runs_to_download.items():

@@ -1,6 +1,6 @@
 import datetime
 from datetime import datetime
-
+import wandb
 import jax
 import jax.numpy as jnp
 import jax.random as jr
@@ -75,7 +75,7 @@ if __name__ == "__main__":
         policy_activation=swish,
         critic_hidden_layer_sizes=(64, 64),
         critic_activation=swish,
-        wandb_logging=False,
+        wandb_logging=True,
         return_best_model=True,
         non_equidistant_time=True,
         continuous_discounting=continuous_discounting,
@@ -99,6 +99,9 @@ if __name__ == "__main__":
         plt.plot(xdata, ydata)
         plt.show()
 
+    wandb.init(
+        project='Model-Free-Tacos'
+    )
 
     print('Before inference')
     policy_params, metrics = optimizer.run_training(key=jr.PRNGKey(0), progress_fn=progress)
