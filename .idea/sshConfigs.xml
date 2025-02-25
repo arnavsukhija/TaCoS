@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig authType="PASSWORD" host="euler.ethz.ch" id="2ea2a103-5e21-460c-b3b0-d700600c73b4" port="22" nameFormat="DESCRIPTIVE" username="asukhija" useOpenSSHConfig="true" />
+    </configs>
+  </component>
+</project>

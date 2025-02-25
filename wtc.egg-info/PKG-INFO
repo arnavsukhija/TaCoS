@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: wtc
+Version: 0.0.1
+License: MIT
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.9
+Requires-Dist: jax>=0.4.13
+Requires-Dist: brax
+Requires-Dist: chex
+Requires-Dist: wandb
+Requires-Dist: pandas
+Requires-Dist: jaxtyping>=0.2.20
+Requires-Dist: matplotlib>=3.5.1
+Requires-Dist: mbpo@ git+https://github.com/lasgroup/Model-based-policy-optimizers.git

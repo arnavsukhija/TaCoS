@@ -43,11 +43,11 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from brax import envs
 
-    env_name = 'humanoid'
+    env_name = 'rccar'
     backend = 'generalized'
 
     assert env_name in ['ant', 'halfcheetah', 'hopper', 'humanoid', 'humanoidstandup', 'inverted_pendulum',
-                        'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse']
+                        'inverted_double_pendulum', 'pusher', 'reacher', 'walker2d', 'drone', 'greenhouse', 'rccar']
     env = envs.get_environment(env_name=env_name,
                                backend=backend)
     print(env.dt)

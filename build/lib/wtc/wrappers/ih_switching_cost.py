@@ -42,10 +42,10 @@ class ConstantSwitchCost(SwitchCost):
 class IHSwitchCostWrapper(Env):
     def __init__(self,
                  env: PipelineEnv,
-                 num_integrator_steps: int, #number of steps for each reward integration (dt term in integration)
-                 min_time_between_switches: float, # corresponds to tmin
-                 max_time_between_switches: float | None = None, #corresponds to tmax
-                 switch_cost: SwitchCost = ConstantSwitchCost(value=jnp.array(1.0)), #we use a default constant switch cost of 1.0
+                 num_integrator_steps: int,
+                 min_time_between_switches: float,
+                 max_time_between_switches: float | None = None,
+                 switch_cost: SwitchCost = ConstantSwitchCost(value=jnp.array(1.0)),
                  discounting: float = 0.99,
                  time_as_part_of_state: bool = False,
                  ):
@@ -54,18 +54,18 @@ class IHSwitchCostWrapper(Env):
         self.switch_cost = switch_cost
         self.min_time_between_switches = min_time_between_switches
         assert min_time_between_switches >= self.env.dt, \
-            'Min time between switches must be at least of the integration time dt' #otherwise the integration term makes no sense at all
-        self.time_horizon = self.env.dt * self.num_integrator_steps #this corresponds to the T from the paper
+            'Min time between switches must be at least of the integration time dt'
+        self.time_horizon = self.env.dt * self.num_integrator_steps
         if max_time_between_switches is None:
             max_time_between_switches = self.time_horizon
         self.max_time_between_switches = max_time_between_switches
         self.discounting = discounting
-        self.time_as_part_of_state = time_as_part_of_state #this includes the state definition, for interaction cost time is part of the state
+        self.time_as_part_of_state = time_as_part_of_state
         self.jitted_step_fn = jit(self.env.step)
 
     def reset(self, rng: jax.Array) -> State:
         """
-        The augmented state is represented by concatenated vector: #also includes reward (implicit in the state)
+        The augmented state is represented by concatenated vector:
          (state, time-to-go)
         """
         state = self.env.reset(rng)
@@ -85,7 +85,7 @@ class IHSwitchCostWrapper(Env):
                      t_lower: chex.Array,
                      t_upper: chex.Array,
                      ) -> chex.Array:
-        time_for_action = ((t_upper - t_lower) / 2 * pseudo_time + (t_upper + t_lower) / 2) #pseudo time for action is between [-1,1], we map it to tmin, tmax
+        time_for_action = ((t_upper - t_lower) / 2 * pseudo_time + (t_upper + t_lower) / 2)
         return (time_for_action // dt) * dt
 
     def step(self, state: State, action: jax.Array) -> State:
@@ -106,7 +106,7 @@ class IHSwitchCostWrapper(Env):
 
         done = time_for_action >= self.time_horizon - time
         # Calculate how many steps we need to take with action
-        num_steps = jnp.minimum(time_for_action, self.time_horizon - time) // self.env.dt #calculate how often we apply this action based on the environment dt
+        num_steps = jnp.minimum(time_for_action, self.time_horizon - time) // self.env.dt
 
         # Integrate dynamics forward for the num_steps
         if self.time_as_part_of_state:

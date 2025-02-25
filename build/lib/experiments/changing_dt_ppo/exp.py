@@ -25,10 +25,10 @@ from jax import config
 
 config.update("jax_debug_nans", True)
 
-ENTITY = 'asukhija'
+ENTITY = 'arnavsukhija'
 
 
-def experiment(env_name: str = 'inverted_pendulum',
+def experiment(env_name: str = 'rccar',
                backend: str = 'generalized',
                project_name: str = 'GPUSpeedTest',
                num_timesteps: int = 1_000_000,
@@ -60,7 +60,6 @@ def experiment(env_name: str = 'inverted_pendulum',
         base_episode_steps = 8
         new_dt = base_dt / base_dt_divisor
         env = RCCar(margin_factor=20, dt=new_dt)
-        print(env.dt)
     else:
         if env_name == 'reacher':
             env = ReacherDMControl(backend=backend)
@@ -134,13 +133,19 @@ def experiment(env_name: str = 'inverted_pendulum',
                   min_time_repeat=min_time_repeat
                   )
 
+    local_dir = os.path.expanduser('~/wandb_logs/')  # This resolves to '/Users/your_username/wandb_logs/'
+
+    # Ensure the directory exists
+    os.makedirs(local_dir, exist_ok=True)
+
+    # Update wandb.init
     wandb.init(
         project=project_name,
-        dir='/cluster/scratch/' + ENTITY,
+        dir=local_dir,
         config=config,
     )
 
-    if switch_cost_wrapper: #using the interaction cost TaCoS in this case, since we have wrapped the environment using the switch cost wrapper (augmented state, reward, steps)
+    if switch_cost_wrapper:
         optimizer = PPO(
             environment=env,
             num_timesteps=num_timesteps,
@@ -172,13 +177,13 @@ def experiment(env_name: str = 'inverted_pendulum',
             return_best_model=True,
             non_equidistant_time=True,
             continuous_discounting=continuous_discounting,
-            min_time_between_switches=min_time_repeat * env.dt, #in case of dt_divisor 1, env.dt is 0.5, thus, tmin=tmax
+            min_time_between_switches=min_time_repeat * env.dt,
             max_time_between_switches=max_time_between_switches,
             env_dt=env.dt,
         )
-    else: #standard PPO with discount factor adaptation for continuous tasks, improves performance on continuous tasks.
+    else:
         optimizer = PPO(
-            environment=env, #here we pass the unwrapped environment, meaning time not part of state
+            environment=env,
             num_timesteps=num_timesteps,
             episode_length=int(episode_time // env.dt),
             action_repeat=1,
@@ -188,7 +193,7 @@ def experiment(env_name: str = 'inverted_pendulum',
             wd=0.,
             entropy_cost=entropy_cost,
             unroll_length=unroll_length,
-            discounting=discrete_to_continuous_discounting(new_discount_factor, env.dt),
+            discounting=discrete_to_continuous_discounting(),
             batch_size=batch_size,
             num_minibatches=num_minibatches,
             num_updates_per_batch=num_updates_per_batch,
@@ -454,13 +459,10 @@ if __name__ == '__main__':
     parser.add_argument('--reward_scaling', type=float, default=5.0)
     parser.add_argument('--switch_cost_wrapper', type=int, default=1)
     parser.add_argument('--switch_cost', type=float, default=1.0)
-    parser.add_argument('--max_time_between_switches', type=float, default=0.5)
+    parser.add_argument('--max_time_between_switches', type=float, default=0.1)
     parser.add_argument('--min_time_repeat', type=int, default=1)
     parser.add_argument('--time_as_part_of_state', type=int, default=1)
     parser.add_argument('--num_final_evals', type=int, default=10)
-    parser.add_argument('--action_repeat', type=int, default=1)
-    parser.add_argument('--num_env_steps_between_updates', type=int, default=10)
-    parser.add_argument('--same_amount_of_gradient_updates', type=int, default=1, help='Flag for consistent gradient updates.')
 
     args = parser.parse_args()
     main(args)
