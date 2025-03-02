@@ -24,7 +24,6 @@ config.update("jax_debug_nans", True)
 
 ENTITY = 'asukhija'
 
-
 def experiment(env_name: str = 'inverted_pendulum',
                backend: str = 'generalized',
                project_name: str = 'GPUSpeedTest',
@@ -48,11 +47,6 @@ def experiment(env_name: str = 'inverted_pendulum',
                time_as_part_of_state: bool = True,
                num_final_evals: int = 10,
                ):
-    assert env_name in ['rccar']
-    # Episode time needs to be 4.0 seconds
-    # base_dt = 1/30.
-    # base_episode_steps = 8
-    # new_dt = base_dt / base_dt_divisor
     env = RCCar(margin_factor=20)
     episode_time = episode_steps * env.dt
     print(f'Integration dt {env.dt}')
@@ -116,12 +110,12 @@ def experiment(env_name: str = 'inverted_pendulum',
         config=config,
     )
 
-    if switch_cost_wrapper: #using the interaction cost TaCoS in this case, since we have wrapped the environment using the switch cost wrapper (augmented state, reward, steps)
+    if switch_cost_wrapper:  # using the interaction cost TaCoS in this case, since we have wrapped the environment using the switch cost wrapper (augmented state, reward, steps)
         optimizer = PPO(
-            environment=env, #passing switch cost env
+            environment=env,  # passing switch cost env
             num_timesteps=num_timesteps,
             episode_length=int(episode_time // env.dt),
-            action_repeat=1, #what does action repeat do?
+            action_repeat=1,  # what does action repeat do?
             num_envs=num_envs,
             num_eval_envs=num_eval_envs,
             lr=3e-4,
@@ -136,7 +130,7 @@ def experiment(env_name: str = 'inverted_pendulum',
             normalize_observations=True,
             reward_scaling=reward_scaling,
             max_grad_norm=1e5,
-            clipping_epsilon=0.3, #clipping for PPO objective
+            clipping_epsilon=0.3,  # clipping for PPO objective
             gae_lambda=0.95,
             policy_hidden_layer_sizes=policy_hidden_layer_sizes,
             policy_activation=swish,
@@ -148,13 +142,13 @@ def experiment(env_name: str = 'inverted_pendulum',
             return_best_model=True,
             non_equidistant_time=True,
             continuous_discounting=continuous_discounting,
-            min_time_between_switches=min_time_repeat * env.dt, #can be set to 1/30
-            max_time_between_switches=max_time_repeat * env.dt, #can be set to 1
-            env_dt=env.dt,  #best is 1/30
+            min_time_between_switches=min_time_repeat * env.dt,  # can be set to 1/30
+            max_time_between_switches=max_time_repeat * env.dt,  # can be set to 1
+            env_dt=env.dt,  # best is 1/30
         )
-    else: #standard PPO with discount factor adaptation for continuous tasks, improves performance on continuous tasks.
+    else:  # standard PPO with discount factor adaptation for continuous tasks, improves performance on continuous tasks.
         optimizer = PPO(
-            environment=env, #here we pass the unwrapped environment, meaning time not part of state
+            environment=env,  # here we pass the unwrapped environment, meaning time not part of state
             num_timesteps=num_timesteps,
             episode_length=int(episode_time // env.dt),
             action_repeat=1,
@@ -196,27 +190,15 @@ def experiment(env_name: str = 'inverted_pendulum',
         plt.plot(xdata, ydata)
         plt.show()
 
-    print('Before inference')
-    policy_params, metrics = optimizer.run_training(key=jr.PRNGKey(seed), progress_fn=progress)
-    print('After inference')
+    ### Evaluation
+    with open("../tacos_ppo_policy.pkl", "rb") as f:
+        loaded_policy = pickle.load(f)
 
-    # Now we plot the evolution
-    pseudo_policy = optimizer.make_policy(policy_params, deterministic=True)
-
-    with open("tacos_ppo_policy.pkl", "wb") as f:
-        pickle.dump(policy_params, f)
-
-    print("Policy saved successfully!")
-
-    wandb.save("tacos_ppo_policy.pkl")
-
-    print("Policy saved to wandb!")
+    pseudo_policy = optimizer.make_policy(loaded_policy, deterministic=True)
     @jax.jit
     def policy(obs):
         return pseudo_policy(obs, key_sample=jr.PRNGKey(0))
 
-    ########################## Evaluation ##########################
-    ################################################################
 
     print(f'Starting with evaluation')
     if switch_cost_wrapper:
@@ -271,6 +253,7 @@ def experiment(env_name: str = 'inverted_pendulum',
             # We save full_trajectory to wandb
             # Save trajectory rather than rendered video
             directory = os.path.join(wandb.run.dir, 'results')
+            print(directory)
             if not os.path.exists(directory):
                 os.makedirs(directory)
             model_path = os.path.join(directory, f'trajectory_{index}.pkl')
@@ -287,19 +270,32 @@ def experiment(env_name: str = 'inverted_pendulum',
         rewards_full_trajectory = jnp.concatenate([init_state.reward.reshape(1, ), full_trajectory.reward])
         executed_integration_steps = xs_full_trajectory.shape[0]
 
+
         ts_full_trajectory = env.env.dt * jnp.array(list(range(executed_integration_steps)))
         fig, axs = plt.subplots(nrows=1, ncols=4, figsize=(20, 4))
         us = trajectory[1][:, :-1]
         times = trajectory[0][:, -1]
+
+        print("xs_full_trajectory shape:", xs_full_trajectory.shape)
+        print("xs_full_trajectory sample:", xs_full_trajectory[:5])
+
+        print("rewards_full_trajectory shape:", rewards_full_trajectory.shape)
+        print("rewards_full_trajectory sample:", rewards_full_trajectory[:5])
+
+        print("us shape:", us.shape)
+        print("us sample:", us[:5])
+
+        print("times shape:", times.shape)
+        print("times sample:", times[:5])
 
         # All times are the times when we ended the actions
         all_ts = times
         all_ts = jnp.concatenate([jnp.array([0.0]), all_ts])
 
         for i in range(xs_full_trajectory.shape[1]):
-            axs[0].plot(ts_full_trajectory, xs_full_trajectory[:, i])
+            axs[0].plot(ts_full_trajectory, xs_full_trajectory[:, i], label=f'State {i}')
         for h in all_ts[:-1]:
-            axs[0].axvline(x=h, color='black', ls='--', alpha=0.4)
+            axs[0].axvline(x=h, color='black', ls='--', alpha=0.4, label='Action time')
 
         axs[0].set_xlabel('Time', fontsize=LABEL_SIZE)
         axs[0].set_ylabel('State', fontsize=LABEL_SIZE)
@@ -375,7 +371,6 @@ def experiment(env_name: str = 'inverted_pendulum',
 
     wandb.finish()
 
-
 def main(args):
     experiment(env_name=args.env_name,
                backend=args.backend,
@@ -401,7 +396,6 @@ def main(args):
                min_time_repeat=args.min_time_repeat
                )
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--env_name', type=str, default='rccar')
@@ -418,7 +412,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_minibatches', type=int, default=10)
     parser.add_argument('--num_updates_per_batch', type=int, default=10)
     parser.add_argument('--batch_size', type=int, default=64)
-    parser.add_argument('--networks', type=int, default=1)
+    parser.add_argument('--networks', type=int, default=0)
     parser.add_argument('--reward_scaling', type=float, default=5.0)
     parser.add_argument('--switch_cost_wrapper', type=int, default=1)
     parser.add_argument('--switch_cost', type=float, default=1.0)

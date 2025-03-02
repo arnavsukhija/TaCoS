@@ -1,12 +1,14 @@
 from abc import ABC, abstractmethod
 from functools import partial
-from typing import Tuple, NamedTuple, Union, Optional, Dict
+from typing import Tuple, NamedTuple, Union, Optional, Dict, List
 
 import jax
 import jax.numpy as jnp
 import jax.tree_util as jtu
+import numpy as np
 from brax.envs.base import State, Env
 from jaxtyping import PyTree
+from matplotlib import pyplot as plt
 
 from wtc.utils.tolerance_reward import ToleranceReward
 
@@ -167,7 +169,7 @@ class DynamicsModel(ABC):
                  u_dim: int,
                  params: PyTree,
                  angle_idx: Optional[Union[int, jax.Array]] = None,
-                 dt_integration: float = 0.01,
+                 dt_integration: float = 1/90,
                  ):
         self.dt = dt
         self.x_dim = x_dim
@@ -176,8 +178,10 @@ class DynamicsModel(ABC):
         self.angle_idx = angle_idx
 
         self.dt_integration = dt_integration
+        assert(dt == 1/30)
+        assert(dt_integration == 1/90)
         assert dt >= dt_integration
-        assert (dt / dt_integration - int(dt / dt_integration)) < 1e-4, 'dt must be multiple of dt_integration'
+        assert round(dt / dt_integration) == dt / dt_integration, 'dt must be a multiple of dt_integration'
         self._num_steps_integrate = int(dt / dt_integration)
 
     def next_step(self, x: jax.Array, u: jax.Array, params: PyTree) -> jax.Array:
@@ -233,7 +237,7 @@ class RaceCar(DynamicsModel):
         if dt <= 1 / 100:
             integration_dt = dt
         else:
-            integration_dt = 1 / 100
+            integration_dt = 1 / 90
         super().__init__(dt=dt, x_dim=x_dim, u_dim=2, params=CarParams(), angle_idx=2,
                          dt_integration=integration_dt)
         self.local_coordinates = local_coordinates
@@ -738,6 +742,88 @@ class RCCar(Env):
                            info=state.info)
         return next_state
 
+    def render(self, trajectory: List[jnp.array], output_path: str = "rendered_video.mp4"):
+        """
+        Render the trajectory of the race car for visualization.
+
+        Args:
+            trajectory: A list of state observations where each element is a state at a timestep
+            output_path: The file path where the rendered video will be saved
+        """
+        # Create the video writer
+        import cv2
+
+        # Create a video writer object
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Use the correct codec
+        frame_size = (500, 500)  # Size of the frames for the video
+        out = cv2.VideoWriter(output_path, fourcc, 30, frame_size)
+
+        # Loop over the trajectory to render each frame
+        for timestep in range(len(trajectory)):
+            # Draw the scene for the current timestep
+            image = self.draw_scene(trajectory, timestep)
+
+            # Resize the image to match the video frame size (if necessary)
+            image_resized = cv2.resize(image, frame_size)
+
+            # Write the frame to the video file
+            out.write(image_resized)
+
+        # Release the video writer
+        out.release()
+        print(f"Video saved to {output_path}")
+
+    def draw_scene(self, trajectory: List[jnp.array], timestep: int):
+        """
+        Creates an image for a given timestep from the trajectory.
+
+        Args:
+            trajectory: A list of state observations where each element is a state at a timestep
+            timestep: The current timestep to render the scene
+
+        Returns:
+            A numpy array representing the rendered frame for the given timestep.
+        """
+        # Create a figure and axis for rendering
+        fig, ax = plt.subplots(figsize=(5, 5), dpi=100)
+        ax.set_xlim(-3.5, 3.5)
+        ax.set_ylim(-3.5, 3.5)
+
+        # Get the car's position and angle at this timestep
+        car_state = trajectory[timestep]
+        x, y, angle = car_state[0], car_state[1], car_state[2]
+        car_width, car_length = 0.07, 0.2
+
+        # Plot the car's position and velocity (as a rectangle)
+        car = plt.Rectangle(
+            (x - car_length / 2, y - car_width / 2),
+            car_length,
+            car_width,
+            angle=angle * 180 / np.pi,
+            color="green",
+            alpha=0.7
+        )
+        ax.add_patch(car)
+
+        # Plot the target circles if needed
+        target_center = (0, 0)
+        target_radius = 0.5
+        target_circle = plt.Circle(target_center, target_radius, color="red", alpha=0.5)
+        ax.add_patch(target_circle)
+
+        # Render the frame as a numpy array
+        ax.set_aspect('equal', 'box')
+        ax.grid(True, color='gray', linestyle='--', linewidth=0.5)
+        fig.canvas.draw()
+
+        # Convert the figure to a numpy array
+        frame = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+        frame = frame.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+        # Close the figure to free up memory
+        plt.close(fig)
+
+        return frame
     @property
     def dt(self):
         return self._dt

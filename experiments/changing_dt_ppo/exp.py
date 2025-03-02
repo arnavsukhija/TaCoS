@@ -59,6 +59,7 @@ def experiment(env_name: str = 'inverted_pendulum',
         base_dt = 0.5
         base_episode_steps = 8
         new_dt = base_dt / base_dt_divisor
+
         env = RCCar(margin_factor=20, dt=new_dt)
         print(env.dt)
     else:
