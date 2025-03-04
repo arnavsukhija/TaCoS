@@ -570,7 +570,7 @@ class RCCar(Env):
                  encode_angle: bool = True,
                  use_obs_noise: bool = False,
                  use_tire_model: bool = True,
-                 action_delay: float = 1.0,
+                 action_delay: float = 0.0,
                  car_model_params: dict = None,
                  margin_factor: float = 10.0,
                  max_throttle: float = 0.4, #might be 0.4 from Yarden's environment, from Yarden's environment

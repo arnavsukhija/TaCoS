@@ -109,7 +109,7 @@ rccar_no_switch_cost_ppo = {'env_name': ['rccar', ],
 
 def main():
     command_list = []
-    flags_combinations = dict_permutations(rccar_no_switch_cost_ppo)
+    flags_combinations = dict_permutations(rccar_switch_cost)
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)
         command_list.append(cmd)
