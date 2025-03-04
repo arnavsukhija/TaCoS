@@ -102,35 +102,35 @@ DEFAULT_PARAMS_BICYCLE_CAR2: Dict = {
     'blend_ratio_lb': 0.01,
     'blend_ratio_ub': 0.01,
     'c_d': 0.0,
-    'c_f': 1.2,
-    'c_m_1': 8.0,
-    'c_m_2': 1.5,
-    'c_r': 1.27,
-    'd_f': 0.02,
-    'd_r': 0.017,
-    'i_com': 0.01,
-    'steering_limit': 0.3
+    'c_f': 1.45, #should be 1.45
+    'c_m_1': 30.0, #should be 30
+    'c_m_2': 1.25, #should be 1.25
+    'c_r': 1.3, #should be 1.3
+    'd_f': 0.4, #should be 0.4
+    'd_r': 0.3, #should be 0.3
+    'i_com': 0.06, #should be 0.06
+    'steering_limit': 0.6 #should be 0.6
 }
 
 BOUNDS_PARAMS_BICYCLE_CAR2: Dict = {
     'use_blend': (0.0, 0.0),
     'm': (1.6, 1.7),
-    'l_f': (0.11, 0.15),
-    'l_r': (0.15, 0.19),
+    'l_f': (0.125, 0.135), #should be (0.125, 0.135)
+    'l_r': (0.165, 0.175), #should be (0.165, 0.175)
     'angle_offset': (-0.15, 0.15),
-    'b_f': (2.4, 2.6),
-    'b_r': (2.0, 8.0),
+    'b_f': (2.0, 4.0), #should be (2.0, 4.0)
+    'b_r': (3.0, 10.0), #should be (3.0, 10.0)
     'blend_ratio_lb': (0.4, 0.4),
     'blend_ratio_ub': (0.5, 0.5),
-    'c_d': (0.01, 0.01),
-    'c_f': (1.2, 1.2),
-    'c_m_1': (6., 10.),
-    'c_m_2': (1.0, 1.8),
-    'c_r': (1.27, 1.27),
-    'd_f': (0.02, 0.02),
-    'd_r': (0.017, 0.017),
-    'i_com': (0.01, 0.1),
-    'steering_limit': (0.15, 0.4),
+    'c_d': (0,0), #should be (0,0)
+    'c_f': (1.1,2), #should be (1.1,2)
+    'c_m_1': (10,40), #should be (10,40)
+    'c_m_2': (1.0, 0.5), #should be (1.0, §.5)
+    'c_r': (0.4, 2.0), #should be (0.4,2.0)
+    'd_f': (0.25, 0.6), #should be (0.25, 0.6)
+    'd_r': (0.15, 0.45), #should be (0.15, 0.45)
+    'i_com': (0.03, 0.18), #should be (0.03, 0.18)
+    'steering_limit': (0.4, 0.75), #should be (0.4, 0.75)
 }
 
 DEFAULT_PARAMS_BLEND_CAR2: Dict = {
@@ -145,7 +145,7 @@ DEFAULT_PARAMS_BLEND_CAR2: Dict = {
     'blend_ratio_ub': 0.017,
     'c_d': 0.0,
     'c_f': 1.45,
-    'c_m_1': 8.2,
+    'c_m_1': 30, #should be 30 as per Yarden, original: 8.2
     'c_m_2': 1.25,
     'c_r': 1.3,
     'd_f': 0.4,
@@ -166,7 +166,7 @@ BOUNDS_PARAMS_BLEND_CAR2 = {
     'blend_ratio_ub': (0.0001, 0.2),
     'c_d': (0.0, 0.0),
     'c_f': (1.1, 2.0),
-    'c_m_1': (6.5, 10.0),
+    'c_m_1': (10.0, 40.0), #should be (10.0, 40.0) as per Yarden, original: (6.5, 10.0)
     'c_m_2': (1.0, 1.5),
     'c_r': (0.4, 2.0),
     'd_f': (0.25, 0.6),

@@ -160,6 +160,8 @@ class CarParams(NamedTuple):
     blend_ratio_ub: Union[jax.Array, float] = jnp.array([0.5477225575])
     blend_ratio_lb: Union[jax.Array, float] = jnp.array([0.4472135955])
     angle_offset: Union[jax.Array, float] = jnp.array([0.02791893])
+    max_throttle: jax.Array = jnp.array([0.4]) #include or not?
+
 
 
 class DynamicsModel(ABC):
@@ -178,8 +180,6 @@ class DynamicsModel(ABC):
         self.angle_idx = angle_idx
 
         self.dt_integration = dt_integration
-        assert(dt == 1/30)
-        assert(dt_integration == 1/90)
         assert dt >= dt_integration
         assert round(dt / dt_integration) == dt / dt_integration, 'dt must be a multiple of dt_integration'
         self._num_steps_integrate = int(dt / dt_integration)
@@ -234,7 +234,7 @@ class RaceCar(DynamicsModel):
     def __init__(self, dt, encode_angle: bool = True, local_coordinates: bool = False, rk_integrator: bool = True):
         self.encode_angle = encode_angle
         x_dim = 6
-        if dt <= 1 / 100:
+        if dt <= 1 / 90:
             integration_dt = dt
         else:
             integration_dt = 1 / 90
@@ -524,7 +524,7 @@ class RCCarEnvReward:
         self.goal = goal
         self.ctrl_cost_weight = ctrl_cost_weight
         self.encode_angle = encode_angle
-        # Margin 20 seems to work even better (maybe try at some point)
+        # Margin 20 seems to work even better (maybe try at some point, why does margin 20 works better?)
         self.tolerance_reward = ToleranceReward(bounds=(0.0, bound), margin=margin_factor * bound,
                                                 value_at_margin=0.1, sigmoid='long_tail')
 
@@ -573,12 +573,12 @@ class RCCar(Env):
                  action_delay: float = 0.0,
                  car_model_params: dict = None,
                  margin_factor: float = 10.0,
-                 max_throttle: float = 1.0,
+                 max_throttle: float = 0.4, #might be 0.4 from Yarden's environment, from Yarden's environment
                  car_id: int = 2,
                  ctrl_diff_weight: float = 0.0,
                  seed: int = 230492394,
                  max_steps: int = 200,
-                 dt: float | None = None):
+                 dt: float | None = None): #might need to include obstacles
         """
         Race car simulator environment
 
@@ -688,7 +688,7 @@ class RCCar(Env):
         init_vel = jnp.zeros((3,)) + jnp.array([0.005, 0.005, 0.02]) * jax.random.normal(key_vel, shape=(3,))
         init_state = jnp.concatenate([init_pos, init_theta, init_vel])
         init_state = self._state_to_obs(init_state, rng_key=key_obs)
-        return State(pipeline_state=None,
+        return State(pipeline_state=None, #yarden passes the state here, so pipeline_state = (init_state, key_pos, jnp.linalg.norm(init_pos)), so why do we pass none here?
                      obs=init_state,
                      reward=jnp.array(0.0),
                      done=jnp.array(0.0), )
@@ -709,7 +709,7 @@ class RCCar(Env):
              action: jax.Array) -> State:
         assert action.shape[-1:] == self.dim_action
         action = jnp.clip(action, -1.0, 1.0)
-        action = action.at[0].set(self.max_throttle * action[0])
+        action = action.at[0].set(self.max_throttle * action[0]) #shouldn't it be action.at[1]? No, since action[0] contains throttle information
         # assert jnp.all(-1 <= action) ant jnp.all(action <= 1), "action must be in [-1, 1]"
         jitter_reward = jnp.zeros_like(action).sum(-1)
         if self.action_delay > 0.0:
