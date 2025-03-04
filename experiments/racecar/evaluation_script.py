@@ -191,7 +191,7 @@ def experiment(env_name: str = 'inverted_pendulum',
         plt.show()
 
     ### Evaluation
-    with open("../tacos_ppo_policy.pkl", "rb") as f:
+    with open("Policies/ppo_policy.pkl", "rb") as f:
         loaded_policy = pickle.load(f)
 
     pseudo_policy = optimizer.make_policy(loaded_policy, deterministic=True)
@@ -249,6 +249,10 @@ def experiment(env_name: str = 'inverted_pendulum',
             wandb.log({f'results/total_reward_{index}': float(jnp.sum(trajectory[2])),
                        f'results/num_actions_{index}': trajectory[0].shape[0]})
 
+            print("Plotting the trajectory")
+            fig, axs = plot_rc_trajectory(full_trajectory)
+            plt.show()
+            print("Trajectory plotted")
             print('Saving the models to Wandb')
             # We save full_trajectory to wandb
             # Save trajectory rather than rendered video
@@ -367,6 +371,7 @@ def experiment(env_name: str = 'inverted_pendulum',
             model_path = os.path.join(directory, f'trajectory_{index}.pkl')
             with open(model_path, 'wb') as handle:
                 pickle.dump(trajectory, handle)
+
             wandb.save(model_path, wandb.run.dir)
 
     wandb.finish()
@@ -414,7 +419,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--networks', type=int, default=0)
     parser.add_argument('--reward_scaling', type=float, default=5.0)
-    parser.add_argument('--switch_cost_wrapper', type=int, default=1)
+    parser.add_argument('--switch_cost_wrapper', type=int, default=0)
     parser.add_argument('--switch_cost', type=float, default=1.0)
     parser.add_argument('--max_time_repeat', type=int, default=10)
     parser.add_argument('--min_time_repeat', type=int, default=1)

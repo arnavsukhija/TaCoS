@@ -85,8 +85,8 @@ rccar_switch_cost = {'env_name': ['rccar', ],
 
 rccar_no_switch_cost_ppo = {'env_name': ['rccar', ],
                      'backend': ['generalized', ],
-                     'project_name': ["TaCoSPPO_RCCar_Eval_Mar02_14_00"],
-                     'num_timesteps': [50_000_000, ],
+                     'project_name': ["TaCoSPPO_RCCar_Mar03_15_30"],
+                     'num_timesteps': [20_000_000, ], #from normal ppo training
                      'episode_steps': [200, ],
                      'base_discount_factor': [0.9],
                      'seed': list(range(5)),
@@ -103,14 +103,15 @@ rccar_no_switch_cost_ppo = {'env_name': ['rccar', ],
                      'max_time_repeat': [10],
                      'time_as_part_of_state': [1, ],
                      'num_final_evals': [10, ],
+                    'switch_cost_wrapper': [0, ] # normal PPO (without switch cost wrapping)
                      }
 
 
 def main():
     command_list = []
-    flags_combinations = dict_permutations(rccar_switch_cost)
+    flags_combinations = dict_permutations(rccar_no_switch_cost_ppo)
     for flags in flags_combinations:
-        cmd = generate_base_command(evaluation_script, flags=flags)
+        cmd = generate_base_command(exp, flags=flags)
         command_list.append(cmd)
 
     # submit jobs

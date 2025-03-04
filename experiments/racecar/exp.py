@@ -121,7 +121,7 @@ def experiment(env_name: str = 'inverted_pendulum',
             environment=env, #passing switch cost env
             num_timesteps=num_timesteps,
             episode_length=int(episode_time // env.dt),
-            action_repeat=1, #what does action repeat do?
+            action_repeat=1, #number of times we repeat action before evaluation
             num_envs=num_envs,
             num_eval_envs=num_eval_envs,
             lr=3e-4,
@@ -153,8 +153,8 @@ def experiment(env_name: str = 'inverted_pendulum',
             env_dt=env.dt,  #best is 1/30
         )
     else: #standard PPO with discount factor adaptation for continuous tasks, improves performance on continuous tasks.
-        optimizer = PPO(
-            environment=env, #here we pass the unwrapped environment, meaning time not part of state
+        """ This seems to cause issues with the discounting factor. Might be that we need to pass the base discounting factor
+        optimizer = PPO(environment=env, #here we pass the unwrapped environment, simply RC Car
             num_timesteps=num_timesteps,
             episode_length=int(episode_time // env.dt),
             action_repeat=1,
@@ -182,6 +182,35 @@ def experiment(env_name: str = 'inverted_pendulum',
             normalize_advantage=True,
             wandb_logging=True,
             return_best_model=True,
+        )"""
+        optimizer = PPO(
+            environment=env,
+            num_timesteps=num_timesteps,
+            episode_length=int(episode_time // env.dt),
+            action_repeat=1,
+            num_envs=num_envs,
+            num_eval_envs=num_eval_envs,
+            lr=3e-4,
+            wd=0.,
+            entropy_cost=entropy_cost,
+            unroll_length=unroll_length,
+            discounting=base_discount_factor,
+            batch_size=batch_size,
+            num_minibatches=num_minibatches,
+            num_updates_per_batch=num_updates_per_batch,
+            num_evals=20,
+            normalize_observations=True,
+            reward_scaling=reward_scaling,
+            max_grad_norm=1e5,
+            clipping_epsilon=0.3,
+            gae_lambda=0.95,
+            policy_hidden_layer_sizes=policy_hidden_layer_sizes,
+            policy_activation=swish,
+            critic_hidden_layer_sizes=critic_hidden_layer_sizes,
+            critic_activation=swish,
+            deterministic_eval=True,
+            normalize_advantage=True,
+            wandb_logging=True,
         )
 
     xdata, ydata = [], []
@@ -203,12 +232,12 @@ def experiment(env_name: str = 'inverted_pendulum',
     # Now we plot the evolution
     pseudo_policy = optimizer.make_policy(policy_params, deterministic=True)
 
-    with open("tacos_ppo_policy.pkl", "wb") as f:
+    with open("ppo_policy.pkl", "wb") as f:
         pickle.dump(policy_params, f)
 
     print("Policy saved successfully!")
 
-    wandb.save("tacos_ppo_policy.pkl")
+    wandb.save("ppo_policy.pkl")
 
     print("Policy saved to wandb!")
     @jax.jit

@@ -43,7 +43,7 @@ def plot_rc_trajectory(traj: jnp.array, actions: Optional[jnp.array] = None, pos
     # axes[0][0].plot(traj[:, 0], traj[:, 1])
     axes[0][0].set_title('x-y')
 
-    # chaange x -> -y ant y -> x
+    # change x -> -y ant y -> x
     traj = rotate_coordinates(traj, encode_angle=False)
 
     # Plot the velocity of the car as vectors
