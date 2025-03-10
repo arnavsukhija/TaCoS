@@ -16,7 +16,7 @@ from mbpo.optimizers.policy_optimizers.ppo.ppo_brax_env import PPO
 
 from wtc.utils import discrete_to_continuous_discounting
 from wtc.wrappers.ih_switching_cost import ConstantSwitchCost, IHSwitchCostWrapper
-from wtc.envs.rccar import RCCar, plot_rc_trajectory
+from wtc.envs.rccar import RCCar
 
 from jax import config
 
