@@ -2,6 +2,7 @@ import argparse
 import datetime
 import os
 import pickle
+import cloudpickle
 from datetime import datetime
 
 import jax
@@ -23,7 +24,6 @@ from jax import config
 config.update("jax_debug_nans", True)
 
 ENTITY = 'asukhija'
-
 
 def experiment(env_name: str = 'inverted_pendulum',
                backend: str = 'generalized',
@@ -66,9 +66,9 @@ def experiment(env_name: str = 'inverted_pendulum',
 
         env = IHSwitchCostWrapper(env=env,
                                   num_integrator_steps=episode_steps,
-                                  min_time_between_switches=min_time_repeat * env.dt,
+                                  min_time_between_switches=min_time_repeat * env.dt, #in this case it is 1/30
                                   # Hardcoded to be at least the integration step
-                                  max_time_between_switches=max_time_repeat * env.dt,
+                                  max_time_between_switches=max_time_repeat * env.dt, #in this case it is 1/3
                                   switch_cost=ConstantSwitchCost(value=jnp.array(switch_cost)),
                                   discounting=new_discount_factor,
                                   time_as_part_of_state=time_as_part_of_state,
@@ -149,7 +149,7 @@ def experiment(env_name: str = 'inverted_pendulum',
             non_equidistant_time=True,
             continuous_discounting=continuous_discounting,
             min_time_between_switches=min_time_repeat * env.dt, #can be set to 1/30
-            max_time_between_switches=max_time_repeat * env.dt, #can be set to 1
+            max_time_between_switches=max_time_repeat * env.dt, #can be set to 1/3
             env_dt=env.dt,  #best is 1/30
         )
     else: #standard PPO with discount factor adaptation for continuous tasks, improves performance on continuous tasks.
@@ -232,12 +232,12 @@ def experiment(env_name: str = 'inverted_pendulum',
     # Now we plot the evolution
     pseudo_policy = optimizer.make_policy(policy_params, deterministic=True)
 
-    with open("ppo_policy.pkl", "wb") as f:
-        pickle.dump(policy_params, f)
+    with open("tacos_ppo_policy.pkl", "wb") as f:
+        cloudpickle.dump(policy_params, f)
 
     print("Policy saved successfully!")
 
-    wandb.save("ppo_policy.pkl")
+    wandb.save("policies/tacos_ppo_policy.pkl")
 
     print("Policy saved to wandb!")
     @jax.jit
@@ -257,7 +257,7 @@ def experiment(env_name: str = 'inverted_pendulum',
                                   num_integrator_steps=episode_steps,
                                   min_time_between_switches=min_time_repeat * env.dt,
                                   max_time_between_switches=max_time_repeat * env.dt,
-                                  switch_cost=ConstantSwitchCost(value=jnp.array(0.0)),
+                                  switch_cost=ConstantSwitchCost(value=jnp.array(0.0)), # no switch cost while evaluation
                                   discounting=1.0,
                                   time_as_part_of_state=time_as_part_of_state, )
 

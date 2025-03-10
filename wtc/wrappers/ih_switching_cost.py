@@ -116,7 +116,7 @@ class IHSwitchCostWrapper(Env):
 
         def body_integration_step(val):
             s, r, index = val
-            next_state = self.env.step(s, u)
+            next_state = self.env.step(s, u) # so we apply the car system's step function
             next_reward = r + (self.discounting ** index) * (1 - next_state.done) * next_state.reward
             return next_state, next_reward, index + 1
 
@@ -125,7 +125,7 @@ class IHSwitchCostWrapper(Env):
             # We continue if index is smaller that num_steps ant we are not done
             return jnp.bitwise_and(index < num_steps, jnp.bitwise_not(s.done.astype(bool)))
 
-        init_val = (state, jnp.array(0.0), jnp.array(0))
+        init_val = (state, jnp.array(0.0), jnp.array(0)) #state, reward, time step
         final_val = while_loop(cond_integration_step, body_integration_step, init_val)
         next_state, total_reward, _ = final_val
         next_done = 1 - (1 - next_state.done) * (1 - done)

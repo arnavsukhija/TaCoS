@@ -104,11 +104,11 @@ def experiment(env_name: str = 'inverted_pendulum',
                   min_time_repeat=min_time_repeat
                   )
 
-    wandb.init(
-        project=project_name,
-        dir='/cluster/scratch/' + ENTITY,
-        config=config,
-    )
+#    wandb.init(
+#        project=project_name,
+#        dir='/cluster/scratch/' + ENTITY,
+#        config=config,
+#    )
 
     if switch_cost_wrapper:  # using the interaction cost TaCoS in this case, since we have wrapped the environment using the switch cost wrapper (augmented state, reward, steps)
         optimizer = PPO(
@@ -191,7 +191,7 @@ def experiment(env_name: str = 'inverted_pendulum',
         plt.show()
 
     ### Evaluation
-    with open("Policies/ppo_policy.pkl", "rb") as f:
+    with open("Policies/tacos_ppo_policy.pkl", "rb") as f:
         loaded_policy = pickle.load(f)
 
     pseudo_policy = optimizer.make_policy(loaded_policy, deterministic=True)
@@ -354,8 +354,8 @@ def experiment(env_name: str = 'inverted_pendulum',
                     trajectory.append(state)
 
             trajectory = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *trajectory)
-            wandb.log({f'results/total_reward_{index}': jnp.sum(trajectory.reward),
-                       f'results/num_actions_{index}': len(trajectory.reward)})
+    #        wandb.log({f'results/total_reward_{index}': jnp.sum(trajectory.reward),
+    #                   f'results/num_actions_{index}': len(trajectory.reward)})
 
             print(f'Total reward {index}: {jnp.sum(trajectory.reward)}')
             print(f'Total steps {index}: {total_steps}')
@@ -419,7 +419,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--networks', type=int, default=0)
     parser.add_argument('--reward_scaling', type=float, default=5.0)
-    parser.add_argument('--switch_cost_wrapper', type=int, default=0)
+    parser.add_argument('--switch_cost_wrapper', type=int, default=1)
     parser.add_argument('--switch_cost', type=float, default=1.0)
     parser.add_argument('--max_time_repeat', type=int, default=10)
     parser.add_argument('--min_time_repeat', type=int, default=1)
