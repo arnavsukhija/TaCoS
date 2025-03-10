@@ -3,6 +3,7 @@ import datetime
 import os
 import pickle
 from datetime import datetime
+import numpy as np
 
 import jax
 import jax.numpy as jnp
@@ -191,7 +192,7 @@ def experiment(env_name: str = 'inverted_pendulum',
         plt.show()
 
     ### Evaluation
-    with open("Policies/ppo_policy.pkl", "rb") as f:
+    with open("Policies/tacos_ppo_policy.pkl", "rb") as f:
         loaded_policy = pickle.load(f)
 
     pseudo_policy = optimizer.make_policy(loaded_policy, deterministic=True)
@@ -218,6 +219,7 @@ def experiment(env_name: str = 'inverted_pendulum',
             state = env.reset(rng=jr.PRNGKey(index))
             print(f'Prepared and reseted environment')
 
+            ones = np.ones(8)
             def step(state, _):
                 u = policy(state.obs)[0]
                 next_state, rest = env.simulation_step(state, u)
@@ -419,7 +421,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--networks', type=int, default=0)
     parser.add_argument('--reward_scaling', type=float, default=5.0)
-    parser.add_argument('--switch_cost_wrapper', type=int, default=0)
+    parser.add_argument('--switch_cost_wrapper', type=int, default=1)
     parser.add_argument('--switch_cost', type=float, default=1.0)
     parser.add_argument('--max_time_repeat', type=int, default=10)
     parser.add_argument('--min_time_repeat', type=int, default=1)

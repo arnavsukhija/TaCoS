@@ -153,7 +153,7 @@ def run_with_learned_policy(policy_params,
     switch_cost = 0.1
     episode_steps = 200
     min_time_between_switches = training_dt
-    max_time_between_switches = 5 * training_dt
+    max_time_between_switches = 10 * training_dt
 
     ## this was the environment used for training, we use it to prepare the policy
     env = RCCar(margin_factor=20)
@@ -249,7 +249,7 @@ def run_with_learned_policy(policy_params,
     # env = CarEnv(encode_angle=True, num_frame_stacks=0, max_throttle=0.4,
     #             control_time_ms=27.9)
     env = CarEnv(car_id=2, encode_angle=encode_angle, max_throttle=0.4, control_time_ms=control_time_ms,
-                 num_frame_stacks=3, car_reward_kwargs=car_reward_kwargs)
+                 num_frame_stacks=0, car_reward_kwargs=car_reward_kwargs)
 
     if switch_cost_wrapper:
         env = IHSwitchCostGym(env=env,
