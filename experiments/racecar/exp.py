@@ -231,13 +231,27 @@ def experiment(env_name: str = 'inverted_pendulum',
 
     # Now we plot the evolution
     pseudo_policy = optimizer.make_policy(policy_params, deterministic=True)
-
-    with open("ppo_policy.pkl", "wb") as f:
-        pickle.dump(policy_params, f)
-
     print("Policy saved successfully!")
 
-    wandb.save("ppo_policy.pkl")
+    # Ensure the 'Policies' directory inside the wandb run directory exists
+    directory = os.path.join(wandb.run.dir, 'Policies')
+    os.makedirs(directory, exist_ok=True)  # Ensures directory exists
+
+    policy_path = os.path.join(directory, "tacos_policy.pkl")
+
+    # 1️⃣ Save policy to local storage
+    with open(policy_path, "wb") as f:
+        pickle.dump(policy_params, f)
+
+    # 2️⃣ Ensure file exists before uploading to wandb
+    if not os.path.exists(policy_path):
+        raise FileNotFoundError(f"File not found: {policy_path}")
+
+    # 3️⃣ Upload to Weights & Biases
+    artifact = wandb.Artifact("tacos_policy", type="model")
+    artifact.add_file(policy_path)
+    wandb.log_artifact(artifact)  # Uploads the file
+    print(f"Successfully saved and uploaded {policy_path} to Weights & Biases.")
 
     print("Policy saved to wandb!")
     @jax.jit
@@ -297,15 +311,33 @@ def experiment(env_name: str = 'inverted_pendulum',
                        f'results/num_actions_{index}': trajectory[0].shape[0]})
 
             print('Saving the models to Wandb')
-            # We save full_trajectory to wandb
-            # Save trajectory rather than rendered video
-            directory = os.path.join(wandb.run.dir, 'results')
-            if not os.path.exists(directory):
-                os.makedirs(directory)
-            model_path = os.path.join(directory, f'trajectory_{index}.pkl')
-            with open(model_path, 'wb') as handle:
-                pickle.dump(full_trajectory, handle)
-            wandb.save(model_path, wandb.run.dir)
+            os.makedirs(directory, exist_ok=True)  # Create the directory if it doesn't exist
+
+            # Define the full path for saving the model
+            model_filename = f'trajectory_{index}.pkl'
+            model_path = os.path.join(directory, model_filename)
+
+            # 1️⃣ Save trajectory locally
+            with open(model_path, "wb") as f:
+                pickle.dump(full_trajectory, f)
+
+            # 2️⃣ Ensure file exists before uploading
+            if not os.path.exists(model_path):
+                raise FileNotFoundError(f"File not found: {model_path}")
+
+            # 3️⃣ Upload to Weights & Biases
+            artifact = wandb.Artifact(f"trajectory_{index}", type="trajectory")
+            artifact.add_file(model_path)
+            wandb.log_artifact(artifact)  # Log as an artifact
+
+            print(f"Policy saved locally at: {model_path}")
+
+            # Log and upload the file to Weights & Biases as an artifact
+            artifact = wandb.Artifact(name=f"trajectory_{index}", type="model")
+            artifact.add_file(model_path)
+            wandb.log_artifact(artifact)
+
+            print(f"Policy uploaded to Weights & Biases: {model_path}")
             print('Trajectory saved to Wandb')
 
         print('Started plotting')

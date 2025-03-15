@@ -43,7 +43,7 @@ def plot_rc_trajectory(traj: jnp.array, actions: Optional[jnp.array] = None, pos
     # axes[0][0].plot(traj[:, 0], traj[:, 1])
     axes[0][0].set_title('x-y')
 
-    # change x -> -y ant y -> x
+    # chaange x -> -y and y -> x
     traj = rotate_coordinates(traj, encode_angle=False)
 
     # Plot the velocity of the car as vectors
@@ -94,11 +94,11 @@ def plot_rc_trajectory(traj: jnp.array, actions: Optional[jnp.array] = None, pos
         axes[1][3].set_ylabel('throttle')
         axes[1][3].set_title('throttle')
 
+
     fig.tight_layout()
     if show:
         fig.show()
     return fig, axes
-
 
 def encode_angles(state: jnp.array, angle_idx: int) -> jnp.array:
     """ Encodes the angle (theta) as sin(theta) ant cos(theta) """

@@ -55,10 +55,10 @@ class IHSwitchCostWrapper(Env):
         Resets the environment and return the initial augmented state
         """
         obs, info = self.env.reset(*args, **kwargs)  # Pass the args to CarEnv reset
-        steps = np.array(0, dtype=int)  # Initialize number of passed steps as 0
+        time = np.array(0.0, dtype=float)  # Initialize number of passed steps as 0
 
         if self.time_as_part_of_state:  # we augment the state by the time component
-            augmented_obs = np.concatenate([obs, steps.reshape(1)])
+            augmented_obs = np.concatenate([obs, time.reshape(1)])
         else:  # we return the augmented pipeline state then
             augmented_obs = AugmentedPipelineState(pipeline_state=obs, time=0.0)
         self.state = augmented_obs
@@ -110,10 +110,11 @@ class IHSwitchCostWrapper(Env):
         else:
             augmented_next_state = AugmentedPipelineState(pipeline_state=current_state, time=new_time)
         self.state = augmented_next_state  # update the state parameter
-        return augmented_next_state, total_reward, done, {}
+        return augmented_next_state, total_reward, done, {'time_elapsed': info['time_elapsed'],
+                                                         'terminal_reward': info['terminal_reward']}
 
     @property
-    def state_dim(self) -> int:
+    def observation_size(self) -> int:
         # +1 for time-to-go ant +1 for num remaining switches
         if self.time_as_part_of_state:
             return self.env.state_dim + 1
@@ -121,7 +122,7 @@ class IHSwitchCostWrapper(Env):
             return self.env.state_dim
 
     @property
-    def action_dim(self) -> int:
+    def action_size(self) -> int:
         # +1 for time that we apply action for
         return self.env.action_dim + 1
 

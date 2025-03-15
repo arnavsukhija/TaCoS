@@ -15,60 +15,6 @@ X_MAX_LIMIT = 2.8
 Y_MIN_LIMIT = -2.6
 Y_MAX_LIMIT = 1.5
 
-
-def get_policy(num_frame_stack: int = 3, encode_angle: bool = True):
-    SAC_KWARGS = dict(num_timesteps=20000,
-                      num_evals=20,
-                      reward_scaling=10,
-                      episode_length=100,
-                      episode_length_eval=2 * 100,
-                      action_repeat=1,
-                      discounting=0.99,
-                      lr_policy=3e-4,
-                      lr_alpha=3e-4,
-                      lr_q=3e-4,
-                      num_envs=1,
-                      batch_size=64,
-                      grad_updates_per_step=1,
-                      num_env_steps_between_updates=1,
-                      tau=0.005,
-                      wd_policy=0,
-                      wd_q=0,
-                      wd_alpha=0,
-                      num_eval_envs=2,
-                      max_replay_size=5 * 10 ** 4,
-                      min_replay_size=2 ** 11,
-                      policy_hidden_layer_sizes=(64, 64),
-                      critic_hidden_layer_sizes=(64, 64),
-                      normalize_observations=True,
-                      deterministic_eval=True,
-                      wandb_logging=True)
-    dummy_reward_kwargs = {
-        'ctrl_cost_weight': 0.005,
-        'margin_factor': 20.0,
-        'ctrl_diff_weight': 0.0,
-    }
-    state_dim = 6 + int(encode_angle)
-    action_dim = 2
-    rl_from_offline_data = RLFromOfflineData(
-        sac_kwargs=SAC_KWARGS,
-        x_train=jnp.zeros((10, state_dim + (num_frame_stack + 1) * action_dim)),
-        y_train=jnp.zeros((10, state_dim)),
-        x_test=jnp.zeros((10, state_dim + (num_frame_stack + 1) * action_dim)),
-        y_test=jnp.zeros((10, state_dim)),
-        car_reward_kwargs=dummy_reward_kwargs,
-        load_pretrained_bnn_model=False)
-    policy_name = 'reset_policy/parameters.pkl'
-
-    import cloudpickle
-    import os
-    file_dir = os.path.dirname(os.path.realpath(__file__))
-    with open(os.path.join(file_dir, policy_name), 'rb') as handle:
-        policy_params = cloudpickle.load(handle)
-
-    policy = rl_from_offline_data.prepare_policy(params=policy_params)
-    return policy
-
 class CarEnv(gym.Env):
     max_steps: int = 200
     _goal: np.array = np.array([0.0, 0.0, 0.0])
@@ -134,7 +80,6 @@ class CarEnv(gym.Env):
         # init state
         self.state: np.array = np.zeros(shape=(self.state_dim,))
         self.stacked_last_actions: np.array = np.zeros(shape=(num_frame_stacks * self.action_dim))
-        self.reset_policy = get_policy()
 
     def log_mocap_info(self):
         logs = self.controller.get_mocap_logs()

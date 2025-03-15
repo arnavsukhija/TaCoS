@@ -39,7 +39,7 @@ from experiments.util import generate_run_commands, generate_base_command, dict_
 
 rccar_switch_cost = {'env_name': ['rccar', ],
                      'backend': ['generalized', ],
-                     'project_name': ["TaCoSPPO_RCCar_Eval_Mar02_17_00"],
+                     'project_name': ["TaCoSPPO_Mar_13_20_40"],
                      'num_timesteps': [2_000_000, ],
                      'episode_steps': [200, ],
                      'base_discount_factor': [0.9],
@@ -54,7 +54,7 @@ rccar_switch_cost = {'env_name': ['rccar', ],
                      'networks': [0, ],
                      'reward_scaling': [1.0, ],
                      'switch_cost': [0.1, ],
-                     'max_time_repeat': [10],
+                     'max_time_repeat': [2, 5, 10],
                      'time_as_part_of_state': [1, ],
                      'num_final_evals': [10, ],
                      }
@@ -85,7 +85,7 @@ rccar_no_switch_cost_ppo = {'env_name': ['rccar', ],
 
 def main():
     command_list = []
-    flags_combinations = dict_permutations(rccar_no_switch_cost_ppo)
+    flags_combinations = dict_permutations(rccar_switch_cost)
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)
         command_list.append(cmd)
@@ -94,7 +94,7 @@ def main():
     generate_run_commands(command_list,
                           num_cpus=1,
                           num_gpus=1,
-                          gpu=available_gpus[7],
+                          gpu=available_gpus[3],
                           mode='euler',
                           duration='03:59:00',
                           prompt=True,

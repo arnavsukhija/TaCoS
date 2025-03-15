@@ -28,7 +28,7 @@ if __name__ == '__main__':
     for env, track in zip(environments[:1], tracks[:1]):
         experiment(env_name=env,
                    backend='generalized',
-                   filename=f'trajectory_{0}_adapt_discount.pkl',
+                   filename=f'trajectory_20Mil.pkl',
                    track=track,
-                   dir='trajectories/PPO',
+                   dir='trajectories/PPO/newParams',
                    plot=True)
