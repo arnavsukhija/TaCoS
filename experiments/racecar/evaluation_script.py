@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import os
+import cloudpickle
 import pickle
 from datetime import datetime
 import numpy as np
@@ -23,8 +24,106 @@ from jax import config
 
 config.update("jax_debug_nans", True)
 
-ENTITY = 'asukhija'
+ENTITY = 'arnavsukhija-eth-zurich'
 
+def save_policy(policy_params):
+    if wandb.run is None:
+        raise RuntimeError("wandb.run is not initialized. Ensure wandb.init() is called before logging artifacts.")
+
+    # Ensure the 'Policies' directory inside the wandb run directory exists
+    directory = os.path.join(wandb.run.dir, 'Policies')
+    os.makedirs(directory, exist_ok=True)
+
+    policy_path = os.path.join(directory, "policy_params.pkl")
+
+    try:
+        # 1️⃣ Inspect policy_params
+        print("Inspecting policy_params:", policy_params)
+
+        # 2️⃣ Save policy to local storage
+        with open(policy_path, "wb") as f:
+            cloudpickle.dump(policy_params, f)
+
+        # 3️⃣ Check file size
+        file_size = os.path.getsize(policy_path)
+        print(f"File size: {file_size} bytes")
+
+        # 4️⃣ Attempt to load the file back to verify it
+        try:
+            with open(policy_path, "rb") as f:
+                loaded_policy = cloudpickle.load(f)
+            print("Successfully loaded policy from file for verification.")
+        except Exception as e:
+            print(f"Error loading policy file for verification: {e}")
+            return  # Stop the upload if the file is invalid.
+
+        # 5️⃣ Ensure file exists before uploading to wandb
+        if not os.path.exists(policy_path):
+            raise FileNotFoundError(f"File not found: {policy_path}")
+
+        # 6️⃣ Ensure WandB tracks the file
+        wandb.save(policy_path)  # Explicitly track the file before logging
+
+        # 7️⃣ Upload to Weights & Biases
+        artifact = wandb.Artifact("policy_params", type="model")
+        artifact.add_file(policy_path)
+        wandb.log_artifact(artifact)
+
+        print(f"Successfully saved and uploaded {policy_path} to Weights & Biases.")
+
+    except Exception as e:
+        print(f"An error occurred during policy upload: {e}")
+    print("Policy saved to wandb!")
+
+def save_trajectory(full_trajectory, index):
+    if wandb.run is None:
+        raise RuntimeError("wandb.run is not initialized. Ensure wandb.init() is called before logging artifacts.")
+
+    # Ensure the 'Trajectories' directory inside the wandb run directory exists
+    directory = os.path.join(wandb.run.dir, 'Trajectories')
+    os.makedirs(directory, exist_ok=True)
+
+    trajectory_path = os.path.join(directory, f"trajectory_{index}.pkl")
+
+    try:
+        # 1️⃣ Inspect trajectory data
+        print(f"Inspecting trajectory {index}:", full_trajectory)
+
+        # 2️⃣ Save trajectory to local storage
+        with open(trajectory_path, "wb") as f:
+            cloudpickle.dump(full_trajectory, f)
+
+        # 3️⃣ Check file size
+        file_size = os.path.getsize(trajectory_path)
+        print(f"File size: {file_size} bytes")
+
+        # 4️⃣ Attempt to load the file back to verify it
+        try:
+            with open(trajectory_path, "rb") as f:
+                loaded_trajectory = cloudpickle.load(f)
+            print(f"Successfully loaded trajectory {index} from file for verification.")
+        except Exception as e:
+            print(f"Error loading trajectory file {index} for verification: {e}")
+            return  # Stop the upload if the file is invalid.
+
+        # 5️⃣ Ensure file exists before uploading to wandb
+        if not os.path.exists(trajectory_path):
+            raise FileNotFoundError(f"File not found: {trajectory_path}")
+
+        # 6️⃣ Ensure WandB tracks the file
+        wandb.save(trajectory_path)  # Explicitly track the file before logging
+
+        # 7️⃣ Upload to Weights & Biases
+        artifact = wandb.Artifact(f"trajectory_{index}", type="trajectory")
+        artifact.add_file(trajectory_path)
+        wandb.log_artifact(artifact)
+
+        print(f"Successfully saved and uploaded trajectory {index} to Weights & Biases.")
+
+    except Exception as e:
+        print(f"An error occurred during trajectory upload: {e}")
+
+    print(f"Trajectory {index} saved to wandb!")
 def experiment(env_name: str = 'inverted_pendulum',
                backend: str = 'generalized',
                project_name: str = 'GPUSpeedTest',
@@ -192,9 +291,10 @@ def experiment(env_name: str = 'inverted_pendulum',
         plt.show()
 
     ### Evaluation
-    with open("Policies/tacos_ppo_policy.pkl", "rb") as f:
+    with open("Policies/tacos_hardware_2steps.pkl", "rb") as f:
         loaded_policy = pickle.load(f)
 
+    save_policy(loaded_policy)
     pseudo_policy = optimizer.make_policy(loaded_policy, deterministic=True)
     @jax.jit
     def policy(obs):
@@ -212,7 +312,7 @@ def experiment(env_name: str = 'inverted_pendulum',
                                   min_time_between_switches=min_time_repeat * env.dt,
                                   max_time_between_switches=max_time_repeat * env.dt,
                                   switch_cost=ConstantSwitchCost(value=jnp.array(0.0)),
-                                  discounting=1.0,
+                                  discounting=new_discount_factor,
                                   time_as_part_of_state=time_as_part_of_state, )
 
         for index in range(num_final_evals):
@@ -258,14 +358,7 @@ def experiment(env_name: str = 'inverted_pendulum',
             print('Saving the models to Wandb')
             # We save full_trajectory to wandb
             # Save trajectory rather than rendered video
-            directory = os.path.join(wandb.run.dir, 'results')
-            print(directory)
-            if not os.path.exists(directory):
-                os.makedirs(directory)
-            model_path = os.path.join(directory, f'trajectory_{index}.pkl')
-            with open(model_path, 'wb') as handle:
-                pickle.dump(full_trajectory, handle)
-            wandb.save(model_path, wandb.run.dir)
+            save_trajectory(full_trajectory, index)
             print('Trajectory saved to Wandb')
 
         print('Started plotting')
@@ -407,7 +500,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--env_name', type=str, default='rccar')
     parser.add_argument('--backend', type=str, default='generalized')
-    parser.add_argument('--project_name', type=str, default='GPUSpeedTest')
+    parser.add_argument('--project_name', type=str, default='EvalDownload')
     parser.add_argument('--num_timesteps', type=int, default=100_000)
     parser.add_argument('--episode_steps', type=int, default=200)
     parser.add_argument('--base_discount_factor', type=float, default=0.95)

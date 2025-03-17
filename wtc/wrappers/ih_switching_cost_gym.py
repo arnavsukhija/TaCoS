@@ -64,7 +64,6 @@ class IHSwitchCostWrapper(Env):
         self.state = augmented_obs
         return augmented_obs, info
 
-    @staticmethod
     def compute_steps(self,
                       pseudo_time: float,
                       t_lower: float,
@@ -104,7 +103,7 @@ class IHSwitchCostWrapper(Env):
         total_reward = total_reward - self.switch_cost(state=self.state, action=u)
 
         # Augment state by time component
-        new_time = (time + index * self.sim_dt) # updates the time we have had so far
+        new_time = (time + index * self.sim_dt).reshape(1) # updates the time we have had so far
         if self.time_as_part_of_state:
             augmented_next_state = np.concatenate([current_state, new_time])
         else:
@@ -112,6 +111,9 @@ class IHSwitchCostWrapper(Env):
         self.state = augmented_next_state  # update the state parameter
         return augmented_next_state, total_reward, done, {'time_elapsed': info['time_elapsed'],
                                                          'terminal_reward': info['terminal_reward']}
+
+    def close(self):
+        self.env.close()
 
     @property
     def observation_size(self) -> int:

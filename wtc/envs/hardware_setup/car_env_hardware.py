@@ -27,7 +27,7 @@ class CarEnv(gym.Env):
                  max_wait_time: float = 1,
                  window_size: int = 6,
                  num_frame_stacks: int = 3,
-                 port_number: int = 8,  # leftmost usb port in the display has port number 8
+                 port_number: int = 4,  # leftmost usb port in the display has port number 8
                  encode_angle: bool = True,
                  max_throttle: float = 0.4,
                  car_reward_kwargs: dict = None,
@@ -125,8 +125,8 @@ class CarEnv(gym.Env):
             time.sleep(3)
             self.controller_started = True
         answer = input("auto reset: press Y to continue the reset.")
-        if answer == 'Y' or answer == 'y':
-            self.reset_to_origin()
+        if answer == 'Y' or answer == 'y': #this forces the user to reset car position
+            raise Exception("Reset the car position first")
         self.env_steps = 0
 
         # dialogue with user

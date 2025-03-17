@@ -39,6 +39,10 @@ wtc/envs/pendulum_swing_down.py
 wtc/envs/rccar.py
 wtc/envs/rccar_config.py
 wtc/envs/reacher_dm_control.py
+wtc/envs/hardware_setup/__init__.py
+wtc/envs/hardware_setup/car_env_hardware.py
+wtc/envs/hardware_setup/car_system_reward.py
+wtc/envs/hardware_setup/initial_car_check.py
 wtc/utils/__init__.py
 wtc/utils/create_system_matrix.py
 wtc/utils/discounting.py
@@ -47,4 +51,5 @@ wtc/wrappers/__init__.py
 wtc/wrappers/bounded_switches.py
 wtc/wrappers/change_integration_dt.py
 wtc/wrappers/ih_switching_cost.py
+wtc/wrappers/ih_switching_cost_gym.py
 wtc/wrappers/switching_cost.py
