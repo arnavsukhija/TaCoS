@@ -61,13 +61,11 @@ def save_policy(policy_params):
         if not os.path.exists(policy_path):
             raise FileNotFoundError(f"File not found: {policy_path}")
 
-        # 6️⃣ Ensure WandB tracks the file
-        wandb.save(policy_path)  # Explicitly track the file before logging
+        wandb.save(policy_path)
 
-        # 7️⃣ Upload to Weights & Biases
         artifact = wandb.Artifact("policy_params", type="model")
         artifact.add_file(policy_path)
-        wandb.log_artifact(artifact)
+        wandb.log_artifact(artifact, aliases=[f"v{wandb.run.id}"])
 
         print(f"Successfully saved and uploaded {policy_path} to Weights & Biases.")
 
@@ -116,7 +114,7 @@ def save_trajectory(full_trajectory, index):
         # 7️⃣ Upload to Weights & Biases
         artifact = wandb.Artifact(f"trajectory_{index}", type="trajectory")
         artifact.add_file(trajectory_path)
-        wandb.log_artifact(artifact)
+        wandb.log_artifact(artifact, aliases=[f"v{wandb.run.id}"])
 
         print(f"Successfully saved and uploaded trajectory {index} to Weights & Biases.")
 

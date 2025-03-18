@@ -61,6 +61,9 @@ def run_all_policies_from_wandb(project_name: str, entity: str):
             print(f"Skipping run {run.id}: {e}")
             continue
         # Run the policy & collect data
+        print(config)
+        print(policy_params)
+        break
         try:
             observation, action, steps = run_with_learned_policy(
                 policy_params=policy_params,
@@ -289,7 +292,7 @@ def run_with_learned_policy(policy_params,
 
 if __name__ == '__main__':
     import pickle
-    obs, acts, steps = run_all_policies_from_wandb('EvalDownload', ENTITY)
+    obs, acts, steps = run_all_policies_from_wandb('TaCoSPPO_hardware', ENTITY)
     print(obs)
     print(acts)
     print(steps)
