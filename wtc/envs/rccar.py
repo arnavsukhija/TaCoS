@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from functools import partial
 from typing import Tuple, NamedTuple, Union, Optional, Dict, List
-
 import jax
 import jax.numpy as jnp
+import jax.flatten_util
 import jax.tree_util as jtu
 import numpy as np
 from brax.envs.base import State, Env
@@ -14,7 +14,41 @@ from wtc.utils.tolerance_reward import ToleranceReward
 
 OBS_NOISE_STD_SIM_CAR: jnp.array = 0.1 * jnp.exp(jnp.array([-4.5, -4.5, -4., -2.5, -2.5, -1.]))
 
+X_LIM = (-0.3, 3.0)
+Y_LIM = (-2.1, 1.5)
 
+
+def domain_randomization(sys, rng, cfg):
+    def sample_from_bounds(value, key):
+        """
+        Sample from a JAX uniform distribution if the value is a list of two elements.
+        """
+        if isinstance(value, list) and len(value) == 2:
+            lower, upper = value
+            # Sample from jax.random.uniform with the given key
+            return jax.random.uniform(key, shape=(), minval=lower, maxval=upper)
+        return value
+
+    @jax.vmap
+    def randomize(rng):
+        bounds = CarParams(**cfg)
+        # Define a custom tree structure that treats lists as leaves
+        treedef = jtu.tree_structure(bounds, is_leaf=lambda x: isinstance(x, list))
+        print(f"treedef.num_leaves: {treedef.num_leaves}")
+        # Generate random keys only for the relevant leaves (i.e., lists with 2 elements)
+        keys = jax.random.split(rng, num=treedef.num_leaves)
+        # Rebuild the tree with the keys, only where there are valid leaves
+        keys = jtu.tree_unflatten(treedef, keys)
+        # Map over the tree, generating random values where needed
+        sys = jtu.tree_map(
+            sample_from_bounds, bounds, keys, is_leaf=lambda x: isinstance(x, list)
+        )
+        return sys, jax.flatten_util.ravel_pytree(sys)[0]
+    print("rng shape before passing to randomize", rng.shape)
+    in_axes = jax.tree_map(lambda _: 0, sys)
+    sys, params = randomize(rng)
+    print("rng shape after passing to randomize", rng.shape)
+    return sys, in_axes, params
 def rotate_coordinates(state: jnp.array, encode_angle: bool = False) -> jnp.array:
     x_pos, x_vel = state[..., 0:1], state[..., 3 + int(encode_angle): 4 + int(encode_angle)]
     y_pos, y_vel = state[..., 1:2], state[:, 4 + int(encode_angle):5 + int(encode_angle)]
@@ -595,6 +629,7 @@ class RCCar(Env):
                  ctrl_diff_weight: float = 0.0,
                  seed: int = 230492394,
                  max_steps: int = 200,
+                 domain_randomization: bool = True,
                  dt: float | None = None):
         """
         Race car simulator environment
@@ -624,7 +659,7 @@ class RCCar(Env):
         self._set_car_params()
 
         # initialize dynamics ant observation noise models
-        self._dynamics_model = RaceCar(dt=self._dt, encode_angle=False)
+        self._dynamics_model = RaceCar(dt=self._dt, encode_angle=False) # dynamics system
 
         self.use_tire_model = use_tire_model
         if use_tire_model:
@@ -641,6 +676,8 @@ class RCCar(Env):
         self._next_step_fn = jax.jit(partial(self._dynamics_model.next_step, params=self._dynamics_params))
 
         self.use_obs_noise = use_obs_noise
+
+        self.domain_randomization = domain_randomization
 
         # initialize reward model
         self._reward_model = RCCarEnvReward(goal=self._goal,
@@ -680,6 +717,8 @@ class RCCar(Env):
 
     def _state_to_obs(self, state: jnp.array, rng_key: jax.random.PRNGKey) -> jnp.array:
         """ Adds observation noise to the state """
+        print(state.shape)
+        print(rng_key.shape)
         assert state.shape[-1] == 6
         # add observation noise
         if self.use_obs_noise:
@@ -696,15 +735,30 @@ class RCCar(Env):
     def reset(self,
               rng: jax.Array) -> State:
         """ Resets the environment to a random initial state close to the initial pose """
-
         # sample random initial state
-        key_pos, key_theta, key_vel, key_obs = jax.random.split(rng, 4)
+        print("rng shape: ", rng.shape)
+        key_pos, key_theta, key_vel, key_obs, key_dr = jax.random.split(rng, 5)
+        print("key_dr shape; ", key_dr.shape)
         init_pos = self._init_pose[:2] + jax.random.uniform(key_pos, shape=(2,), minval=-0.10, maxval=0.10)
         init_theta = self._init_pose[2:] + \
                      jax.random.uniform(key_pos, shape=(1,), minval=-0.10 * jnp.pi, maxval=0.10 * jnp.pi)
         init_vel = jnp.zeros((3,)) + jnp.array([0.005, 0.005, 0.02]) * jax.random.normal(key_vel, shape=(3,))
         init_state = jnp.concatenate([init_pos, init_theta, init_vel])
+
+        if self.domain_randomization:  # Apply domain randomization for training
+            key_dr = jax.random.split(key_dr, 19)  # create 19 keys
+            self._dynamics_params, _, _ = domain_randomization(self._dynamics_params, key_dr, self._default_car_model_params)
+            self._next_step_fn = jax.jit(partial(self._dynamics_model.next_step, params=self._dynamics_params))
+        else: # if false, keep the default parameters.
+            self._dynamics_params = self._default_car_model_params
+            self._next_step_fn = jax.jit(partial(self._dynamics_model.next_step, params=self._dynamics_params))
+
+        # Apply observation noise and encode angle
         init_state = self._state_to_obs(init_state, rng_key=key_obs)
+
+        # Reset time and action buffer
+        self._time = 0
+        self._action_buffer = jnp.zeros_like(self._action_buffer)
         return State(pipeline_state=None,
                      obs=init_state,
                      reward=jnp.array(0.0),

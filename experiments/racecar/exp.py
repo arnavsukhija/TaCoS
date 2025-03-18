@@ -314,7 +314,7 @@ def experiment(env_name: str = 'inverted_pendulum',
     if switch_cost_wrapper:
         if env_name == 'rccar':
             # Episode time needs to be 4.0 seconds
-            env = RCCar(margin_factor=20)
+            env = RCCar(margin_factor=20, domain_randomization=False) # No domain randomization while evaluation
 
         env = IHSwitchCostWrapper(env=env,
                                   num_integrator_steps=episode_steps,
