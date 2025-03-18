@@ -91,10 +91,6 @@ def run_with_learned_policy(policy_params,
     """Fixed parameters from training"""
     encode_angle = True
     control_time_ms = 28.5 # TODO: seems fine
-
-    print(config)
-    exit()
-
     """Configuration of the current run"""
     time_as_part_of_state = config.get("time_as_part_of_state", True)
     switch_cost_wrapper = config.get("switch_cost_wrapper", True)
