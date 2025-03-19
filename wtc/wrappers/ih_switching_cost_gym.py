@@ -37,8 +37,7 @@ class IHSwitchCostWrapper(Env):
                  max_time_between_switches: float,
                  switch_cost: SwitchCost = ConstantSwitchCost(value=1.0),
                  discounting: float = 0.99,
-                 time_as_part_of_state: bool = True,
-                 num_frame_stacks: int = 3):
+                 time_as_part_of_state: bool = True, ):
         super().__init__()
         self.env = env
         self.switch_cost = switch_cost
@@ -52,12 +51,6 @@ class IHSwitchCostWrapper(Env):
         self.discounting = discounting
         self.time_as_part_of_state = time_as_part_of_state
         self.state = None # initialize state as none for now
-        self.num_frame_stacks = num_frame_stacks
-        self.stacked_last_actions = np.zeros(self.num_frame_stacks * self.action_size)
-        # setup observation and action space
-        obs_shape = env.observation_space.shape[0] + num_frame_stacks * (self.env.action_dim + 1) + (1 if time_as_part_of_state else 0)
-        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(obs_shape,))
-        self.action_space = Box(low=-1, high=1, shape=(env.action_space.shape[0] + 1,))
 
     def reset(self, *args, **kwargs) -> Tuple[np.ndarray, dict]: # always set self.state to this
         """
@@ -65,14 +58,11 @@ class IHSwitchCostWrapper(Env):
         """
         obs, info = self.env.reset(*args, **kwargs)  # Pass the args to CarEnv reset
         time = np.array(0.0, dtype=float)  # Initialize number of passed steps as 0
-        self.stacked_last_actions = np.zeros(self.num_frame_stacks * self.action_size)  # Reset action buffer
-
-        obs_with_actions = np.concatenate([obs, self.stacked_last_actions], axis=-1)
 
         if self.time_as_part_of_state:  # we augment the state by the time component
-            augmented_obs = np.concatenate([obs_with_actions, time.reshape(1)])
+            augmented_obs = np.concatenate([obs, time.reshape(1)])
         else:  # we return the augmented pipeline state then
-            augmented_obs = AugmentedPipelineState(pipeline_state=obs_with_actions, time=0.0)
+            augmented_obs = AugmentedPipelineState(pipeline_state=obs, time=0.0)
         self.state = augmented_obs
         return augmented_obs, info
 
@@ -93,11 +83,9 @@ class IHSwitchCostWrapper(Env):
                                                      t_upper=self.max_time_between_switches))
 
         if self.time_as_part_of_state:
-            obs, time = self.state[:-1 - self.num_frame_stacks * self.action_size], self.state[-1]
-            stacked_actions = self.state[-1 - self.num_frame_stacks * self.action_size: -1]
-        else:
-            obs, time = self.state.pipeline_state[:-self.num_frame_stacks * self.action_size], self.state.time
-            stacked_actions = self.state.pipeline_state[-self.num_frame_stacks * self.action_size:]
+            obs, time = self.state[:-1], self.state[-1]  # time corresponds to the number of done steps * env.dt (so how much time has already passed)
+        else:  # in this case, the state is an augmented pipeline state
+            obs, time = self.state.pipeline_state, self.state.time
 
         num_steps = np.minimum(steps_for_action, self.env.max_steps - self.env.env_steps) # compute how many steps we can take
 
@@ -125,6 +113,7 @@ class IHSwitchCostWrapper(Env):
         self.state = augmented_next_state  # update the state parameter
         return augmented_next_state, total_reward, done, {'time_elapsed': info['time_elapsed'],
                                                          'terminal_reward': info['terminal_reward']}
+
 
     def close(self):
         self.env.close()

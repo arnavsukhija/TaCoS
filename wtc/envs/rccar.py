@@ -608,6 +608,7 @@ class RCCar(Env):
                  seed: int = 230492394,
                  max_steps: int = 200,
                  domain_randomization: bool = True,
+                 sample_init_pos: bool = True,
                  dt: float | None = None):
         """
         Race car simulator environment
@@ -661,6 +662,7 @@ class RCCar(Env):
         self.use_obs_noise = use_obs_noise
 
         self.domain_randomization = domain_randomization
+        self.sample_init_pos = sample_init_pos
 
         # initialize reward model
         self._reward_model = RCCarEnvReward(goal=self._goal,
@@ -729,10 +731,21 @@ class RCCar(Env):
         """ Resets the environment to a random initial state close to the initial pose """
         # sample random initial state
         key_pos, key_theta, key_vel, key_obs, key_dr = jax.random.split(rng, 5)
-        init_pos = self._init_pose[:2] + jax.random.uniform(key_pos, shape=(2,), minval=-0.10, maxval=0.10)
-        init_theta = self._init_pose[2:] + \
-                     jax.random.uniform(key_pos, shape=(1,), minval=-0.10 * jnp.pi, maxval=0.10 * jnp.pi)
-        init_vel = jnp.zeros((3,)) + jnp.array([0.005, 0.005, 0.02]) * jax.random.normal(key_vel, shape=(3,))
+        if self.sample_init_pos: #sampling the initial position
+            x_key, y_key = jax.random.split(key_pos, 2)
+            init_x = jax.random.uniform(x_key, shape=(1,), minval=1.0, maxval=3.0)
+            init_y = jax.random.uniform(y_key, shape=(1,), minval=-2.3, maxval=1.5)
+            init_pos = jnp.concatenate([init_x, init_y])
+            init_theta = self._init_pose[2:] + jax.random.uniform(
+                key_pos, shape=(1,), minval=-jnp.pi, maxval=jnp.pi
+            )
+        else:
+            init_pos = self._init_pose[:2] + jax.random.uniform(key_pos, shape=(2,), minval=-0.10, maxval=0.10)
+            init_theta = self._init_pose[2:] + \
+                         jax.random.uniform(key_pos, shape=(1,), minval=-0.10 * jnp.pi, maxval=0.10 * jnp.pi)
+        init_vel = jnp.zeros((3,)) + jnp.array(
+            [0.005, 0.005, 0.02]
+        ) * jax.random.normal(key_vel, shape=(3,))
         init_state = jnp.concatenate([init_pos, init_theta, init_vel])
 
         if self.domain_randomization:  # Apply domain randomization for training

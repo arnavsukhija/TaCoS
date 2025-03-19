@@ -63,11 +63,6 @@ def save_policy(policy_params):
         # 6️⃣ Ensure WandB tracks the file
         wandb.save(policy_path)  # Explicitly track the file before logging
 
-        # 7️⃣ Upload to Weights & Biases
-        artifact = wandb.Artifact("policy_params", type="model")
-        artifact.add_file(policy_path)
-        wandb.log_artifact(artifact)
-
         print(f"Successfully saved and uploaded {policy_path} to Weights & Biases.")
 
     except Exception as e:
@@ -111,11 +106,6 @@ def save_trajectory(full_trajectory, index):
 
         # 6️⃣ Ensure WandB tracks the file
         wandb.save(trajectory_path)  # Explicitly track the file before logging
-
-        # 7️⃣ Upload to Weights & Biases
-        artifact = wandb.Artifact(f"trajectory_{index}", type="trajectory")
-        artifact.add_file(trajectory_path)
-        wandb.log_artifact(artifact)
 
         print(f"Successfully saved and uploaded trajectory {index} to Weights & Biases.")
 
@@ -314,7 +304,7 @@ def experiment(env_name: str = 'inverted_pendulum',
     if switch_cost_wrapper:
         if env_name == 'rccar':
             # Episode time needs to be 4.0 seconds
-            env = RCCar(margin_factor=20, domain_randomization=False) # No domain randomization while evaluation
+            env = RCCar(margin_factor=20, sample_init_pos=False) # No domain randomization while evaluation and no initial pos sampling
 
         env = IHSwitchCostWrapper(env=env,
                                   num_integrator_steps=episode_steps,
@@ -420,7 +410,7 @@ def experiment(env_name: str = 'inverted_pendulum',
 
     else:
         if env_name == 'rccar':
-            env = RCCar(margin_factor=20)
+            env = RCCar(margin_factor=20, sample_init_pos=False)
 
         step_fn = jax.jit(env.step)
         reset_fn = jax.jit(env.reset)
