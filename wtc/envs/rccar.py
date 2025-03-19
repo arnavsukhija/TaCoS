@@ -7,6 +7,7 @@ import jax.flatten_util
 import jax.tree_util as jtu
 import numpy as np
 from brax.envs.base import State, Env
+from flax import struct
 from jaxtyping import PyTree
 from matplotlib import pyplot as plt
 
@@ -18,37 +19,6 @@ X_LIM = (-0.3, 3.0)
 Y_LIM = (-2.1, 1.5)
 
 
-def domain_randomization(sys, rng, cfg):
-    def sample_from_bounds(value, key):
-        """
-        Sample from a JAX uniform distribution if the value is a list of two elements.
-        """
-        if isinstance(value, list) and len(value) == 2:
-            lower, upper = value
-            # Sample from jax.random.uniform with the given key
-            return jax.random.uniform(key, shape=(), minval=lower, maxval=upper)
-        return value
-
-    @jax.vmap
-    def randomize(rng):
-        bounds = CarParams(**cfg)
-        # Define a custom tree structure that treats lists as leaves
-        treedef = jtu.tree_structure(bounds, is_leaf=lambda x: isinstance(x, list))
-        print(f"treedef.num_leaves: {treedef.num_leaves}")
-        # Generate random keys only for the relevant leaves (i.e., lists with 2 elements)
-        keys = jax.random.split(rng, num=treedef.num_leaves)
-        # Rebuild the tree with the keys, only where there are valid leaves
-        keys = jtu.tree_unflatten(treedef, keys)
-        # Map over the tree, generating random values where needed
-        sys = jtu.tree_map(
-            sample_from_bounds, bounds, keys, is_leaf=lambda x: isinstance(x, list)
-        )
-        return sys, jax.flatten_util.ravel_pytree(sys)[0]
-    print("rng shape before passing to randomize", rng.shape)
-    in_axes = jax.tree_map(lambda _: 0, sys)
-    sys, params = randomize(rng)
-    print("rng shape after passing to randomize", rng.shape)
-    return sys, in_axes, params
 def rotate_coordinates(state: jnp.array, encode_angle: bool = False) -> jnp.array:
     x_pos, x_vel = state[..., 0:1], state[..., 3 + int(encode_angle): 4 + int(encode_angle)]
     y_pos, y_vel = state[..., 1:2], state[:, 4 + int(encode_angle):5 + int(encode_angle)]
@@ -212,7 +182,10 @@ class CarParams(NamedTuple):
     blend_ratio_lb: Union[jax.Array, float] = jnp.array([0.4472135955])
     angle_offset: Union[jax.Array, float] = jnp.array([0.02791893])
 
-
+@struct.dataclass
+class CarPipelineState:
+  """Pipeline state to store params of the simulator"""
+  car_params: CarParams
 class DynamicsModel(ABC):
     def __init__(self,
                  dt: float,
@@ -260,13 +233,18 @@ class DynamicsModel(ABC):
         keys = jax.random.split(key, treedef.num_leaves)
         return jtu.tree_unflatten(treedef, keys)
 
-    def sample_params_uniform(self, key: jax.random.PRNGKey, sample_shape: Union[int, Tuple[int]],
-                              lower_bound: NamedTuple, upper_bound: NamedTuple):
+    def sample_params_uniform(self, key: jax.random.PRNGKey,
+                              lower_bound: NamedTuple, upper_bound: NamedTuple, sample_shape: Optional[Union[int, Tuple[int]]] = None):
         keys = self._split_key_like_tree(key)
-        if isinstance(sample_shape, int):
-            sample_shape = (sample_shape,)
-        return jtu.tree_map(lambda key, l, u: jax.random.uniform(key, shape=sample_shape + l.shape, minval=l, maxval=u),
-                            keys, lower_bound, upper_bound)
+        if sample_shape is None:
+            return jtu.tree_map(
+                lambda key, l, u: jax.random.uniform(key, shape=l.shape, minval=l, maxval=u),
+                keys, lower_bound, upper_bound)
+        else:
+            if isinstance(sample_shape, int):
+                sample_shape = (sample_shape,)
+            return jtu.tree_map(lambda key, l, u: jax.random.uniform(key, shape=sample_shape + l.shape, minval=l, maxval=u),
+                                keys, lower_bound, upper_bound)
 
 
 class RaceCar(DynamicsModel):
@@ -285,7 +263,7 @@ class RaceCar(DynamicsModel):
     def __init__(self, dt, encode_angle: bool = True, local_coordinates: bool = False, rk_integrator: bool = True):
         self.encode_angle = encode_angle
         x_dim = 6
-        if dt <= 1 / 100:
+        if dt <= 1 / 90:
             integration_dt = dt
         else:
             integration_dt = 1 / 90
@@ -667,6 +645,11 @@ class RCCar(Env):
         else:
             self._default_car_model_params = self._default_car_model_params_bicycle
 
+        _bounds_car_model_params = self._bounds_car_model_params_blend if use_tire_model \
+            else self._bounds_car_model_params_bicycle
+        self._lower_bound_params = CarParams(**{k: jnp.array(v[0]) for k, v in _bounds_car_model_params.items()})
+        self._upper_bound_params = CarParams(**{k: jnp.array(v[1]) for k, v in _bounds_car_model_params.items()})
+
         if car_model_params is None:
             _car_model_params = self._default_car_model_params
         else:
@@ -705,20 +688,24 @@ class RCCar(Env):
 
     def _set_car_params(self):
         from wtc.envs.rccar_config import (DEFAULT_PARAMS_BICYCLE_CAR1, DEFAULT_PARAMS_BLEND_CAR1,
-                                           DEFAULT_PARAMS_BICYCLE_CAR2, DEFAULT_PARAMS_BLEND_CAR2)
+                                           DEFAULT_PARAMS_BICYCLE_CAR2, DEFAULT_PARAMS_BLEND_CAR2,
+                                           BOUNDS_PARAMS_BICYCLE_CAR1, BOUNDS_PARAMS_BLEND_CAR1,
+                                           BOUNDS_PARAMS_BICYCLE_CAR2, BOUNDS_PARAMS_BLEND_CAR2)
         if self.car_id == 1:
             self._default_car_model_params_bicycle: Dict = DEFAULT_PARAMS_BICYCLE_CAR1
+            self._bounds_car_model_params_bicycle: Dict = BOUNDS_PARAMS_BICYCLE_CAR1
             self._default_car_model_params_blend: Dict = DEFAULT_PARAMS_BLEND_CAR1
+            self._bounds_car_model_params_blend: Dict = BOUNDS_PARAMS_BLEND_CAR1
         elif self.car_id == 2:
             self._default_car_model_params_bicycle: Dict = DEFAULT_PARAMS_BICYCLE_CAR2
+            self._bounds_car_model_params_bicycle: Dict = BOUNDS_PARAMS_BICYCLE_CAR2
             self._default_car_model_params_blend: Dict = DEFAULT_PARAMS_BLEND_CAR2
+            self._bounds_car_model_params_blend: Dict = BOUNDS_PARAMS_BLEND_CAR2
         else:
             raise NotImplementedError(f'Car idx {self.car_id} not supported')
 
     def _state_to_obs(self, state: jnp.array, rng_key: jax.random.PRNGKey) -> jnp.array:
         """ Adds observation noise to the state """
-        print(state.shape)
-        print(rng_key.shape)
         assert state.shape[-1] == 6
         # add observation noise
         if self.use_obs_noise:
@@ -732,13 +719,16 @@ class RCCar(Env):
         assert (obs.shape[-1] == 7 and self.encode_angle) or (obs.shape[-1] == 6 and not self.encode_angle)
         return obs
 
+    def sample_params(self, rng_key: jax.random.PRNGKey):
+        params = self._dynamics_model.sample_params_uniform(rng_key,
+                                                  lower_bound=self._lower_bound_params,
+                                                  upper_bound=self._upper_bound_params)
+        return params
     def reset(self,
               rng: jax.Array) -> State:
         """ Resets the environment to a random initial state close to the initial pose """
         # sample random initial state
-        print("rng shape: ", rng.shape)
         key_pos, key_theta, key_vel, key_obs, key_dr = jax.random.split(rng, 5)
-        print("key_dr shape; ", key_dr.shape)
         init_pos = self._init_pose[:2] + jax.random.uniform(key_pos, shape=(2,), minval=-0.10, maxval=0.10)
         init_theta = self._init_pose[2:] + \
                      jax.random.uniform(key_pos, shape=(1,), minval=-0.10 * jnp.pi, maxval=0.10 * jnp.pi)
@@ -746,12 +736,11 @@ class RCCar(Env):
         init_state = jnp.concatenate([init_pos, init_theta, init_vel])
 
         if self.domain_randomization:  # Apply domain randomization for training
-            key_dr = jax.random.split(key_dr, 19)  # create 19 keys
-            self._dynamics_params, _, _ = domain_randomization(self._dynamics_params, key_dr, self._default_car_model_params)
-            self._next_step_fn = jax.jit(partial(self._dynamics_model.next_step, params=self._dynamics_params))
-        else: # if false, keep the default parameters.
-            self._dynamics_params = self._default_car_model_params
-            self._next_step_fn = jax.jit(partial(self._dynamics_model.next_step, params=self._dynamics_params))
+            params = self.sample_params(key_dr)
+        else:  # if false, keep the default parameters.
+            params = self._default_car_model_params
+
+        car_pipeline_state = CarPipelineState(car_params =params)
 
         # Apply observation noise and encode angle
         init_state = self._state_to_obs(init_state, rng_key=key_obs)
@@ -759,7 +748,7 @@ class RCCar(Env):
         # Reset time and action buffer
         self._time = 0
         self._action_buffer = jnp.zeros_like(self._action_buffer)
-        return State(pipeline_state=None,
+        return State(pipeline_state=car_pipeline_state,
                      obs=init_state,
                      reward=jnp.array(0.0),
                      done=jnp.array(0.0), )
@@ -795,7 +784,7 @@ class RCCar(Env):
             obs = decode_angles(obs, self._angle_idx)
         # Move forward
         assert obs.shape[-1] == 6
-        obs = self._next_step_fn(obs, action)
+        obs = self._dynamics_model.next_step(obs, action, params=state.pipeline_state.car_params)
         # TODO: if we want to handle observation noise we have to pass key to pipeline_state
         obs = self._state_to_obs(obs, rng_key=jax.random.PRNGKey(0))
 
@@ -813,88 +802,6 @@ class RCCar(Env):
                            info=state.info)
         return next_state
 
-    def render(self, trajectory: List[jnp.array], output_path: str = "rendered_video.mp4"):
-        """
-        Render the trajectory of the race car for visualization.
-
-        Args:
-            trajectory: A list of state observations where each element is a state at a timestep
-            output_path: The file path where the rendered video will be saved
-        """
-        # Create the video writer
-        import cv2
-
-        # Create a video writer object
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Use the correct codec
-        frame_size = (500, 500)  # Size of the frames for the video
-        out = cv2.VideoWriter(output_path, fourcc, 30, frame_size)
-
-        # Loop over the trajectory to render each frame
-        for timestep in range(len(trajectory)):
-            # Draw the scene for the current timestep
-            image = self.draw_scene(trajectory, timestep)
-
-            # Resize the image to match the video frame size (if necessary)
-            image_resized = cv2.resize(image, frame_size)
-
-            # Write the frame to the video file
-            out.write(image_resized)
-
-        # Release the video writer
-        out.release()
-        print(f"Video saved to {output_path}")
-
-    def draw_scene(self, trajectory: List[jnp.array], timestep: int):
-        """
-        Creates an image for a given timestep from the trajectory.
-
-        Args:
-            trajectory: A list of state observations where each element is a state at a timestep
-            timestep: The current timestep to render the scene
-
-        Returns:
-            A numpy array representing the rendered frame for the given timestep.
-        """
-        # Create a figure and axis for rendering
-        fig, ax = plt.subplots(figsize=(5, 5), dpi=100)
-        ax.set_xlim(-3.5, 3.5)
-        ax.set_ylim(-3.5, 3.5)
-
-        # Get the car's position and angle at this timestep
-        car_state = trajectory[timestep]
-        x, y, angle = car_state[0], car_state[1], car_state[2]
-        car_width, car_length = 0.07, 0.2
-
-        # Plot the car's position and velocity (as a rectangle)
-        car = plt.Rectangle(
-            (x - car_length / 2, y - car_width / 2),
-            car_length,
-            car_width,
-            angle=angle * 180 / np.pi,
-            color="green",
-            alpha=0.7
-        )
-        ax.add_patch(car)
-
-        # Plot the target circles if needed
-        target_center = (0, 0)
-        target_radius = 0.5
-        target_circle = plt.Circle(target_center, target_radius, color="red", alpha=0.5)
-        ax.add_patch(target_circle)
-
-        # Render the frame as a numpy array
-        ax.set_aspect('equal', 'box')
-        ax.grid(True, color='gray', linestyle='--', linewidth=0.5)
-        fig.canvas.draw()
-
-        # Convert the figure to a numpy array
-        frame = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-        frame = frame.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-
-        # Close the figure to free up memory
-        plt.close(fig)
-
-        return frame
     @property
     def dt(self):
         return self._dt

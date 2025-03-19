@@ -125,8 +125,12 @@ class CarEnv(gym.Env):
             time.sleep(3)
             self.controller_started = True
         answer = input("auto reset: press Y to continue the reset.")
-        if answer == 'Y' or answer == 'y': #this forces the user to reset car position
-            raise Exception("Reset the car position first")
+        reset_confirmed = False
+        while not reset_confirmed:
+            if answer.lower() == 'y':
+                reset_confirmed = True
+            else:
+                print("Reset not confirmed. Please reset the car position and try again.")
         self.env_steps = 0
 
         # dialogue with user
