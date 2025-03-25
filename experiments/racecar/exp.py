@@ -197,7 +197,9 @@ def experiment(env_name: str = 'inverted_pendulum',
                   max_time_repeat=max_time_repeat,
                   time_as_part_of_state=time_as_part_of_state,
                   num_final_evals=num_final_evals,
-                  min_time_repeat=min_time_repeat
+                  min_time_repeat=min_time_repeat,
+                  domain_randomization = domain_randomization,
+                  sample_init_pos = sample_init_pos,
                   )
     if switch_cost_wrapper:
         wandb.init(

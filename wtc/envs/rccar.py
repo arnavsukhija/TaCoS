@@ -758,9 +758,9 @@ class RCCar(Env):
         # Apply observation noise and encode angle
         init_state = self._state_to_obs(init_state, rng_key=key_obs)
 
-        # Reset time and action buffer
-        self._time = 0
-        self._action_buffer = jnp.zeros_like(self._action_buffer)
+        # Reset time and action buffer (not jittable like this)
+        #self._time = 0
+        #self._action_buffer = jnp.zeros_like(self._action_buffer)
         return State(pipeline_state=car_pipeline_state,
                      obs=init_state,
                      reward=jnp.array(0.0),
