@@ -11,7 +11,6 @@ import jax.numpy as jnp
 import jax.random as jr
 import jax.tree_util as jtu
 import matplotlib.pyplot as plt
-import wandb
 
 from jax.nn import swish
 from mbpo.optimizers.policy_optimizers.ppo.ppo_brax_env import PPO
@@ -24,17 +23,20 @@ from jax import config
 
 config.update("jax_debug_nans", True)
 
-ENTITY = 'arnavsukhija-eth-zurich'
+ENTITY = 'asukhija'
 
 def save_policy(policy_params):
+    import wandb
     if wandb.run is None:
         raise RuntimeError("wandb.run is not initialized. Ensure wandb.init() is called before logging artifacts.")
 
     # Ensure the 'Policies' directory inside the wandb run directory exists
     directory = os.path.join(wandb.run.dir, 'Policies')
     os.makedirs(directory, exist_ok=True)
+    print(f"Current working directory: {os.getcwd()}")
 
     policy_path = os.path.join(directory, "policy_params.pkl")
+    print(f"Policy params path: {policy_path}")
 
     try:
         # 1️⃣ Inspect policy_params
@@ -76,6 +78,7 @@ def save_policy(policy_params):
     print("Policy saved to wandb!")
 
 def save_trajectory(full_trajectory, index):
+    import wandb
     if wandb.run is None:
         raise RuntimeError("wandb.run is not initialized. Ensure wandb.init() is called before logging artifacts.")
 
@@ -147,6 +150,7 @@ def experiment(env_name: str = 'inverted_pendulum',
                time_as_part_of_state: bool = True,
                num_final_evals: int = 10,
                ):
+    import wandb
     env = RCCar(margin_factor=20)
     episode_time = episode_steps * env.dt
     print(f'Integration dt {env.dt}')
@@ -291,7 +295,7 @@ def experiment(env_name: str = 'inverted_pendulum',
         plt.show()
 
     ### Evaluation
-    with open("Policies/tacos_hardware_2steps.pkl", "rb") as f:
+    with open("tacos_ppo_policy.pkl", "rb") as f:
         loaded_policy = pickle.load(f)
 
     save_policy(loaded_policy)
@@ -305,7 +309,7 @@ def experiment(env_name: str = 'inverted_pendulum',
     if switch_cost_wrapper:
         if env_name == 'rccar':
             # Episode time needs to be 4.0 seconds
-            env = RCCar(margin_factor=20)
+            env = RCCar(margin_factor=20, domain_randomization=False, sample_init_pos=False)
 
         env = IHSwitchCostWrapper(env=env,
                                   num_integrator_steps=episode_steps,
@@ -351,10 +355,6 @@ def experiment(env_name: str = 'inverted_pendulum',
             wandb.log({f'results/total_reward_{index}': float(jnp.sum(trajectory[2])),
                        f'results/num_actions_{index}': trajectory[0].shape[0]})
 
-            print("Plotting the trajectory")
-            fig, axs = plot_rc_trajectory(full_trajectory)
-            plt.show()
-            print("Trajectory plotted")
             print('Saving the models to Wandb')
             # We save full_trajectory to wandb
             # Save trajectory rather than rendered video

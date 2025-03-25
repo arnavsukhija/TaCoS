@@ -229,7 +229,7 @@ class CarEnv(gym.Env):
     def terminate(self, state: np.array):
         reached_goal = self.reached_goal(state, self._goal)
         out_of_bound = self.constraint_violation(state)
-        time_out = self.env_steps >= self.max_steps
+        time_out = self.env_steps >= self.max_steps #we have reached the time_out now, too many steps done
 
         if reached_goal:
             print("REACHED GOAL!")
@@ -237,10 +237,10 @@ class CarEnv(gym.Env):
             print("CONSTRAINT VIOLATION!")
         elif time_out:
             print("TIMEOUT!")
-        terminate = reached_goal + out_of_bound + time_out
+        terminate = reached_goal or out_of_bound or time_out
         terminal_reward = 0.0
         if reached_goal:
-            terminal_reward += self.max_steps - self.env_steps
+            terminal_reward += self.max_steps - self.env_steps #so the steps that still remain
         return terminate, terminal_reward
 
     def reached_goal(self, state: np.array, goal: np.array) -> bool:

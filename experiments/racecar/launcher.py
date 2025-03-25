@@ -39,8 +39,8 @@ from experiments.util import generate_run_commands, generate_base_command, dict_
 
 rccar_switch_cost = {'env_name': ['rccar', ],
                      'backend': ['generalized', ],
-                     'project_name': ["TaCoS_DR_sampling_4Act"],
-                     'num_timesteps': [2_000_000, ],
+                     'project_name': ["TacoSHardwareSetup_noDRsampling"],
+                     'num_timesteps': [10_000_000, ],
                      'episode_steps': [200, ],
                      'base_discount_factor': [0.9],
                      'seed': list(range(5)),
@@ -54,9 +54,11 @@ rccar_switch_cost = {'env_name': ['rccar', ],
                      'networks': [0, ],
                      'reward_scaling': [1.0, ],
                      'switch_cost': [0.1, ],
-                     'max_time_repeat': [4],
+                     'max_time_repeat': [2,3,4,5,10],
                      'time_as_part_of_state': [1, ],
                      'num_final_evals': [10, ],
+                     'domain_randomization': [0, ],
+                     'sample_init_pos': [0,]
                      }
 
 rccar_no_switch_cost_ppo = {'env_name': ['rccar', ],

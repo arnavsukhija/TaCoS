@@ -12,7 +12,7 @@ from wtc.envs.rccar import plot_rc_trajectory, RCCar
 from wtc.wrappers.ih_switching_cost import IHSwitchCostWrapper, ConstantSwitchCost
 from wtc.wrappers.ih_switching_cost_gym import IHSwitchCostWrapper as IHSwitchCostGym, ConstantSwitchCost as ConstantSwitchCostGym
 
-ENTITY = 'arnavsukhija-eth-zurich'
+ENTITY = 'asukhija'
 def run_all_policies_from_wandb(project_name: str, entity: str):
     """
     Retrieves all run configurations and policies from a WandB project,
@@ -38,13 +38,14 @@ def run_all_policies_from_wandb(project_name: str, entity: str):
         config = run.config
 
         # 🛠 Use `api.artifact()` to fetch the policy
-        artifact_name = f"{entity}/{project_name}/policy_params:latest"
+        policy_name = f"policy_params_{run.id}"
         try:
-            policy_artifact = api.artifact(artifact_name)
-            policy_dir = policy_artifact.download()
-            policy_path = os.path.join(policy_dir, "policy_params.pkl")
+            policy_local_dir = os.path.join(os.getcwd(), "Policies")
+            os.makedirs(policy_local_dir, exist_ok=True)
+            # Define the path for the policy file
+            policy_path = os.path.join(policy_local_dir, policy_name)
         except Exception as e:
-            print(f"Skipping run {run.id}: Unable to fetch artifact {artifact_name} - {e}")
+            print(f"Skipping run {run.id}: Unable to fetch policy")
             continue
 
         # Ensure file exists
@@ -91,6 +92,7 @@ def run_with_learned_policy(policy_params,
     """Fixed parameters from training"""
     encode_angle = True
     control_time_ms = 28.5 # TODO: seems fine
+
     """Configuration of the current run"""
     time_as_part_of_state = config.get("time_as_part_of_state", True)
     switch_cost_wrapper = config.get("switch_cost_wrapper", True)
@@ -112,6 +114,8 @@ def run_with_learned_policy(policy_params,
     unroll_length = config.get('unroll_length', 10)
     num_minibatches = config.get('num_minibatches', 32)
     num_updates_per_batch = config.get('num_updates_per_batch', 4)
+    domain_randomization = config.get('domain_randomization', True)
+    sample_init_pos = config.get('sample_init_pos', True)
 
     action_dim = 2 + int(switch_cost_wrapper) # includes time component now
     state_dim = 6 + int(encode_angle) + int(time_as_part_of_state)
@@ -137,7 +141,7 @@ def run_with_learned_policy(policy_params,
         critic_hidden_layer_sizes = (64, 64)
 
     ## this was the environment used for training, we use it to prepare the policy
-    env = RCCar(margin_factor=20)
+    env = RCCar(margin_factor=20, domain_randomization=domain_randomization, sample_init_pos=sample_init_pos)
     ## we load the policy first
     if switch_cost_wrapper:
         # wrap using wtc SwitchCostWrapper
@@ -247,16 +251,14 @@ def run_with_learned_policy(policy_params,
     """
     Simulate the car on the learned policy
     """
-    for i in range(200):
+    terminate = False
+    while not terminate:
         action = np.array(policy(obs))
         actions.append(action)
         obs, reward, terminate, info = env.step(action)
         step_count += 1
         observations.append(obs)
         rewards.append(reward)
-
-        if terminate:
-            break
 
 
     print('We end with simulation')

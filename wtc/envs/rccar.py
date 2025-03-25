@@ -751,7 +751,7 @@ class RCCar(Env):
         if self.domain_randomization:  # Apply domain randomization for training
             params = self.sample_params(key_dr)
         else:  # if false, keep the default parameters.
-            params = self._default_car_model_params
+            params = CarParams(**self._default_car_model_params)
 
         car_pipeline_state = CarPipelineState(car_params =params)
 

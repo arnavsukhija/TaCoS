@@ -23,17 +23,18 @@ from jax import config
 
 config.update("jax_debug_nans", True)
 
-ENTITY = 'arnavsukhija-eth-zurich'
+ENTITY = 'asukhija'
 
 def save_policy(policy_params):
     if wandb.run is None:
         raise RuntimeError("wandb.run is not initialized. Ensure wandb.init() is called before logging artifacts.")
 
     # Ensure the 'Policies' directory inside the wandb run directory exists
-    directory = os.path.join(wandb.run.dir, 'Policies')
-    os.makedirs(directory, exist_ok=True)
+    directory = os.path.join(os.getcwd(), 'Policies')
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
-    policy_path = os.path.join(directory, "policy_params.pkl")
+    policy_path = os.path.join(directory, f"policy_params_{wandb.run.id}.pkl")
 
     try:
         # 1️⃣ Inspect policy_params
@@ -60,8 +61,7 @@ def save_policy(policy_params):
         if not os.path.exists(policy_path):
             raise FileNotFoundError(f"File not found: {policy_path}")
 
-        # 6️⃣ Ensure WandB tracks the file
-        wandb.save(policy_path)  # Explicitly track the file before logging
+        wandb.save(policy_path, wandb.run.dir)
 
         print(f"Successfully saved and uploaded {policy_path} to Weights & Biases.")
 
@@ -74,10 +74,10 @@ def save_trajectory(full_trajectory, index):
         raise RuntimeError("wandb.run is not initialized. Ensure wandb.init() is called before logging artifacts.")
 
     # Ensure the 'Trajectories' directory inside the wandb run directory exists
-    directory = os.path.join(wandb.run.dir, 'Trajectories')
+    directory = os.path.join(os.getcwd(), 'Trajectories')
     os.makedirs(directory, exist_ok=True)
 
-    trajectory_path = os.path.join(directory, f"trajectory_{index}.pkl")
+    trajectory_path = os.path.join(directory, f"trajectory_{index}_{wandb.run.id}.pkl")
 
     try:
         # 1️⃣ Inspect trajectory data
@@ -105,7 +105,7 @@ def save_trajectory(full_trajectory, index):
             raise FileNotFoundError(f"File not found: {trajectory_path}")
 
         # 6️⃣ Ensure WandB tracks the file
-        wandb.save(trajectory_path)  # Explicitly track the file before logging
+        wandb.save(trajectory_path, trajectory_path)  # Explicitly track the file before logging
 
         print(f"Successfully saved and uploaded trajectory {index} to Weights & Biases.")
 
@@ -113,7 +113,6 @@ def save_trajectory(full_trajectory, index):
         print(f"An error occurred during trajectory upload: {e}")
 
     print(f"Trajectory {index} saved to wandb!")
-
 def experiment(env_name: str = 'inverted_pendulum',
                backend: str = 'generalized',
                project_name: str = 'GPUSpeedTest',
@@ -136,13 +135,15 @@ def experiment(env_name: str = 'inverted_pendulum',
                min_time_repeat: int = 1,
                time_as_part_of_state: bool = True,
                num_final_evals: int = 10,
+               domain_randomization: bool = True,
+               sample_init_pos: bool = True,
                ):
     assert env_name in ['rccar']
     # Episode time needs to be 4.0 seconds
     # base_dt = 1/30.
     # base_episode_steps = 8
     # new_dt = base_dt / base_dt_divisor
-    env = RCCar(margin_factor=20)
+    env = RCCar(margin_factor=20, domain_randomization=domain_randomization, sample_init_pos=sample_init_pos)
     episode_time = episode_steps * env.dt
     print(f'Integration dt {env.dt}')
     print(f'New episode steps: {episode_time // env.dt}')
@@ -198,13 +199,19 @@ def experiment(env_name: str = 'inverted_pendulum',
                   num_final_evals=num_final_evals,
                   min_time_repeat=min_time_repeat
                   )
-
-    wandb.init(
-        project=project_name,
-        dir='/cluster/scratch/' + ENTITY,
-        config=config,
-    )
-
+    if switch_cost_wrapper:
+        wandb.init(
+            project=project_name,
+            group=f"max_actions{max_time_repeat}",
+            dir='/cluster/scratch/' + ENTITY,
+            config=config,
+        )
+    else:
+        wandb.init(
+            project=project_name,
+            dir='/cluster/scratch/' + ENTITY,
+            config=config,
+        )
     if switch_cost_wrapper: #using the interaction cost TaCoS in this case, since we have wrapped the environment using the switch cost wrapper (augmented state, reward, steps)
         optimizer = PPO(
             environment=env, #passing switch cost env
@@ -304,7 +311,7 @@ def experiment(env_name: str = 'inverted_pendulum',
     if switch_cost_wrapper:
         if env_name == 'rccar':
             # Episode time needs to be 4.0 seconds
-            env = RCCar(margin_factor=20, sample_init_pos=False) # No domain randomization while evaluation and no initial pos sampling
+            env = RCCar(margin_factor=20, sample_init_pos=False, domain_randomization=False) # No domain randomization while evaluation and no initial pos sampling
 
         env = IHSwitchCostWrapper(env=env,
                                   num_integrator_steps=episode_steps,
@@ -470,7 +477,9 @@ def main(args):
                max_time_repeat=args.max_time_repeat,
                time_as_part_of_state=bool(args.time_as_part_of_state),
                num_final_evals=args.num_final_evals,
-               min_time_repeat=args.min_time_repeat
+               min_time_repeat=args.min_time_repeat,
+               domain_randomization=args.domain_randomization,
+               sample_init_pos=args.sample_init_pos
                )
 
 
@@ -502,6 +511,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_env_steps_between_updates', type=int, default=10)
     parser.add_argument('--same_amount_of_gradient_updates', type=int, default=1,
                         help='Flag for consistent gradient updates.')
+    parser.add_argument('--domain_randomization', type=int, default=1)
+    parser.add_argument('--sample_init_pos', type=int, default=1)
 
     args = parser.parse_args()
     main(args)
