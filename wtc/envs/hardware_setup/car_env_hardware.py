@@ -119,18 +119,6 @@ class CarEnv(gym.Env):
         if not self.initial_reset:
             self.log_mocap_info()
         self.initial_reset = False
-        if not self.controller_started:
-            self.controller.start()
-            print("Starting controller in ~3 sec")
-            time.sleep(3)
-            self.controller_started = True
-        answer = input("auto reset: press Y to continue the reset.")
-        reset_confirmed = False
-        while not reset_confirmed:
-            if answer.lower() == 'y':
-                reset_confirmed = True
-            else:
-                print("Reset not confirmed. Please reset the car position and try again.")
         self.env_steps = 0
 
         # dialogue with user

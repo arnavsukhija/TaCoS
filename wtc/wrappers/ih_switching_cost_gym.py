@@ -79,8 +79,8 @@ class IHSwitchCostWrapper(Env):
         if self.state is None:
             self.state, _ = self.reset()
         # we calculate the number of applied steps, map the according action from [-1,1] to [step_min, step_max]
-        steps_for_action = min(1, self.compute_steps(pseudo_time = pseudo_time_for_action, t_lower=self.min_time_between_switches,
-                                                     t_upper=self.max_time_between_switches))
+        steps_for_action = self.compute_steps(pseudo_time = pseudo_time_for_action, t_lower=self.min_time_between_switches,
+                                                     t_upper=self.max_time_between_switches)
 
         if self.time_as_part_of_state:
             obs, time = self.state[:-1], self.state[-1]  # time corresponds to the number of done steps * env.dt (so how much time has already passed)

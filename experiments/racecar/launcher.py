@@ -39,8 +39,8 @@ from experiments.util import generate_run_commands, generate_base_command, dict_
 
 rccar_switch_cost = {'env_name': ['rccar', ],
                      'backend': ['generalized', ],
-                     'project_name': ["TacoSHardwareSetup_noDRsampling"],
-                     'num_timesteps': [10_000_000, ],
+                     'project_name': ["TacoSHardwareSetup_noDRsampling_20Mil"],
+                     'num_timesteps': [20_000_000, ],
                      'episode_steps': [200, ],
                      'base_discount_factor': [0.9],
                      'seed': list(range(5)),
@@ -63,7 +63,7 @@ rccar_switch_cost = {'env_name': ['rccar', ],
 
 rccar_no_switch_cost_ppo = {'env_name': ['rccar', ],
                      'backend': ['generalized', ],
-                     'project_name': ["TaCoSPPO_RCCar_Mar03_15_30"],
+                     'project_name': ["PPO hardware Mar25"],
                      'num_timesteps': [20_000_000, ], #from normal ppo training
                      'episode_steps': [200, ],
                      'base_discount_factor': [0.9],
@@ -81,7 +81,9 @@ rccar_no_switch_cost_ppo = {'env_name': ['rccar', ],
                      'max_time_repeat': [10],
                      'time_as_part_of_state': [1, ],
                      'num_final_evals': [10, ],
-                    'switch_cost_wrapper': [0, ] # normal PPO (without switch cost wrapping)
+                    'switch_cost_wrapper': [0, ], # normal PPO (without switch cost wrapping)
+                    'domain_randomization': [1,],
+                    'sample_init_pos': [1,],
                      }
 
 

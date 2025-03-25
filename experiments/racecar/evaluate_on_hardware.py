@@ -12,7 +12,7 @@ from wtc.envs.rccar import plot_rc_trajectory, RCCar
 from wtc.wrappers.ih_switching_cost import IHSwitchCostWrapper, ConstantSwitchCost
 from wtc.wrappers.ih_switching_cost_gym import IHSwitchCostWrapper as IHSwitchCostGym, ConstantSwitchCost as ConstantSwitchCostGym
 
-ENTITY = 'asukhija'
+ENTITY = 'arnavsukhija-eth-zurich'
 def run_all_policies_from_wandb(project_name: str, entity: str):
     """
     Retrieves all run configurations and policies from a WandB project,
@@ -32,7 +32,6 @@ def run_all_policies_from_wandb(project_name: str, entity: str):
     observations = []
     actions = []
     step_counts = []
-
     for run in runs:
         print(f"Processing policy from run: {run.id}")
         config = run.config
@@ -291,7 +290,7 @@ def run_with_learned_policy(policy_params,
 
 if __name__ == '__main__':
     import pickle
-    obs, acts, steps = run_all_policies_from_wandb('EvalDownload', ENTITY)
+    obs, acts, steps = run_all_policies_from_wandb('TacoSHardwareSetup_noDRsampling', ENTITY)
     print(obs)
     print(acts)
     print(steps)
