@@ -31,8 +31,9 @@ class ActionDelayWrapper(Wrapper):
     def step(self, state: State, action: jax.Array) -> State:
         """We take a step with delayed action"""
         # get delayed action (interpolate between two actions if the delay is not a multiple of dt)
-        obs, action_buffer = state.obs[:self.env.observation_size], state.obs[self.env.observation_size:]
+        obs, action_buffer = state.obs[:self.env.observation_size], state.obs[self.env.observation_size:].reshape(self.buffer_size, self.action_size)
         # we reset the original structure of the state so that the base environment can process it easily
+        # Debugging inside step function
         delayed_action = jnp.sum(action_buffer[:2] * self.interp_weights[:, None], axis=0)
         state = state.replace(obs=obs) # we restore the original state structure
         next_state = self.env.step(state, delayed_action)
@@ -40,11 +41,11 @@ class ActionDelayWrapper(Wrapper):
         new_action_buffer = jnp.concatenate([action_buffer[1:], action[None]], axis=0)
         new_obs = jnp.concatenate([next_state.obs, new_action_buffer.flatten()])
         control_penalty = -self.ctrl_diff_weight * jnp.sum((action - action_buffer[-1]) ** 2)  #compute control penalty based on the predicted action and the last action in buffer
-        return next_state.replace(obs=new_obs)
+        return next_state.replace(obs=new_obs, reward = next_state.reward + control_penalty)
 
     @property
     def observation_size(self) -> int:
-        return self.env.observation_size + self.buffer_size
+        return self.env.observation_size + (self.buffer_size * self.action_size) #size after flattening
 
     @property
     def action_size(self) -> int:

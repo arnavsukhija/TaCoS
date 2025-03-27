@@ -47,6 +47,8 @@ wtc/utils/__init__.py
 wtc/utils/create_system_matrix.py
 wtc/utils/discounting.py
 wtc/utils/tolerance_reward.py
+wtc/utils/training_wrappers.py
+wtc/wrappers/ActionDelayWrapper.py
 wtc/wrappers/__init__.py
 wtc/wrappers/bounded_switches.py
 wtc/wrappers/change_integration_dt.py
