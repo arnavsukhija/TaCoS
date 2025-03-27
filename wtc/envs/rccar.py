@@ -9,7 +9,6 @@ import numpy as np
 from brax.envs.base import State, Env
 from flax import struct
 from jaxtyping import PyTree
-from matplotlib import pyplot as plt
 
 from wtc.utils.tolerance_reward import ToleranceReward
 

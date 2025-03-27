@@ -71,6 +71,7 @@ class IHSwitchCostWrapper(Env):
         state = self.env.reset(rng)
         time = jnp.array(0.0)
         if self.time_as_part_of_state:
+            # we check whether the state observation is a jax.Array or a mapping, and extract the obs accordingly for the concatenation
             augmented_obs = jnp.concatenate([state.obs, time.reshape(1)])
             augmented_state = state.replace(obs=augmented_obs)
         else:

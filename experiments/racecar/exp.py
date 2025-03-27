@@ -15,6 +15,7 @@ import wandb
 from jax.nn import swish
 from mbpo.optimizers.policy_optimizers.ppo.ppo_brax_env import PPO
 
+from wtc.wrappers.ActionDelayWrapper import ActionDelayWrapper
 from wtc.utils import discrete_to_continuous_discounting
 from wtc.wrappers.ih_switching_cost import ConstantSwitchCost, IHSwitchCostWrapper
 from wtc.envs.rccar import RCCar
@@ -137,6 +138,7 @@ def experiment(env_name: str = 'inverted_pendulum',
                num_final_evals: int = 10,
                domain_randomization: bool = True,
                sample_init_pos: bool = True,
+               action_delay: float = 0.0,
                ):
     assert env_name in ['rccar']
     # Episode time needs to be 4.0 seconds
@@ -144,6 +146,8 @@ def experiment(env_name: str = 'inverted_pendulum',
     # base_episode_steps = 8
     # new_dt = base_dt / base_dt_divisor
     env = RCCar(margin_factor=20, domain_randomization=domain_randomization, sample_init_pos=sample_init_pos)
+    if action_delay > 0.0:
+        env = ActionDelayWrapper(env=env, action_delay=action_delay)
     episode_time = episode_steps * env.dt
     print(f'Integration dt {env.dt}')
     print(f'New episode steps: {episode_time // env.dt}')
@@ -481,7 +485,8 @@ def main(args):
                num_final_evals=args.num_final_evals,
                min_time_repeat=args.min_time_repeat,
                domain_randomization=args.domain_randomization,
-               sample_init_pos=args.sample_init_pos
+               sample_init_pos=args.sample_init_pos,
+               action_delay = args.action_delay
                )
 
 
@@ -515,6 +520,7 @@ if __name__ == '__main__':
                         help='Flag for consistent gradient updates.')
     parser.add_argument('--domain_randomization', type=int, default=1)
     parser.add_argument('--sample_init_pos', type=int, default=1)
+    parser.add_argument('--action_delay', type=float, default=1.0)
 
     args = parser.parse_args()
     main(args)
