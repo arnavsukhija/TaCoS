@@ -7,19 +7,18 @@ class ActionDelayWrapper(Wrapper):
     """
     Brax wrapper that adds an action-delay to the base environment (a transformation of the underlying MDP to a new augmented MDP)
     """
-    def __init__(self, env: Env, action_delay: float, ctrl_diff_weight: float = 0.01):
+    def __init__(self, env: Env, action_delay: float, ctrl_diff_weight: float = 0.0):
         super().__init__(env)
         self.ctrl_diff_weight = ctrl_diff_weight
 
         # Buffer parameters for action delay buffer
         self.dt = env.dt
-        delay_steps = action_delay / self.dt  # calculates the number of delay steps
-        assert(delay_steps >= 1)
-        self.buffer_size = int(jnp.ceil(delay_steps)) + 1
-        if abs(action_delay % self.dt) < 1e-8:
+        assert(action_delay >= 1)
+        self.buffer_size = int(jnp.ceil(action_delay)) + 1
+        if action_delay % 1 == 0:  # If action_delay is an integer, no interpolation
             self.interp_weights = jnp.array([1.0, 0.0])
-        else:
-            weight_on_first = (action_delay % self.dt) / self.dt
+        else:  # Otherwise, compute fractional interpolation weights
+            weight_on_first = action_delay % 1
             self.interp_weights = jnp.array([weight_on_first, 1.0 - weight_on_first])
 
     def reset(self, rng: jax.Array) -> State:
