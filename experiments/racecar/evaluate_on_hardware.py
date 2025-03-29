@@ -229,7 +229,7 @@ def run_with_learned_policy(policy_params,
         return pseudo_policy(obs, key_sample=jr.PRNGKey(0))[0]
 
     ## we now prepare the simulation
-    env = CarEnv(car_id=2, encode_angle=encode_angle, max_throttle=0.4, control_time_ms=control_time_ms,
+    env = CarEnv(car_id=2, encode_angle=encode_angle, max_throttle=0.25, control_time_ms=control_time_ms,
                  num_frame_stacks=0)
 
     if switch_cost_wrapper:

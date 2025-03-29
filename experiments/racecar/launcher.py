@@ -39,8 +39,8 @@ from experiments.util import generate_run_commands, generate_base_command, dict_
 
 rccar_switch_cost = {'env_name': ['rccar', ],
                      'backend': ['generalized', ],
-                     'project_name': ["TaCoSActionDelay_DRsampling_20Mil"],
-                     'num_timesteps': [20_000_000, ],
+                     'project_name': ["TaCoSActionDelay2_DRsampling_75Mil"],
+                     'num_timesteps': [75_000_000, ],
                      'episode_steps': [200, ],
                      'base_discount_factor': [0.9],
                      'seed': list(range(5)),
@@ -59,13 +59,13 @@ rccar_switch_cost = {'env_name': ['rccar', ],
                      'num_final_evals': [10, ],
                      'domain_randomization': [1, ],
                      'sample_init_pos': [1,],
-                     'action_delay': [1.0]
+                     'action_delay': [2.0]
                      }
 
 rccar_no_switch_cost_ppo = {'env_name': ['rccar', ],
                      'backend': ['generalized', ],
-                     'project_name': ["PPO_hardware_Mar25"],
-                     'num_timesteps': [20_000_000, ], #from normal ppo training
+                     'project_name': ["PPO_hardware_Mar29_DRsampling_50Mil"],
+                     'num_timesteps': [50_000_000, ], #from normal ppo training
                      'episode_steps': [200, ],
                      'base_discount_factor': [0.9],
                      'seed': list(range(5)),

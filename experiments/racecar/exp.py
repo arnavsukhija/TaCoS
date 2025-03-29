@@ -319,6 +319,8 @@ def experiment(env_name: str = 'inverted_pendulum',
             # Episode time needs to be 4.0 seconds
             env = RCCar(margin_factor=20, sample_init_pos=False, domain_randomization=False) # No domain randomization while evaluation and no initial pos sampling
 
+        if action_delay > 0.0:
+            env = ActionDelayWrapper(env, action_delay)
         env = IHSwitchCostWrapper(env=env,
                                   num_integrator_steps=episode_steps,
                                   min_time_between_switches=min_time_repeat * env.dt,
@@ -425,6 +427,9 @@ def experiment(env_name: str = 'inverted_pendulum',
         if env_name == 'rccar':
             env = RCCar(margin_factor=20, sample_init_pos=False)
 
+        if action_delay > 0.0:
+            env = ActionDelayWrapper(env, action_delay)
+
         step_fn = jax.jit(env.step)
         reset_fn = jax.jit(env.reset)
         for index in range(num_final_evals):
@@ -520,7 +525,7 @@ if __name__ == '__main__':
                         help='Flag for consistent gradient updates.')
     parser.add_argument('--domain_randomization', type=int, default=1)
     parser.add_argument('--sample_init_pos', type=int, default=1)
-    parser.add_argument('--action_delay', type=float, default=1.0)
+    parser.add_argument('--action_delay', type=float, default=0.0)
 
     args = parser.parse_args()
     main(args)
