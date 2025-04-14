@@ -159,7 +159,7 @@ def experiment(env_name: str = 'inverted_pendulum',
                                                                     dt=env.dt)
 
         env = IHSwitchCostWrapper(env=env,
-                                  num_integrator_steps=episode_steps,
+                                  episode_steps=episode_steps,
                                   min_time_between_switches=min_time_repeat * env.dt,
                                   # Hardcoded to be at least the integration step
                                   max_time_between_switches=max_time_repeat * env.dt,
@@ -204,6 +204,7 @@ def experiment(env_name: str = 'inverted_pendulum',
                   min_time_repeat=min_time_repeat,
                   domain_randomization = domain_randomization,
                   sample_init_pos = sample_init_pos,
+                  action_delay = action_delay
                   )
     if switch_cost_wrapper:
         wandb.init(
@@ -322,7 +323,7 @@ def experiment(env_name: str = 'inverted_pendulum',
         if action_delay > 0.0:
             env = ActionDelayWrapper(env, action_delay)
         env = IHSwitchCostWrapper(env=env,
-                                  num_integrator_steps=episode_steps,
+                                  episode_steps=episode_steps,
                                   min_time_between_switches=min_time_repeat * env.dt,
                                   max_time_between_switches=max_time_repeat * env.dt,
                                   switch_cost=ConstantSwitchCost(value=jnp.array(0.0)),
@@ -515,7 +516,7 @@ if __name__ == '__main__':
     parser.add_argument('--reward_scaling', type=float, default=5.0)
     parser.add_argument('--switch_cost_wrapper', type=int, default=1)
     parser.add_argument('--switch_cost', type=float, default=1.0)
-    parser.add_argument('--max_time_repeat', type=int, default=10)
+    parser.add_argument('--max_time_repeat', type=int, default=5)
     parser.add_argument('--min_time_repeat', type=int, default=1)
     parser.add_argument('--time_as_part_of_state', type=int, default=1)
     parser.add_argument('--num_final_evals', type=int, default=10)

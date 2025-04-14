@@ -6,8 +6,8 @@ api = wandb.Api()
 
 # Set your project details
 ENTITY = "arnavsukhija-eth-zurich"  # Replace with your W&B username or team
-PROJECT = "TacoSHardwareSetup_noDRsampling_20Mil"  # Replace with your W&B project name
-TAG = "hardware_actions4"  # Replace with the tag you are filtering for
+PROJECT = "TaCosFinalResultsv2_origin"  # Replace with your W&B project name
+TAG = "tacos10_hardware"  # Replace with the tag you are filtering for
 
 # Get runs with the specified tag
 runs = api.runs(f"{ENTITY}/{PROJECT}", {"tags": TAG})

@@ -39,8 +39,8 @@ from experiments.util import generate_run_commands, generate_base_command, dict_
 
 rccar_switch_cost = {'env_name': ['rccar', ],
                      'backend': ['generalized', ],
-                     'project_name': ["TaCoSActionDelay2_noDRsampling_75Mil"],
-                     'num_timesteps': [75_000_000, ],
+                     'project_name': ["TaCoSActionDelay2_DRsampling_150Mil_higherAcc"],
+                     'num_timesteps': [150_000_000, ],
                      'episode_steps': [200, ],
                      'base_discount_factor': [0.9],
                      'seed': list(range(5)),
@@ -57,15 +57,15 @@ rccar_switch_cost = {'env_name': ['rccar', ],
                      'max_time_repeat': [2,3,4,5,10],
                      'time_as_part_of_state': [1, ],
                      'num_final_evals': [10, ],
-                     'domain_randomization': [0, ],
-                     'sample_init_pos': [0,],
+                     'domain_randomization': [1, ],
+                     'sample_init_pos': [1,],
                      'action_delay': [2.0]
                      }
 
 rccar_no_switch_cost_ppo = {'env_name': ['rccar', ],
                      'backend': ['generalized', ],
-                     'project_name': ["PPO_hardware_Mar29_DRsampling_20Mil"],
-                     'num_timesteps': [50_000_000, ], #from normal ppo training
+                     'project_name': ["PPO_framestack3_Mar29_noDRsampling_75Mil"],
+                     'num_timesteps': [75_000_000, ], #from normal ppo training
                      'episode_steps': [200, ],
                      'base_discount_factor': [0.9],
                      'seed': list(range(5)),
@@ -83,15 +83,15 @@ rccar_no_switch_cost_ppo = {'env_name': ['rccar', ],
                      'time_as_part_of_state': [1, ],
                      'num_final_evals': [10, ],
                     'switch_cost_wrapper': [0, ], # normal PPO (without switch cost wrapping)
-                    'domain_randomization': [1,],
-                    'sample_init_pos': [1,],
-                    'action_delay': [0.0]
+                    'domain_randomization': [0,],
+                    'sample_init_pos': [0,],
+                    'action_delay': [2.0]
                      }
 
 
 def main():
     command_list = []
-    flags_combinations = dict_permutations(rccar_no_switch_cost_ppo)
+    flags_combinations = dict_permutations(rccar_switch_cost)
     for flags in flags_combinations:
         cmd = generate_base_command(exp, flags=flags)
         command_list.append(cmd)
