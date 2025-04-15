@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import functools
 import os
 from typing import Tuple
 
@@ -12,6 +13,8 @@ import jax.numpy as jnp
 import jax.random as jr
 import jax.tree_util as jtu
 import matplotlib.pyplot as plt
+import mujoco
+import numpy as np
 import wandb
 
 from jax.nn import swish
@@ -30,6 +33,10 @@ from jax import config
 config.update("jax_debug_nans", True)
 
 ENTITY = 'asukhija'
+
+# fix rendering
+os.environ["MUJOCO_GL"] = "egl"
+
 
 def save_policy(policy_params):
     if wandb.run is None:
@@ -160,29 +167,27 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
     ctrl_dt = env_cfg['ctrl_dt']
 
     if switch_cost_wrapper:
-        continuous_discounting = discrete_to_continuous_discounting(discrete_discounting=discounting,
-                                                                    dt=ctrl_dt)
-
         env = IHSwitchCostWrapper(env=env,
-                                  num_integrator_steps=episode_steps,
-                                  min_time_between_switches=min_time_repeat * env_dt,
+                                  episode_steps=episode_length,
+                                  min_time_between_switches=min_time_repeat,
                                   # Hardcoded to be at least the integration step
-                                  max_time_between_switches=max_time_repeat * env_dt,
+                                  max_time_between_switches=max_time_repeat,
                                   switch_cost=ConstantSwitchCost(value=jnp.array(switch_cost)),
                                   discounting=discounting,
                                   time_as_part_of_state=time_as_part_of_state,
                                   ismujoco_env=True,
+                                  sim_dt = sim_dt,
                                   )
 
 
     config = dict(env_name=env_name,
                   backend=backend,
                   num_timesteps=num_timesteps,
-                  episode_time=episode_time,
-                  new_integration_dt=env.dt,
-                  new_episode_steps=episode_time // env.dt,
-                  base_discount_factor=base_discount_factor,
-                  new_discount_factor=new_discount_factor,
+                  episode_time=episode_length * env.dt,
+                  sim_dt=sim_dt, ##this corresponds to integration dt which is the sim dt,
+                  control_dt=ctrl_dt,
+                  new_episode_steps=episode_length,
+                  base_discount_factor=discounting,
                   seed=seed,
                   num_envs=num_envs,
                   num_eval_envs=num_eval_envs,
@@ -200,6 +205,15 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
                   time_as_part_of_state=time_as_part_of_state,
                   num_final_evals=num_final_evals,
                   min_time_repeat=min_time_repeat,
+                  learning_rate=learning_rate,
+                  action_repeat = action_repeat,
+                  value_obs_key = value_obs_key,
+                  policy_obs_key = policy_obs_key,
+                  max_grad_norm = max_grad_norm,
+                  num_resets_per_eval = num_resets_per_eval,
+                  normalize_observations = normalize_observations,
+                  clipping_epsilon = 0.3,
+                  gae_lambda = 0.95,
                   )
     if switch_cost_wrapper:
         wandb.init(
@@ -218,15 +232,15 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
         optimizer = PPO(
             environment=env, #passing switch cost env
             num_timesteps=num_timesteps,
-            episode_length=episode_steps,
+            episode_length=episode_length,
             action_repeat=action_repeat, #number of times we repeat action before evaluation
             num_envs=num_envs,
             num_eval_envs=num_eval_envs,
-            lr=lr,
+            lr=learning_rate,
             wd=0.,
             entropy_cost=entropy_cost,
             unroll_length=unroll_length,
-            discounting=new_discount_factor,
+            discounting=discounting,
             batch_size=batch_size,
             num_minibatches=num_minibatches,
             num_updates_per_batch=num_updates_per_batch,
@@ -245,31 +259,30 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             wandb_logging=True,
             return_best_model=True,
             non_equidistant_time=True,
-            continuous_discounting=continuous_discounting,
-            min_time_between_switches=min_time_repeat * env_dt, #can be set to 1/30
-            max_time_between_switches=max_time_repeat * env_dt, #can be set to 1
-            env_dt=env.dt,  #best is 1/30
+            min_time_between_switches=min_time_repeat,
+            max_time_between_switches=max_time_repeat,
+            env_dt=env.dt,
         )
     else: #standard PPO with discount factor adaptation for continuous tasks, improves performance on continuous tasks.
         optimizer = PPO(
             environment=env,
             num_timesteps=num_timesteps,
-            episode_length=int(episode_time // env.dt),
-            action_repeat=1,
+            episode_length=episode_length,
+            action_repeat=action_repeat,
             num_envs=num_envs,
             num_eval_envs=num_eval_envs,
-            lr=3e-4,
+            lr=learning_rate,
             wd=0.,
             entropy_cost=entropy_cost,
             unroll_length=unroll_length,
-            discounting=base_discount_factor,
+            discounting=discounting,
             batch_size=batch_size,
             num_minibatches=num_minibatches,
             num_updates_per_batch=num_updates_per_batch,
-            num_evals=20,
+            num_evals=num_evals,
             normalize_observations=True,
             reward_scaling=reward_scaling,
-            max_grad_norm=1e5,
+            max_grad_norm=max_grad_norm,
             clipping_epsilon=0.3,
             gae_lambda=0.95,
             policy_hidden_layer_sizes=policy_hidden_layer_sizes,
@@ -311,153 +324,272 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
 
     print(f'Starting with evaluation')
     if switch_cost_wrapper:
-        if env_name == 'rccar':
-            # Episode time needs to be 4.0 seconds
-            env = RCCar(margin_factor=20, sample_init_pos=False, domain_randomization=False) # No domain randomization while evaluation and no initial pos sampling
+        env_cfg = registry.get_default_config(env_name)
+        env_cfg.pert_config.enable = True
+        env_cfg.pert_config.velocity_kick = [3.0, 6.0]
+        env_cfg.pert_config.kick_wait_times = [5.0, 15.0]
+        env_cfg.command_config.a = [1.5, 0.8, 2 * jnp.pi]
+        eval_env = registry.load(env_name, config=env_cfg)
+        velocity_kick_range = [0.0, 0.0]  # Disable velocity kick.
+        kick_duration_range = [0.05, 0.2]
 
-        if action_delay > 0.0:
-            env = ActionDelayWrapper(env, action_delay)
-        env = IHSwitchCostWrapper(env=env,
-                                  num_integrator_steps=episode_steps,
-                                  min_time_between_switches=min_time_repeat * env.dt,
-                                  max_time_between_switches=max_time_repeat * env.dt,
+        eval_env = IHSwitchCostWrapper(env=eval_env,
+                                  episode_steps=episode_length,
+                                  min_time_between_switches=min_time_repeat,
+                                  max_time_between_switches=max_time_repeat,
                                   switch_cost=ConstantSwitchCost(value=jnp.array(0.0)),
-                                  discounting=new_discount_factor,
-                                  time_as_part_of_state=time_as_part_of_state, )
+                                  discounting=discounting,
+                                  time_as_part_of_state=time_as_part_of_state,
+                                  ismujoco_env=True,
+                                       sim_dt = env_cfg.sim_dt)
+        jit_reset = jax.jit(eval_env.reset)
+        jit_step = jax.jit(eval_env.step)
+        jit_inference_fn = jax.jit(optimizer.make_policy(policy_params, deterministic=True))
 
-        for index in range(num_final_evals):
-            state = env.reset(rng=jr.PRNGKey(index))
-            print(f'Prepared and reseted environment')
+        from mujoco_playground._src.gait import draw_joystick_command
 
-            def step(state, _):
-                u = policy(state.obs)[0]
-                next_state, rest = env.simulation_step(state, u)
-                return next_state, (next_state.obs, u, next_state.reward, rest)
+        x_vel = 0.0  # @param {type: "number"}
+        y_vel = 0.0  # @param {type: "number"}
+        yaw_vel = 3.14  # @param {type: "number"}
 
-            init_state = state
-            LEGEND_SIZE = 20
-            LABEL_SIZE = 20
-            TICKS_SIZE = 20
+        def sample_pert(rng):
+            rng, key1, key2 = jax.random.split(rng, 3)
+            pert_mag = jax.random.uniform(
+                key1, minval=velocity_kick_range[0], maxval=velocity_kick_range[1]
+            )
+            duration_seconds = jax.random.uniform(
+                key2, minval=kick_duration_range[0], maxval=kick_duration_range[1]
+            )
+            duration_steps = jnp.round(duration_seconds / eval_env.dt).astype(jnp.int32)
+            state.info["pert_mag"] = pert_mag
+            state.info["pert_duration"] = duration_steps
+            state.info["pert_duration_seconds"] = duration_seconds
+            return rng
 
-            import matplotlib as mpl
+        rng = jax.random.PRNGKey(0)
+        rollout = []
+        modify_scene_fns = []
 
-            mpl.rcParams['xtick.labelsize'] = TICKS_SIZE
-            mpl.rcParams['ytick.labelsize'] = TICKS_SIZE
+        swing_peak = []
+        rewards = []
+        linvel = []
+        angvel = []
+        track = []
+        foot_vel = []
+        rews = []
+        contact = []
+        command = jnp.array([x_vel, y_vel, yaw_vel])
+        num_steps = 0
+        time_predictions = []
 
-            print('Starting with trajectory simulation')
-            trajectory = []
-            full_trajectories = []
-            while not state.done:
-                state, one_traj = step(state, None)
-                one_traj, full_trajectory = one_traj[:-1], one_traj[-1]
-                trajectory.append(one_traj)
-                full_trajectories.append(full_trajectory)
+        state = jit_reset(rng)
+        if state.info["steps_since_last_pert"] < state.info["steps_until_next_pert"]:
+            rng = sample_pert(rng)
+        state.info["command"] = command
+        env_steps = 0
+        while not state.done and env_steps < env_cfg.episode_length:
+            if state.info["steps_since_last_pert"] < state.info["steps_until_next_pert"]:
+                rng = sample_pert(rng)
+            act_rng, rng = jax.random.split(rng)
+            ctrl, _ = jit_inference_fn(state.obs, act_rng)
+            time_predictions.append(ctrl[-1])
+            state = jit_step(state, ctrl)
+            num_steps += 1
+            env_steps += env.compute_time(pseudo_time=ctrl[-1], t_upper=env.max_time_between_switches, t_lower=env.min_time_between_switches)
+            state.info["command"] = command
+            rews.append(
+                {k: v for k, v in state.metrics.items() if k.startswith("reward/")}
+            )
+            rollout.append(state)
+            swing_peak.append(state.info["swing_peak"])
+            rewards.append(
+                {k[7:]: v for k, v in state.metrics.items() if k.startswith("reward/")}
+            )
+            linvel.append(env.env.get_global_linvel(state.data))
+            angvel.append(env.env.get_gyro(state.data))
+            track.append(
+                env.env._reward_tracking_lin_vel(
+                    state.info["command"], env.env.get_local_linvel(state.data)
+                )
+            )
 
-            print('End of trajectory simulation')
-            trajectory = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *trajectory)
-            full_trajectory = jtu.tree_map(lambda *xs: jnp.concatenate(xs), *full_trajectories)
+            feet_vel = state.data.sensordata[env.env._foot_linvel_sensor_adr]
+            vel_xy = feet_vel[..., :2]
+            vel_norm = jnp.sqrt(jnp.linalg.norm(vel_xy, axis=-1))
+            foot_vel.append(vel_norm)
 
-            wandb.log({f'results/total_reward_{index}': float(jnp.sum(trajectory[2])),
-                       f'results/num_actions_{index}': trajectory[0].shape[0]})
+            contact.append(state.info["last_contact"])
 
-            print('Saving the models to Wandb')
-            save_trajectory(full_trajectory, index)
-        print('Started plotting')
-        if time_as_part_of_state:
-            xs_full_trajectory = jnp.concatenate([init_state.obs[:-1].reshape(1, -1), full_trajectory.obs, ])
-        else:
-            xs_full_trajectory = jnp.concatenate([init_state.obs.reshape(1, -1), full_trajectory.obs, ])
-        rewards_full_trajectory = jnp.concatenate([init_state.reward.reshape(1, ), full_trajectory.reward])
-        executed_integration_steps = xs_full_trajectory.shape[0]
+            xyz = np.array(state.data.xpos[env.env._torso_body_id])
+            xyz += np.array([0, 0, 0.2])
+            x_axis = state.data.xmat[env.env._torso_body_id, 0]
+            yaw = -np.arctan2(x_axis[1], x_axis[0])
+            modify_scene_fns.append(
+                functools.partial(
+                    draw_joystick_command,
+                    cmd=state.info["command"],
+                    xyz=xyz,
+                    theta=yaw,
+                    scl=abs(state.info["command"][0])
+                        / env_cfg.command_config.a[0],
+                )
+            )
+        """ Rendering
+        render_every = 2
+        fps = 1.0 / eval_env.dt / render_every
+        traj = rollout[::render_every]
+        mod_fns = modify_scene_fns[::render_every]
 
-        ts_full_trajectory = env.env.dt * jnp.array(list(range(executed_integration_steps)))
-        fig, axs = plt.subplots(nrows=1, ncols=4, figsize=(20, 4))
-        us = trajectory[1][:, :-1]
-        times = trajectory[0][:, -1]
+        scene_option = mujoco.MjvOption()
+        scene_option.geomgroup[2] = True
+        scene_option.geomgroup[3] = False
+        scene_option.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = True
+        scene_option.flags[mujoco.mjtVisFlag.mjVIS_TRANSPARENT] = False
+        scene_option.flags[mujoco.mjtVisFlag.mjVIS_PERTFORCE] = True
+        frames = eval_env.env.render(
+            traj,
+            camera="track",
+            scene_option=scene_option,
+            width=640,
+            height=480,
+            modify_scene_fns=mod_fns,
+        )
+        os.makedirs("frames_tacosppo", exist_ok=True)
+        for i, frame in enumerate(frames):
+            plt.imsave(f"frames_tacosppo/frame_{i:04d}.png", frame)
+        """
+        total_reward = float(sum(
+            v for reward_dict in rewards for v in reward_dict.values()
+        ))
 
-        # All times are the times when we ended the actions
-        all_ts = times
-        all_ts = jnp.concatenate([jnp.array([0.0]), all_ts])
-
-        for i in range(xs_full_trajectory.shape[1]):
-            axs[0].plot(ts_full_trajectory, xs_full_trajectory[:, i])
-        for h in all_ts[:-1]:
-            axs[0].axvline(x=h, color='black', ls='--', alpha=0.4)
-
-        axs[0].set_xlabel('Time', fontsize=LABEL_SIZE)
-        axs[0].set_ylabel('State', fontsize=LABEL_SIZE)
-
-        axs[1].step(all_ts, jnp.concatenate([us, us[-1].reshape(1, -1)]), where='post', label=r'$u$')
-        axs[1].set_xlabel('Time', fontsize=LABEL_SIZE)
-        axs[1].set_ylabel('Action', fontsize=LABEL_SIZE)
-
-        axs[2].plot(ts_full_trajectory, rewards_full_trajectory, label='Rewards')
-        for h in all_ts[:-1]:
-            axs[2].axvline(x=h, color='black', ls='--', alpha=0.4)
-
-        axs[2].set_xlabel('Time', fontsize=LABEL_SIZE)
-        axs[2].set_ylabel('Instance reward', fontsize=LABEL_SIZE)
-
-        axs[3].plot(jnp.diff(all_ts), label='Times for actions')
-        axs[3].set_xlabel('Action Steps', fontsize=LABEL_SIZE)
-        axs[3].set_ylabel('Time for action', fontsize=LABEL_SIZE)
-
-        for ax in axs:
-            ax.legend(fontsize=LEGEND_SIZE)
-        plt.tight_layout()
-
-        print("End of plotting, saving figure locally to path")
-        fig, axs = plt.subplots(nrows=1, ncols=4, figsize=(20, 4))
-
-        filename = "switch_bound_figure.png"
-        fig.savefig(filename)
-        full_path = os.path.abspath(filename)
-        print(f"File saved locally at {full_path}")
-        print('End of plotting, uploading results to wandb')
-
-        wandb.log({'switch_bound_figure': wandb.Image(fig), })
-
-        print('Results uploaded to wandb')
-
+        wandb.log({'Total reward ': total_reward})
+        wandb.log({'Number of actions': num_steps})
+        print(f"The agent took {num_steps} actions")
     else:
-        if env_name == 'rccar':
-            env = RCCar(margin_factor=20, sample_init_pos=False)
+        # Enable perturbation in the eval env.
+        env_cfg = registry.get_default_config(env_name)
+        env_cfg.pert_config.enable = True
+        env_cfg.pert_config.velocity_kick = [3.0, 6.0]
+        env_cfg.pert_config.kick_wait_times = [5.0, 15.0]
+        env_cfg.command_config.a = [1.5, 0.8, 2 * jnp.pi]
+        eval_env = registry.load(env_name, config=env_cfg)
+        velocity_kick_range = [0.0, 0.0]  # Disable velocity kick.
+        kick_duration_range = [0.05, 0.2]
 
-        if action_delay > 0.0:
-            env = ActionDelayWrapper(env, action_delay)
+        jit_reset = jax.jit(eval_env.reset)
+        jit_step = jax.jit(eval_env.step)
+        jit_inference_fn = jax.jit(optimizer.make_policy(policy_params, deterministic=True))
+        from mujoco_playground._src.gait import draw_joystick_command
 
-        step_fn = jax.jit(env.step)
-        reset_fn = jax.jit(env.reset)
-        for index in range(num_final_evals):
-            state = reset_fn(rng=jr.PRNGKey(index))
-            trajectory = []
-            total_steps = 0
-            while (not state.done) and (total_steps < (episode_time // env.dt)):
-                action = policy(state.obs)[0]
-                for _ in range(1):
-                    state = step_fn(state, action)
-                    total_steps += 1
-                    trajectory.append(state)
+        x_vel = 0.0  # @param {type: "number"}
+        y_vel = 0.0  # @param {type: "number"}
+        yaw_vel = 3.14  # @param {type: "number"}
 
-            trajectory = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *trajectory)
-            wandb.log({f'results/total_reward_{index}': jnp.sum(trajectory.reward),
-                       f'results/num_actions_{index}': len(trajectory.reward)})
+        def sample_pert(rng):
+            rng, key1, key2 = jax.random.split(rng, 3)
+            pert_mag = jax.random.uniform(
+                key1, minval=velocity_kick_range[0], maxval=velocity_kick_range[1]
+            )
+            duration_seconds = jax.random.uniform(
+                key2, minval=kick_duration_range[0], maxval=kick_duration_range[1]
+            )
+            duration_steps = jnp.round(duration_seconds / eval_env.dt).astype(jnp.int32)
+            state.info["pert_mag"] = pert_mag
+            state.info["pert_duration"] = duration_steps
+            state.info["pert_duration_seconds"] = duration_seconds
+            return rng
 
-            print(f'Total reward {index}: {jnp.sum(trajectory.reward)}')
-            print(f'Total steps {index}: {total_steps}')
+        rng = jax.random.PRNGKey(0)
+        rollout = []
+        modify_scene_fns = []
 
-            plt.plot(trajectory.reward)
-            plt.show()
+        swing_peak = []
+        rewards = []
+        linvel = []
+        angvel = []
+        track = []
+        foot_vel = []
+        rews = []
+        contact = []
+        command = jnp.array([x_vel, y_vel, yaw_vel])
 
-            # We save full_trajectory to wandb
-            # Save trajectory rather than rendered video
-            directory = os.path.join(wandb.run.dir, 'results')
-            if not os.path.exists(directory):
-                os.makedirs(directory)
-            model_path = os.path.join(directory, f'trajectory_{index}.pkl')
-            with open(model_path, 'wb') as handle:
-                pickle.dump(trajectory, handle)
-            wandb.save(model_path, wandb.run.dir)
+        state = jit_reset(rng)
+        if state.info["steps_since_last_pert"] < state.info["steps_until_next_pert"]:
+            rng = sample_pert(rng)
+        state.info["command"] = command
+        num_steps = 0
+        while not state.done and num_steps < env_cfg.episode_length:
+            if state.info["steps_since_last_pert"] < state.info["steps_until_next_pert"]:
+                rng = sample_pert(rng)
+            act_rng, rng = jax.random.split(rng)
+            ctrl, _ = jit_inference_fn(state.obs, act_rng)
+            state = jit_step(state, ctrl)
+            num_steps += 1
+            state.info["command"] = command
+            rews.append(
+                {k: v for k, v in state.metrics.items() if k.startswith("reward/")}
+            )
+            rollout.append(state)
+            swing_peak.append(state.info["swing_peak"])
+            rewards.append(
+                {k[7:]: v for k, v in state.metrics.items() if k.startswith("reward/")}
+            )
+            linvel.append(env.get_global_linvel(state.data))
+            angvel.append(env.get_gyro(state.data))
+            track.append(
+                env._reward_tracking_lin_vel(
+                    state.info["command"], env.get_local_linvel(state.data)
+                )
+            )
+
+            feet_vel = state.data.sensordata[env._foot_linvel_sensor_adr]
+            vel_xy = feet_vel[..., :2]
+            vel_norm = jnp.sqrt(jnp.linalg.norm(vel_xy, axis=-1))
+            foot_vel.append(vel_norm)
+
+            contact.append(state.info["last_contact"])
+
+            xyz = np.array(state.data.xpos[env._torso_body_id])
+            xyz += np.array([0, 0, 0.2])
+            x_axis = state.data.xmat[env._torso_body_id, 0]
+            yaw = -np.arctan2(x_axis[1], x_axis[0])
+            modify_scene_fns.append(
+                functools.partial(
+                    draw_joystick_command,
+                    cmd=state.info["command"],
+                    xyz=xyz,
+                    theta=yaw,
+                    scl=abs(state.info["command"][0])
+                        / env_cfg.command_config.a[0],
+                )
+            )
+        """Rendering
+        render_every = 2
+        fps = 1.0 / eval_env.dt / render_every
+        traj = rollout[::render_every]
+        mod_fns = modify_scene_fns[::render_every]
+
+        scene_option = mujoco.MjvOption()
+        scene_option.geomgroup[2] = True
+        scene_option.geomgroup[3] = False
+        scene_option.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = True
+        scene_option.flags[mujoco.mjtVisFlag.mjVIS_TRANSPARENT] = False
+        scene_option.flags[mujoco.mjtVisFlag.mjVIS_PERTFORCE] = True
+
+        frames = eval_env.render(
+            traj,
+            camera="track",
+            scene_option=scene_option,
+            width=640,
+            height=480,
+            modify_scene_fns=mod_fns,
+        )
+        """
+        total_reward = float(sum(
+            v for reward_dict in rewards for v in reward_dict.values()
+        ))
+        wandb.log({'Total reward ': total_reward})
+        wandb.log({'Number of actions': num_steps})
 
     wandb.finish()
 
@@ -466,62 +598,29 @@ def main(args):
     experiment(env_name=args.env_name,
                backend=args.backend,
                project_name=args.project_name,
-               num_timesteps=args.num_timesteps,
-               episode_steps=args.episode_steps,
-               base_discount_factor=args.base_discount_factor,
                seed=args.seed,
-               num_envs=args.num_envs,
                num_eval_envs=args.num_eval_envs,
-               entropy_cost=args.entropy_cost,
-               unroll_length=args.unroll_length,
-               num_minibatches=args.num_minibatches,
-               num_updates_per_batch=args.num_updates_per_batch,
-               batch_size=args.batch_size,
-               networks=args.networks,
-               reward_scaling=args.reward_scaling,
                switch_cost_wrapper=bool(args.switch_cost_wrapper),
                switch_cost=args.switch_cost,
                max_time_repeat=args.max_time_repeat,
                time_as_part_of_state=bool(args.time_as_part_of_state),
                num_final_evals=args.num_final_evals,
                min_time_repeat=args.min_time_repeat,
-               domain_randomization=args.domain_randomization,
-               sample_init_pos=args.sample_init_pos,
-               action_delay = args.action_delay
                )
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env_name', type=str, default='rccar')
+    parser.add_argument('--env_name', type=str, default='Go1JoystickFlatTerrain')
     parser.add_argument('--backend', type=str, default='generalized')
     parser.add_argument('--project_name', type=str, default='GPUSpeedTest')
-    parser.add_argument('--num_timesteps', type=int, default=100_000)
-    parser.add_argument('--episode_steps', type=int, default=200)
-    parser.add_argument('--base_discount_factor', type=float, default=0.95)
     parser.add_argument('--seed', type=int, default=20)
-    parser.add_argument('--num_envs', type=int, default=64)
-    parser.add_argument('--num_eval_envs', type=int, default=64)
-    parser.add_argument('--entropy_cost', type=float, default=5.0)
-    parser.add_argument('--unroll_length', type=int, default=10)
-    parser.add_argument('--num_minibatches', type=int, default=10)
-    parser.add_argument('--num_updates_per_batch', type=int, default=10)
-    parser.add_argument('--batch_size', type=int, default=64)
-    parser.add_argument('--networks', type=int, default=1)
-    parser.add_argument('--reward_scaling', type=float, default=5.0)
+    parser.add_argument('--num_eval_envs', type=int, default=128)
     parser.add_argument('--switch_cost_wrapper', type=int, default=1)
     parser.add_argument('--switch_cost', type=float, default=1.0)
     parser.add_argument('--max_time_repeat', type=int, default=5)
     parser.add_argument('--min_time_repeat', type=int, default=1)
     parser.add_argument('--time_as_part_of_state', type=int, default=1)
     parser.add_argument('--num_final_evals', type=int, default=10)
-    parser.add_argument('--action_repeat', type=int, default=1)
-    parser.add_argument('--num_env_steps_between_updates', type=int, default=10)
-    parser.add_argument('--same_amount_of_gradient_updates', type=int, default=1,
-                        help='Flag for consistent gradient updates.')
-    parser.add_argument('--domain_randomization', type=int, default=1)
-    parser.add_argument('--sample_init_pos', type=int, default=1)
-    parser.add_argument('--action_delay', type=float, default=0.0)
-
     args = parser.parse_args()
     main(args)

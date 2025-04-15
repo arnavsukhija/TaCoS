@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from functools import partial
-from typing import NamedTuple, Mapping
+from typing import NamedTuple, Mapping, Optional, Callable, Tuple
 
 import chex
 import jax
@@ -49,7 +49,10 @@ class IHSwitchCostWrapper(Env):
                  discounting: float = 0.99,
                  time_as_part_of_state: bool = False,
                  ismujoco_env: bool = False,
-                 sim_dt: float = 1
+                 sim_dt: float = 1,
+                 env_randomization_fn: Optional[
+                     Callable[[base.System, jnp.ndarray], Tuple[base.System, base.System]]
+                 ] = None,
                  ):
         self.env = env
         self.episode_steps = episode_steps
@@ -66,6 +69,7 @@ class IHSwitchCostWrapper(Env):
         self.time_as_part_of_state = time_as_part_of_state #this includes the state definition, for interaction cost time is part of the state
         self.jitted_step_fn = jit(self.env.step)
         self.ismujoco_env = ismujoco_env
+        self.env_randomization_fn = env_randomization_fn
 
     def _add_time_to_obs(self, state: State, time: jax.Array) -> State:
         # we handle the case where it is a state from a Mujoco Env
@@ -290,7 +294,7 @@ if __name__ == '__main__':
                                backend=backend)
 
     env = IHSwitchCostWrapper(env,
-                              num_integrator_steps=1000,
+                              episode_steps=1000,
                               min_time_between_switches=env.dt,
                               # max_time_between_switches=10 * env.dt,
                               switch_cost=ConstantSwitchCost(value=jnp.array(1.0)),
