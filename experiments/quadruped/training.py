@@ -2,6 +2,7 @@ import argparse
 import datetime
 import functools
 import os
+import io
 from typing import Tuple
 
 import cloudpickle
@@ -166,6 +167,10 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
     sim_dt = env_cfg['sim_dt']
     ctrl_dt = env_cfg['ctrl_dt']
 
+
+    # we also set up the randomization fn
+    randomization_fn = registry.get_domain_randomizer(env_name)
+
     if switch_cost_wrapper:
         env = IHSwitchCostWrapper(env=env,
                                   episode_steps=episode_length,
@@ -177,6 +182,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
                                   time_as_part_of_state=time_as_part_of_state,
                                   ismujoco_env=True,
                                   sim_dt = sim_dt,
+                                  env_randomization_fn=randomization_fn,
                                   )
 
 
@@ -262,6 +268,8 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             min_time_between_switches=min_time_repeat,
             max_time_between_switches=max_time_repeat,
             env_dt=env.dt,
+            randomization_fn=env.randomization_fn,
+            seed=seed,
         )
     else: #standard PPO with discount factor adaptation for continuous tasks, improves performance on continuous tasks.
         optimizer = PPO(
@@ -292,6 +300,8 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             deterministic_eval=True,
             normalize_advantage=True,
             wandb_logging=True,
+            randomization_fn=randomization_fn,
+            seed = seed,
         )
 
     xdata, ydata = [], []
@@ -387,13 +397,13 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             rng = sample_pert(rng)
         state.info["command"] = command
         env_steps = 0
-        while not state.done and env_steps < env_cfg.episode_length:
+        while env_steps < env_cfg.episode_length:
             if state.info["steps_since_last_pert"] < state.info["steps_until_next_pert"]:
                 rng = sample_pert(rng)
             act_rng, rng = jax.random.split(rng)
             ctrl, _ = jit_inference_fn(state.obs, act_rng)
             time_predictions.append(ctrl[-1])
-            state = jit_step(state, ctrl)
+            state= jit_step(state, ctrl)
             num_steps += 1
             env_steps += env.compute_time(pseudo_time=ctrl[-1], t_upper=env.max_time_between_switches, t_lower=env.min_time_between_switches)
             state.info["command"] = command
@@ -436,35 +446,110 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             )
         """ Rendering
         render_every = 2
-        fps = 1.0 / eval_env.dt / render_every
-        traj = rollout[::render_every]
-        mod_fns = modify_scene_fns[::render_every]
-
+        desired_dt = eval_env.dt * render_every # this corresponds to the ideal rendering dt for frame capturing
+        current_time = 0.0
+        last_render_time = 0.0
+        
+        fps = 1.0 / desired_dt
+        
         scene_option = mujoco.MjvOption()
         scene_option.geomgroup[2] = True
         scene_option.geomgroup[3] = False
         scene_option.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = True
         scene_option.flags[mujoco.mjtVisFlag.mjVIS_TRANSPARENT] = False
         scene_option.flags[mujoco.mjtVisFlag.mjVIS_PERTFORCE] = True
-        frames = eval_env.env.render(
-            traj,
+        
+        frames = []
+        mod_fns_to_use = []
+        
+        for state, mod_fn in zip(rollout, modify_scene_fns):
+            current_time += float(state.obs['state'][-1] * eval_env.dt)
+            
+            if current_time - last_render_time >= desired_dt:
+                frames.append(state)
+                mod_fns_to_use.append(mod_fn)
+                last_render_time = current_time
+    
+        rendered_frames = eval_env.env.render(
+            frames,
             camera="track",
             scene_option=scene_option,
             width=640,
             height=480,
-            modify_scene_fns=mod_fns,
+            modify_scene_fns=mod_fns_to_use,
         )
-        os.makedirs("frames_tacosppo", exist_ok=True)
-        for i, frame in enumerate(frames):
-            plt.imsave(f"frames_tacosppo/frame_{i:04d}.png", frame)
+        
+        os.makedirs("frames_ppoTacos_Fixed", exist_ok=True)
+        for i, frame in enumerate(rendered_frames):
+            plt.imsave(f"frames_ppoTacos_Fixed/frame_{i:04d}.png", frame, cmap) 
         """
         total_reward = float(sum(
             v for reward_dict in rewards for v in reward_dict.values()
         ))
 
-        wandb.log({'Total reward ': total_reward})
+        wandb.log({'Total reward over episode ': total_reward})
         wandb.log({'Number of actions': num_steps})
         print(f"The agent took {num_steps} actions")
+        print(f"Agent got {total_reward} reward")
+
+        # We also visualize feet positions and the positional drift compared to the commanded linear and angular velocity.
+        swing_peak = jnp.array(swing_peak)
+        names = ["FR", "FL", "RR", "RL"]
+        colors = ["r", "g", "b", "y"]
+        fig, axs = plt.subplots(2, 2)
+        for i, ax in enumerate(axs.flat):
+            ax.plot(swing_peak[:, i], color=colors[i])
+            ax.set_ylim([0, env_cfg.reward_config.max_foot_height * 1.25])
+            ax.axhline(env_cfg.reward_config.max_foot_height, color="k", linestyle="--")
+            ax.set_title(names[i])
+            ax.set_xlabel("time")
+            ax.set_ylabel("height")
+        plt.tight_layout()
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+        wandb.log({"swing_peak_plot": wandb.Image(buf)})
+        plt.close()
+
+        linvel_x = jnp.array(linvel)[:, 0]
+        linvel_y = jnp.array(linvel)[:, 1]
+        angvel_yaw = jnp.array(angvel)[:, 2]
+
+        # Plot whether velocity is within the command range.
+        linvel_x = jnp.convolve(linvel_x, jnp.ones(10) / 10, mode="same")
+        linvel_y = jnp.convolve(linvel_y, jnp.ones(10) / 10, mode="same")
+        angvel_yaw = jnp.convolve(angvel_yaw, jnp.ones(10) / 10, mode="same")
+
+        fig, axes = plt.subplots(3, 1, figsize=(10, 10))
+        axes[0].plot(linvel_x)
+        axes[1].plot(linvel_y)
+        axes[2].plot(angvel_yaw)
+
+        axes[0].set_ylim(
+            -env_cfg.command_config.a[0], env_cfg.command_config.a[0]
+        )
+        axes[1].set_ylim(
+            -env_cfg.command_config.a[1], env_cfg.command_config.a[1]
+        )
+        axes[2].set_ylim(
+            -env_cfg.command_config.a[2], env_cfg.command_config.a[2]
+        )
+
+        for i, ax in enumerate(axes):
+            ax.axhline(state.info["command"][i], color="red", linestyle="--")
+
+        labels = ["dx", "dy", "dyaw"]
+        for i, ax in enumerate(axes):
+            ax.set_ylabel(labels[i])
+
+        plt.tight_layout()
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+        wandb.log({"velocity_tracking_plot": wandb.Image(buf)})
+        plt.close()
     else:
         # Enable perturbation in the eval env.
         env_cfg = registry.get_default_config(env_name)
@@ -518,7 +603,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             rng = sample_pert(rng)
         state.info["command"] = command
         num_steps = 0
-        while not state.done and num_steps < env_cfg.episode_length:
+        while num_steps < env_cfg.episode_length:
             if state.info["steps_since_last_pert"] < state.info["steps_until_next_pert"]:
                 rng = sample_pert(rng)
             act_rng, rng = jax.random.split(rng)
@@ -590,6 +675,67 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
         ))
         wandb.log({'Total reward ': total_reward})
         wandb.log({'Number of actions': num_steps})
+        print(f"Agent got {total_reward} reward")
+
+
+        # We also visualize feet positions and the positional drift compared to the commanded linear and angular velocity.
+        swing_peak = jnp.array(swing_peak)
+        names = ["FR", "FL", "RR", "RL"]
+        colors = ["r", "g", "b", "y"]
+        fig, axs = plt.subplots(2, 2)
+        for i, ax in enumerate(axs.flat):
+            ax.plot(swing_peak[:, i], color=colors[i])
+            ax.set_ylim([0, env_cfg.reward_config.max_foot_height * 1.25])
+            ax.axhline(env_cfg.reward_config.max_foot_height, color="k", linestyle="--")
+            ax.set_title(names[i])
+            ax.set_xlabel("time")
+            ax.set_ylabel("height")
+        plt.tight_layout()
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+        wandb.log({"swing_peak_plot": wandb.Image(buf)})
+        plt.close()
+
+        linvel_x = jnp.array(linvel)[:, 0]
+        linvel_y = jnp.array(linvel)[:, 1]
+        angvel_yaw = jnp.array(angvel)[:, 2]
+
+        # Plot whether velocity is within the command range.
+        linvel_x = jnp.convolve(linvel_x, jnp.ones(10) / 10, mode="same")
+        linvel_y = jnp.convolve(linvel_y, jnp.ones(10) / 10, mode="same")
+        angvel_yaw = jnp.convolve(angvel_yaw, jnp.ones(10) / 10, mode="same")
+
+        fig, axes = plt.subplots(3, 1, figsize=(10, 10))
+        axes[0].plot(linvel_x)
+        axes[1].plot(linvel_y)
+        axes[2].plot(angvel_yaw)
+
+        axes[0].set_ylim(
+            -env_cfg.command_config.a[0], env_cfg.command_config.a[0]
+        )
+        axes[1].set_ylim(
+            -env_cfg.command_config.a[1], env_cfg.command_config.a[1]
+        )
+        axes[2].set_ylim(
+            -env_cfg.command_config.a[2], env_cfg.command_config.a[2]
+        )
+
+        for i, ax in enumerate(axes):
+            ax.axhline(state.info["command"][i], color="red", linestyle="--")
+
+        labels = ["dx", "dy", "dyaw"]
+        for i, ax in enumerate(axes):
+            ax.set_ylabel(labels[i])
+
+        plt.tight_layout()
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+        wandb.log({"velocity_tracking_plot": wandb.Image(buf)})
+        plt.close()
 
     wandb.finish()
 

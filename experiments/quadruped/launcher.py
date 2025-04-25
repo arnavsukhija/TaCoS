@@ -6,9 +6,9 @@ from experiments.util import generate_run_commands, generate_base_command, dict_
 ################################################
 go1_switch_cost = {'env_name': ['Go1JoystickFlatTerrain', ],
                      'backend': ['generalized', ],
-                     'project_name': ["TaCoSGo1JoystickFlatTerrain_noDR_LogScaleSwitchCost"],
+                     'project_name': ["TaCoSGo1JoystickFlatTerrain_DR_LogScaleSwitchCost_fixedRewards"],
                      'seed': list(range(5)),
-                     'switch_cost': [0.0001, 0.001, 0.01, ],
+                     'switch_cost': [0, 0.0001, 0.001, 0.005, 0.01, 0.1],
                      'max_time_repeat': [2,3,4,5],
                      'min_time_repeat': [1,],
                      'time_as_part_of_state': [1, ],
@@ -17,10 +17,10 @@ go1_switch_cost = {'env_name': ['Go1JoystickFlatTerrain', ],
 
 go1_no_switch_cost_ppo = {'env_name': ['Go1JoystickFlatTerrain', ],
                      'backend': ['generalized', ],
-                     'project_name': ["PPOGo1JoystickFlatTerrain_noDR"],
+                     'project_name': ["PPOGo1JoystickFlatTerrain_DR_fixedRewards"],
                      'seed': list(range(5)),
-                     'switch_cost': [0.1, ],
-                     'time_as_part_of_state': [1, ],
+                     'switch_cost': [0, ],
+                     'time_as_part_of_state': [0, ],
                      'num_final_evals': [1, ],
                      'switch_cost_wrapper': [0, ], # normal PPO (without switch cost wrapping)
                      }

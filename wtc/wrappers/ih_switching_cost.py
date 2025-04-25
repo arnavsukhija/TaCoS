@@ -10,6 +10,7 @@ from brax.envs.base import PipelineEnv, State, Env, base
 from jax import jit
 from jax.lax import while_loop, scan
 from jaxtyping import Float, Array
+from mujoco import mjx
 
 EPS = 1e-10
 
@@ -71,6 +72,9 @@ class IHSwitchCostWrapper(Env):
         self.ismujoco_env = ismujoco_env
         self.env_randomization_fn = env_randomization_fn
 
+
+    def randomization_fn(self, model: mjx.Model, rng:jax.Array):
+        return self.env_randomization_fn(model, rng)
     def _add_time_to_obs(self, state: State, time: jax.Array) -> State:
         # we handle the case where it is a state from a Mujoco Env
         if self.ismujoco_env:
@@ -188,6 +192,7 @@ class IHSwitchCostWrapper(Env):
                                                       pipeline_state=augmented_pipeline_state)
             return augmented_next_state
 
+    # TODO: This function is now not jittable (it's on purpose)
     def simulation_step(self, state: State, action: jax.Array) -> (State, State):
         u, pseudo_time_for_action = action[:-1], action[-1]
         if self.time_as_part_of_state:
@@ -230,7 +235,7 @@ class IHSwitchCostWrapper(Env):
 
         next_state = cur_state
         if len(all_states) == 0:
-            all_states = [cur_state]
+            all_states = [state]
         inner_part = jtu.tree_map(lambda *xs: jnp.stack(xs, axis=0), *all_states)
         total_reward = jnp.sum(inner_part.reward)
         next_done = 1 - (1 - next_state.done) * (1 - done)
@@ -239,20 +244,20 @@ class IHSwitchCostWrapper(Env):
         total_reward = total_reward - self.switch_cost(state=state.obs, action=u)
 
         # Prepare augmented obs
-        next_time = (time + steps_to_apply)
+        next_time = (time + step_index)
         if self.time_as_part_of_state:
             augmented_next_obs = self._add_time_to_obs(next_state, next_time)
             augmented_next_state = next_state.replace(obs=augmented_next_obs,
                                                       reward=total_reward,
                                                       done=next_done)
-            return augmented_next_state, inner_part
+            return augmented_next_state, all_states
         else:
             augmented_pipeline_state = AugmentedPipelineState(pipeline_state=next_state.pipeline_state,
                                                               time=next_time.reshape())
             augmented_next_state = next_state.replace(reward=total_reward,
                                                       done=next_done,
                                                       pipeline_state=augmented_pipeline_state)
-            return augmented_next_state, inner_part
+            return augmented_next_state, all_states
 
     @property
     def observation_size(self):
@@ -268,6 +273,9 @@ class IHSwitchCostWrapper(Env):
         else:
             return self.env.observation_size
 
+    @property
+    def mjx_model(self):
+        return self.env.mjx_model
     @property
     def action_size(self) -> int:
         # +1 for time that we apply action for
