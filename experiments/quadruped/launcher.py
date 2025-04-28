@@ -6,10 +6,10 @@ from experiments.util import generate_run_commands, generate_base_command, dict_
 ################################################
 go1_switch_cost = {'env_name': ['Go1JoystickFlatTerrain', ],
                      'backend': ['generalized', ],
-                     'project_name': ["TaCoSGo1JoystickFlatTerrain_DR_LogScaleSwitchCost_fixedRewards"],
+                     'project_name': ["TaCoSGo1JoystickFlatTerrain_continousDiscounting"],
                      'seed': list(range(5)),
                      'switch_cost': [0, 0.0001, 0.001, 0.005, 0.01, 0.1],
-                     'max_time_repeat': [2,3,4,5],
+                     'max_time_repeat': [3,4,5],
                      'min_time_repeat': [1,],
                      'time_as_part_of_state': [1, ],
                      'num_final_evals': [1, ],

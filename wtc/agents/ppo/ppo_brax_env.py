@@ -63,7 +63,7 @@ def _maybe_wrap_env(
   if not wrap_env:
     return env
   if episode_length is None:
-    raise ValueError('episode_length must be specified in ppo.train')
+    raise ValueError('episode_length must be specified')
   v_randomization_fn = None
   if randomization_fn is not None:
     randomization_batch_size = num_envs // local_device_count

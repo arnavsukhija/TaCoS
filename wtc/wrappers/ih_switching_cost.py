@@ -1,11 +1,12 @@
 from abc import abstractmethod
 from functools import partial
-from typing import NamedTuple, Mapping, Optional, Callable, Tuple
+from typing import NamedTuple, Mapping, Optional, Callable, Tuple, Any
 
 import chex
 import jax
 import jax.numpy as jnp
 import jax.tree_util as jtu
+import mujoco
 from brax.envs.base import PipelineEnv, State, Env, base
 from jax import jit
 from jax.lax import while_loop, scan
@@ -272,10 +273,6 @@ class IHSwitchCostWrapper(Env):
             return obs_size
         else:
             return self.env.observation_size
-
-    @property
-    def mjx_model(self):
-        return self.env.mjx_model
     @property
     def action_size(self) -> int:
         # +1 for time that we apply action for
@@ -288,6 +285,27 @@ class IHSwitchCostWrapper(Env):
     @property
     def dt(self):
         return self.env.dt
+
+    @property
+    def unwrapped(self) -> Any:
+        return self.env.unwrapped
+
+    def __getattr__(self, name):
+        if name == '__setstate__':
+            raise AttributeError(name)
+        return getattr(self.env, name)
+
+    @property
+    def mj_model(self) -> mujoco.MjModel:
+        return self.env.mj_model
+
+    @property
+    def mjx_model(self) -> mjx.Model:
+        return self.env.mjx_model
+
+    @property
+    def xml_path(self) -> str:
+        return self.env.xml_path
 
 
 if __name__ == '__main__':

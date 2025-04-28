@@ -20,9 +20,10 @@ import wandb
 
 from jax.nn import swish
 
+import wtc.utils
 from wtc.agents.ppo.ppo_brax_env import PPO
-from wtc.utils import discrete_to_continuous_discounting
-from wtc.wrappers.ih_switching_cost import ConstantSwitchCost, IHSwitchCostWrapper
+from wtc.utils.discounting import discrete_to_continuous_discounting
+from wtc.wrappers.ih_switching_cost_mjx import ConstantSwitchCost, IHSwitchCostWrapper
 
 from mujoco_playground import registry
 from mujoco_playground import wrapper
@@ -174,13 +175,12 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
     if switch_cost_wrapper:
         env = IHSwitchCostWrapper(env=env,
                                   episode_steps=episode_length,
-                                  min_time_between_switches=min_time_repeat,
+                                  min_time_between_switches=min_time_repeat * ctrl_dt,
                                   # Hardcoded to be at least the integration step
-                                  max_time_between_switches=max_time_repeat,
+                                  max_time_between_switches=max_time_repeat * ctrl_dt,
                                   switch_cost=ConstantSwitchCost(value=jnp.array(switch_cost)),
                                   discounting=discounting,
                                   time_as_part_of_state=time_as_part_of_state,
-                                  ismujoco_env=True,
                                   sim_dt = sim_dt,
                                   env_randomization_fn=randomization_fn,
                                   )
@@ -235,6 +235,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             config=config,
         )
     if switch_cost_wrapper: #using the interaction cost TaCoS in this case, since we have wrapped the environment using the switch cost wrapper (augmented state, reward, steps)
+        continous_discounting = discrete_to_continuous_discounting(discounting, ctrl_dt)
         optimizer = PPO(
             environment=env, #passing switch cost env
             num_timesteps=num_timesteps,
@@ -265,11 +266,11 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             wandb_logging=True,
             return_best_model=True,
             non_equidistant_time=True,
-            min_time_between_switches=min_time_repeat,
-            max_time_between_switches=max_time_repeat,
+            min_time_between_switches=min_time_repeat * ctrl_dt,
+            max_time_between_switches=max_time_repeat * ctrl_dt,
             env_dt=env.dt,
-            randomization_fn=env.randomization_fn,
-            seed=seed,
+            continuous_discounting=continous_discounting,
+            randomization_fn=env.randomize,
         )
     else: #standard PPO with discount factor adaptation for continuous tasks, improves performance on continuous tasks.
         optimizer = PPO(
@@ -301,7 +302,6 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             normalize_advantage=True,
             wandb_logging=True,
             randomization_fn=randomization_fn,
-            seed = seed,
         )
 
     xdata, ydata = [], []
@@ -335,23 +335,17 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
     print(f'Starting with evaluation')
     if switch_cost_wrapper:
         env_cfg = registry.get_default_config(env_name)
-        env_cfg.pert_config.enable = True
-        env_cfg.pert_config.velocity_kick = [3.0, 6.0]
-        env_cfg.pert_config.kick_wait_times = [5.0, 15.0]
+        env_cfg.pert_config.enable = False
         env_cfg.command_config.a = [1.5, 0.8, 2 * jnp.pi]
         eval_env = registry.load(env_name, config=env_cfg)
-        velocity_kick_range = [0.0, 0.0]  # Disable velocity kick.
-        kick_duration_range = [0.05, 0.2]
-
         eval_env = IHSwitchCostWrapper(env=eval_env,
                                   episode_steps=episode_length,
-                                  min_time_between_switches=min_time_repeat,
-                                  max_time_between_switches=max_time_repeat,
+                                  min_time_between_switches=min_time_repeat * ctrl_dt,
+                                  max_time_between_switches=max_time_repeat * ctrl_dt,
                                   switch_cost=ConstantSwitchCost(value=jnp.array(0.0)),
                                   discounting=discounting,
                                   time_as_part_of_state=time_as_part_of_state,
-                                  ismujoco_env=True,
-                                       sim_dt = env_cfg.sim_dt)
+                                  sim_dt = env_cfg.sim_dt)
         jit_reset = jax.jit(eval_env.reset)
         jit_step = jax.jit(eval_env.step)
         jit_inference_fn = jax.jit(optimizer.make_policy(policy_params, deterministic=True))
@@ -362,19 +356,6 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
         y_vel = 0.0  # @param {type: "number"}
         yaw_vel = 3.14  # @param {type: "number"}
 
-        def sample_pert(rng):
-            rng, key1, key2 = jax.random.split(rng, 3)
-            pert_mag = jax.random.uniform(
-                key1, minval=velocity_kick_range[0], maxval=velocity_kick_range[1]
-            )
-            duration_seconds = jax.random.uniform(
-                key2, minval=kick_duration_range[0], maxval=kick_duration_range[1]
-            )
-            duration_steps = jnp.round(duration_seconds / eval_env.dt).astype(jnp.int32)
-            state.info["pert_mag"] = pert_mag
-            state.info["pert_duration"] = duration_steps
-            state.info["pert_duration_seconds"] = duration_seconds
-            return rng
 
         rng = jax.random.PRNGKey(0)
         rollout = []
@@ -393,19 +374,17 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
         time_predictions = []
 
         state = jit_reset(rng)
-        if state.info["steps_since_last_pert"] < state.info["steps_until_next_pert"]:
-            rng = sample_pert(rng)
         state.info["command"] = command
         env_steps = 0
         while env_steps < env_cfg.episode_length:
-            if state.info["steps_since_last_pert"] < state.info["steps_until_next_pert"]:
-                rng = sample_pert(rng)
             act_rng, rng = jax.random.split(rng)
             ctrl, _ = jit_inference_fn(state.obs, act_rng)
             time_predictions.append(ctrl[-1])
             state= jit_step(state, ctrl)
             num_steps += 1
-            env_steps += env.compute_time(pseudo_time=ctrl[-1], t_upper=env.max_time_between_switches, t_lower=env.min_time_between_switches)
+            predicted_time = env.compute_time(pseudo_time=ctrl[-1], t_upper=env.max_time_between_switches, t_lower=env.min_time_between_switches, dt=ctrl_dt)
+            time_predictions.append(predicted_time)
+            env_steps += jnp.floor(predicted_time / ctrl_dt)
             state.info["command"] = command
             rews.append(
                 {k: v for k, v in state.metrics.items() if k.startswith("reward/")}
@@ -465,7 +444,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
         for state, mod_fn in zip(rollout, modify_scene_fns):
             current_time += float(state.obs['state'][-1] * eval_env.dt)
             
-            if current_time - last_render_time >= desired_dt:
+            if current_time - last_render_time >=desired_dt:
                 frames.append(state)
                 mod_fns_to_use.append(mod_fn)
                 last_render_time = current_time
@@ -486,70 +465,17 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
         total_reward = float(sum(
             v for reward_dict in rewards for v in reward_dict.values()
         ))
-
-        wandb.log({'Total reward over episode ': total_reward})
-        wandb.log({'Number of actions': num_steps})
+        action_steps = list(range(len(time_predictions)))
+        plt.figure(figsize=(10, 6))
+        plt.plot(action_steps, time_predictions, marker='o', linestyle='-', color='b')
+        plt.xlabel('Control step')
+        plt.ylabel('Time Prediction')
+        plt.title('Hold predictions')
+        wandb.log({'Results/Total reward over episode ': total_reward})
+        wandb.log({'Results/Number of actions': num_steps})
+        wandb.log({"Results/Time Prediction Plot": wandb.Image(plt)})
         print(f"The agent took {num_steps} actions")
         print(f"Agent got {total_reward} reward")
-
-        # We also visualize feet positions and the positional drift compared to the commanded linear and angular velocity.
-        swing_peak = jnp.array(swing_peak)
-        names = ["FR", "FL", "RR", "RL"]
-        colors = ["r", "g", "b", "y"]
-        fig, axs = plt.subplots(2, 2)
-        for i, ax in enumerate(axs.flat):
-            ax.plot(swing_peak[:, i], color=colors[i])
-            ax.set_ylim([0, env_cfg.reward_config.max_foot_height * 1.25])
-            ax.axhline(env_cfg.reward_config.max_foot_height, color="k", linestyle="--")
-            ax.set_title(names[i])
-            ax.set_xlabel("time")
-            ax.set_ylabel("height")
-        plt.tight_layout()
-
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png')
-        buf.seek(0)
-        wandb.log({"swing_peak_plot": wandb.Image(buf)})
-        plt.close()
-
-        linvel_x = jnp.array(linvel)[:, 0]
-        linvel_y = jnp.array(linvel)[:, 1]
-        angvel_yaw = jnp.array(angvel)[:, 2]
-
-        # Plot whether velocity is within the command range.
-        linvel_x = jnp.convolve(linvel_x, jnp.ones(10) / 10, mode="same")
-        linvel_y = jnp.convolve(linvel_y, jnp.ones(10) / 10, mode="same")
-        angvel_yaw = jnp.convolve(angvel_yaw, jnp.ones(10) / 10, mode="same")
-
-        fig, axes = plt.subplots(3, 1, figsize=(10, 10))
-        axes[0].plot(linvel_x)
-        axes[1].plot(linvel_y)
-        axes[2].plot(angvel_yaw)
-
-        axes[0].set_ylim(
-            -env_cfg.command_config.a[0], env_cfg.command_config.a[0]
-        )
-        axes[1].set_ylim(
-            -env_cfg.command_config.a[1], env_cfg.command_config.a[1]
-        )
-        axes[2].set_ylim(
-            -env_cfg.command_config.a[2], env_cfg.command_config.a[2]
-        )
-
-        for i, ax in enumerate(axes):
-            ax.axhline(state.info["command"][i], color="red", linestyle="--")
-
-        labels = ["dx", "dy", "dyaw"]
-        for i, ax in enumerate(axes):
-            ax.set_ylabel(labels[i])
-
-        plt.tight_layout()
-
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png')
-        buf.seek(0)
-        wandb.log({"velocity_tracking_plot": wandb.Image(buf)})
-        plt.close()
     else:
         # Enable perturbation in the eval env.
         env_cfg = registry.get_default_config(env_name)
@@ -676,67 +602,6 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
         wandb.log({'Total reward ': total_reward})
         wandb.log({'Number of actions': num_steps})
         print(f"Agent got {total_reward} reward")
-
-
-        # We also visualize feet positions and the positional drift compared to the commanded linear and angular velocity.
-        swing_peak = jnp.array(swing_peak)
-        names = ["FR", "FL", "RR", "RL"]
-        colors = ["r", "g", "b", "y"]
-        fig, axs = plt.subplots(2, 2)
-        for i, ax in enumerate(axs.flat):
-            ax.plot(swing_peak[:, i], color=colors[i])
-            ax.set_ylim([0, env_cfg.reward_config.max_foot_height * 1.25])
-            ax.axhline(env_cfg.reward_config.max_foot_height, color="k", linestyle="--")
-            ax.set_title(names[i])
-            ax.set_xlabel("time")
-            ax.set_ylabel("height")
-        plt.tight_layout()
-
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png')
-        buf.seek(0)
-        wandb.log({"swing_peak_plot": wandb.Image(buf)})
-        plt.close()
-
-        linvel_x = jnp.array(linvel)[:, 0]
-        linvel_y = jnp.array(linvel)[:, 1]
-        angvel_yaw = jnp.array(angvel)[:, 2]
-
-        # Plot whether velocity is within the command range.
-        linvel_x = jnp.convolve(linvel_x, jnp.ones(10) / 10, mode="same")
-        linvel_y = jnp.convolve(linvel_y, jnp.ones(10) / 10, mode="same")
-        angvel_yaw = jnp.convolve(angvel_yaw, jnp.ones(10) / 10, mode="same")
-
-        fig, axes = plt.subplots(3, 1, figsize=(10, 10))
-        axes[0].plot(linvel_x)
-        axes[1].plot(linvel_y)
-        axes[2].plot(angvel_yaw)
-
-        axes[0].set_ylim(
-            -env_cfg.command_config.a[0], env_cfg.command_config.a[0]
-        )
-        axes[1].set_ylim(
-            -env_cfg.command_config.a[1], env_cfg.command_config.a[1]
-        )
-        axes[2].set_ylim(
-            -env_cfg.command_config.a[2], env_cfg.command_config.a[2]
-        )
-
-        for i, ax in enumerate(axes):
-            ax.axhline(state.info["command"][i], color="red", linestyle="--")
-
-        labels = ["dx", "dy", "dyaw"]
-        for i, ax in enumerate(axes):
-            ax.set_ylabel(labels[i])
-
-        plt.tight_layout()
-
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png')
-        buf.seek(0)
-        wandb.log({"velocity_tracking_plot": wandb.Image(buf)})
-        plt.close()
-
     wandb.finish()
 
 

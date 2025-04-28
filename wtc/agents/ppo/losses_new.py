@@ -108,8 +108,8 @@ class PPOLoss:
             t_lower = self.min_time_between_switches
             t_upper = self.max_time_between_switches
             time_for_action = ((t_upper - t_lower) / 2 * pseudo_time_for_action + (t_upper + t_lower) / 2)
-            time_for_action = jnp.floor(time_for_action)
-            discounting = self.discounting ** time_for_action
+            time_for_action = (time_for_action // self.env_dt) * self.env_dt
+            discounting = jnp.exp(- self.continuous_discounting * time_for_action)
 
         vs, advantages = self.compute_gae(
             truncation=truncation,
