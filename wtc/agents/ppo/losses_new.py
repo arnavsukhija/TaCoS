@@ -46,7 +46,6 @@ class PPOLoss:
                  gae_lambda: float,
                  clipping_epsilon: float,
                  normalize_advantage: bool,
-                 non_equidistant_time: bool = False,
                  continuous_discounting: float = 0,
                  min_time_between_switches: float = 0,
                  max_time_between_switches: float = 0,
@@ -59,7 +58,6 @@ class PPOLoss:
         self.gae_lambda = gae_lambda
         self.clipping_epsilon = clipping_epsilon
         self.normalize_advantage = normalize_advantage
-        self.non_equidistant_time = non_equidistant_time
         self.continuous_discounting = continuous_discounting
         self.min_time_between_switches = min_time_between_switches
         self.max_time_between_switches = max_time_between_switches
@@ -103,13 +101,6 @@ class PPOLoss:
             policy_logits, data.extras['policy_extras']['raw_action'])
         behaviour_action_log_probs = data.extras['policy_extras']['log_prob']
 
-        if self.non_equidistant_time:
-            pseudo_time_for_action = data.action[..., -1]
-            t_lower = self.min_time_between_switches
-            t_upper = self.max_time_between_switches
-            time_for_action = ((t_upper - t_lower) / 2 * pseudo_time_for_action + (t_upper + t_lower) / 2)
-            time_for_action = (time_for_action // self.env_dt) * self.env_dt
-            discounting = jnp.exp(- self.continuous_discounting * time_for_action)
 
         vs, advantages = self.compute_gae(
             truncation=truncation,
@@ -117,7 +108,7 @@ class PPOLoss:
             rewards=rewards,
             values=baseline,
             bootstrap_value=bootstrap_value,
-            discounting=discounting if self.non_equidistant_time else None
+            discounting=None
         )
         if self.normalize_advantage:
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
@@ -179,50 +170,30 @@ class PPOLoss:
         # Append bootstrapped value to get [v1, ..., v_t+1]
         values_t_plus_1 = jnp.concatenate(
             [values[1:], jnp.expand_dims(bootstrap_value, 0)], axis=0)
-        if self.non_equidistant_time:
-            deltas = rewards + discounting * (1 - termination) * values_t_plus_1 - values
-        else:
-            deltas = rewards + self.discounting * (1 - termination) * values_t_plus_1 - values
+
+        deltas = rewards + self.discounting * (1 - termination) * values_t_plus_1 - values
         deltas *= truncation_mask
 
         acc = jnp.zeros_like(bootstrap_value)
         vs_minus_v_xs = []
 
-        if self.non_equidistant_time:
-            def compute_vs_minus_v_xs(carry, target_t):
-                acc = carry
-                truncation_mask, delta, termination, discounting = target_t
-                acc = delta + discounting * (1 - termination) * truncation_mask * self.gae_lambda * acc
-                return acc, acc
+        def compute_vs_minus_v_xs(carry, target_t):
+            acc = carry
+            truncation_mask, delta, termination = target_t
+            acc = delta + self.discounting * (1 - termination) * truncation_mask * self.gae_lambda * acc
+            return acc, acc
 
-            _, (vs_minus_v_xs) = jax.lax.scan(
-                compute_vs_minus_v_xs, acc,
-                (truncation_mask, deltas, termination, discounting),
-                length=int(truncation_mask.shape[0]),
-                reverse=True)
-
-        else:
-            def compute_vs_minus_v_xs(carry, target_t):
-                acc = carry
-                truncation_mask, delta, termination = target_t
-                acc = delta + self.discounting * (1 - termination) * truncation_mask * self.gae_lambda * acc
-                return acc, acc
-
-            _, (vs_minus_v_xs) = jax.lax.scan(
-                compute_vs_minus_v_xs, acc,
-                (truncation_mask, deltas, termination),
-                length=int(truncation_mask.shape[0]),
-                reverse=True)
+        _, (vs_minus_v_xs) = jax.lax.scan(
+            compute_vs_minus_v_xs, acc,
+            (truncation_mask, deltas, termination),
+            length=int(truncation_mask.shape[0]),
+            reverse=True)
 
         # Add V(x_s) to get v_s.
         vs = jnp.add(vs_minus_v_xs, values)
 
         vs_t_plus_1 = jnp.concatenate(
             [vs[1:], jnp.expand_dims(bootstrap_value, 0)], axis=0)
-        if self.non_equidistant_time:
-            advantages = (rewards + discounting *
-                          (1 - termination) * vs_t_plus_1 - values) * truncation_mask
-        else:
-            advantages = (rewards + self.discounting *
-                          (1 - termination) * vs_t_plus_1 - values) * truncation_mask
+        advantages = (rewards + self.discounting *
+                      (1 - termination) * vs_t_plus_1 - values) * truncation_mask
         return jax.lax.stop_gradient(vs), jax.lax.stop_gradient(advantages)

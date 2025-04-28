@@ -175,9 +175,9 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
     if switch_cost_wrapper:
         env = IHSwitchCostWrapper(env=env,
                                   episode_steps=episode_length,
-                                  min_time_between_switches=min_time_repeat * ctrl_dt,
+                                  min_time_between_switches=min_time_repeat,
                                   # Hardcoded to be at least the integration step
-                                  max_time_between_switches=max_time_repeat * ctrl_dt,
+                                  max_time_between_switches=max_time_repeat,
                                   switch_cost=ConstantSwitchCost(value=jnp.array(switch_cost)),
                                   discounting=discounting,
                                   time_as_part_of_state=time_as_part_of_state,
@@ -235,7 +235,6 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             config=config,
         )
     if switch_cost_wrapper: #using the interaction cost TaCoS in this case, since we have wrapped the environment using the switch cost wrapper (augmented state, reward, steps)
-        continous_discounting = discrete_to_continuous_discounting(discounting, ctrl_dt)
         optimizer = PPO(
             environment=env, #passing switch cost env
             num_timesteps=num_timesteps,
@@ -265,12 +264,11 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             normalize_advantage=True,
             wandb_logging=True,
             return_best_model=True,
-            non_equidistant_time=True,
-            min_time_between_switches=min_time_repeat * ctrl_dt,
-            max_time_between_switches=max_time_repeat * ctrl_dt,
-            env_dt=env.dt,
-            continuous_discounting=continous_discounting,
+            min_time_between_switches=min_time_repeat,
+            max_time_between_switches=max_time_repeat,
             randomization_fn=env.randomize,
+            policy_obs_key=policy_obs_key,
+            value_obs_key=value_obs_key,
         )
     else: #standard PPO with discount factor adaptation for continuous tasks, improves performance on continuous tasks.
         optimizer = PPO(
@@ -302,6 +300,8 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             normalize_advantage=True,
             wandb_logging=True,
             randomization_fn=randomization_fn,
+            policy_obs_key=policy_obs_key,
+            value_obs_key=value_obs_key,
         )
 
     xdata, ydata = [], []
@@ -340,8 +340,8 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
         eval_env = registry.load(env_name, config=env_cfg)
         eval_env = IHSwitchCostWrapper(env=eval_env,
                                   episode_steps=episode_length,
-                                  min_time_between_switches=min_time_repeat * ctrl_dt,
-                                  max_time_between_switches=max_time_repeat * ctrl_dt,
+                                  min_time_between_switches=min_time_repeat,
+                                  max_time_between_switches=max_time_repeat,
                                   switch_cost=ConstantSwitchCost(value=jnp.array(0.0)),
                                   discounting=discounting,
                                   time_as_part_of_state=time_as_part_of_state,
@@ -375,7 +375,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
 
         state = jit_reset(rng)
         state.info["command"] = command
-        env_steps = 0
+        env_steps = jnp.floor(state.obs['state'][-1] / ctrl_dt)
         while env_steps < env_cfg.episode_length:
             act_rng, rng = jax.random.split(rng)
             ctrl, _ = jit_inference_fn(state.obs, act_rng)
@@ -384,7 +384,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             num_steps += 1
             predicted_time = env.compute_time(pseudo_time=ctrl[-1], t_upper=env.max_time_between_switches, t_lower=env.min_time_between_switches, dt=ctrl_dt)
             time_predictions.append(predicted_time)
-            env_steps += jnp.floor(predicted_time / ctrl_dt)
+            env_steps = jnp.floor(state.obs['state'][-1] / ctrl_dt)
             state.info["command"] = command
             rews.append(
                 {k: v for k, v in state.metrics.items() if k.startswith("reward/")}

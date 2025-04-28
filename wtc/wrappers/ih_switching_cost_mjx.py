@@ -55,9 +55,9 @@ class IHSwitchCostWrapper(Wrapper):
         self.episode_steps = episode_steps
         self.num_integrator_steps = episode_steps * env.dt / sim_dt
         self.switch_cost = switch_cost
-        self.min_time_between_switches = min_time_between_switches
+        self.min_time_between_switches = 1
         assert min_time_between_switches >= env.dt, \
-            'Min time between switches must be at least env dt ' #otherwise the integration term makes no sense at all
+            'Min time between switches must be at least 1 ' #otherwise the integration term makes no sense at all
         self.time_horizon = self.env.dt * episode_steps  #this corresponds to the T from the paper, should be
         if max_time_between_switches is None:
             max_time_between_switches = self.time_horizon
@@ -93,7 +93,7 @@ class IHSwitchCostWrapper(Wrapper):
          (state, time-to-go)
         """
         state = self.env.reset(rng)
-        time = jnp.array(0.0)
+        time = jnp.array(0)
         if self.time_as_part_of_state:
             # we check whether the state observation is a jax.Array or a mapping, and extract the obs accordingly for the concatenation
             augmented_obs = self._add_time_to_obs(state, time)
@@ -108,9 +108,9 @@ class IHSwitchCostWrapper(Wrapper):
                      pseudo_time: chex.Array,
                      t_lower: chex.Array, # pass this as time now
                      t_upper: chex.Array, # pass this as time now
-                     dt: chex.Array) -> chex.Array:
+                     ) -> chex.Array:
         time_for_action = ((t_upper - t_lower) / 2 * pseudo_time + (t_upper + t_lower) / 2) #pseudo time for action is between [-1,1], we map it to tmin, tmax
-        return jnp.floor(time_for_action / dt) * dt
+        return jnp.floor(time_for_action)
 
     def _get_time_and_obs(self, state: mjx_env.State) -> Tuple[jax.Array, jax.Array, jax.Array]:
         obs, time = state.obs['state'][:-1], state.obs['state'][-1]
@@ -128,15 +128,14 @@ class IHSwitchCostWrapper(Wrapper):
 
         # Calculate the action time, i.e. Map pseudo_time_for_action from [-1, 1] to
         # time [self.min_time_between_switches, self.max_time_between_switches] (corresponds to number of steps now)
-        time_to_apply = self.compute_time(pseudo_time=pseudo_time_for_action,
+        steps_to_apply = self.compute_time(pseudo_time=pseudo_time_for_action,
                                             t_lower=self.min_time_between_switches,
                                             t_upper=self.max_time_between_switches,
-                                            dt = self.env.dt,
                                             )
 
-        done = time_to_apply >= self.time_horizon - time
+        done = steps_to_apply >= self.episode_steps - time
         # Calculate how many steps we need to take with action
-        num_steps = jnp.minimum(time_to_apply, self.time_horizon - time) // self.env.dt #calculate how often we apply this action based on the environment dt
+        num_steps = jnp.minimum(steps_to_apply, self.episode_steps - time)
 
         # Integrate dynamics forward for the num_steps
         if self.time_as_part_of_state:
@@ -168,7 +167,7 @@ class IHSwitchCostWrapper(Wrapper):
         total_reward = total_reward - self.switch_cost(state=state.obs, action=u)
 
         # Prepare augmented obs (how many steps we actually took)
-        next_time = (time + index * self.env.dt)
+        next_time = (time + index)
         if self.time_as_part_of_state:
             augmented_next_obs = self._add_time_to_obs(next_state, next_time)
             augmented_next_state = next_state.replace(obs=augmented_next_obs,
@@ -194,14 +193,13 @@ class IHSwitchCostWrapper(Wrapper):
 
         # Calculate the action time, i.e. Map pseudo_time_for_action from [-1, 1] to
         # time [self.min_time_between_switches, time_to_go] (now number of steps)
-        time_to_apply = self.compute_time(pseudo_time=pseudo_time_for_action,
+        steps_to_apply = self.compute_time(pseudo_time=pseudo_time_for_action,
                                             t_lower=self.min_time_between_switches,
-                                            t_upper=self.max_time_between_switches,
-                                          dt = self.env.dt)
-        done = time_to_apply >= self.time_horizon - time
+                                            t_upper=self.max_time_between_switches)
+        done = steps_to_apply >= self.episode_steps - time
 
         # Calculate how many steps we need to take with action
-        num_steps = jnp.minimum(time_to_apply, self.episode_steps - time) // self.env.dt
+        num_steps = jnp.minimum(steps_to_apply, self.episode_steps - time)
 
         # Integrate dynamics forward for the num_steps
 
@@ -234,7 +232,7 @@ class IHSwitchCostWrapper(Wrapper):
         total_reward = total_reward - self.switch_cost(state=state.obs, action=u)
 
         # Prepare augmented obs
-        next_time = (time + step_index * self.env.dt)
+        next_time = (time + step_index)
         if self.time_as_part_of_state:
             augmented_next_obs = self._add_time_to_obs(next_state, next_time)
             augmented_next_state = next_state.replace(obs=augmented_next_obs,
