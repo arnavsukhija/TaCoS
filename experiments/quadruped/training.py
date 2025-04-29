@@ -2,31 +2,22 @@ import argparse
 import datetime
 import functools
 import os
-import io
-from typing import Tuple
-
 import cloudpickle
-import pickle
 from datetime import datetime
 
 import jax
 import jax.numpy as jnp
 import jax.random as jr
-import jax.tree_util as jtu
 import matplotlib.pyplot as plt
-import mujoco
 import numpy as np
 import wandb
 
 from jax.nn import swish
 
-import wtc.utils
 from wtc.agents.ppo.ppo_brax_env import PPO
-from wtc.utils.discounting import discrete_to_continuous_discounting
 from wtc.wrappers.ih_switching_cost_mjx import ConstantSwitchCost, IHSwitchCostWrapper
 
 from mujoco_playground import registry
-from mujoco_playground import wrapper
 from mujoco_playground.config import locomotion_params
 
 
@@ -260,7 +251,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             policy_activation=swish,
             critic_hidden_layer_sizes=critic_hidden_layer_sizes,
             critic_activation=swish,
-            deterministic_eval=True,
+            deterministic_eval=False,
             normalize_advantage=True,
             wandb_logging=True,
             return_best_model=True,
@@ -269,6 +260,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             randomization_fn=env.randomize,
             policy_obs_key=policy_obs_key,
             value_obs_key=value_obs_key,
+            seed = seed,
         )
     else: #standard PPO with discount factor adaptation for continuous tasks, improves performance on continuous tasks.
         optimizer = PPO(
@@ -296,12 +288,13 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             policy_activation=swish,
             critic_hidden_layer_sizes=critic_hidden_layer_sizes,
             critic_activation=swish,
-            deterministic_eval=True,
+            deterministic_eval=False,
             normalize_advantage=True,
             wandb_logging=True,
             randomization_fn=randomization_fn,
             policy_obs_key=policy_obs_key,
             value_obs_key=value_obs_key,
+            seed = seed,
         )
 
     xdata, ydata = [], []
@@ -319,15 +312,8 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
     print('Before inference')
     policy_params, metrics = optimizer.run_training(key=jr.PRNGKey(seed), progress_fn=progress)
     print('After inference')
-
-    # Now we plot the evolution
-    pseudo_policy = optimizer.make_policy(policy_params, deterministic=True)
-
     save_policy(policy_params)
     print("Policy saved to wandb!")
-    @jax.jit
-    def policy(obs):
-        return pseudo_policy(obs, key_sample=jr.PRNGKey(0))
 
     ########################## Evaluation ##########################
     ################################################################
@@ -376,19 +362,21 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
         state = jit_reset(rng)
         state.info["command"] = command
         env_steps = jnp.floor(state.obs['state'][-1] / ctrl_dt)
+        total_reward = 0.0
         while env_steps < env_cfg.episode_length:
             act_rng, rng = jax.random.split(rng)
             ctrl, _ = jit_inference_fn(state.obs, act_rng)
             time_predictions.append(ctrl[-1])
             state= jit_step(state, ctrl)
             num_steps += 1
-            predicted_time = env.compute_time(pseudo_time=ctrl[-1], t_upper=env.max_time_between_switches, t_lower=env.min_time_between_switches, dt=ctrl_dt)
+            predicted_time = env.compute_time(pseudo_time=ctrl[-1], t_upper=env.max_time_between_switches, t_lower=env.min_time_between_switches)
             time_predictions.append(predicted_time)
-            env_steps = jnp.floor(state.obs['state'][-1] / ctrl_dt)
+            env_steps += predicted_time
             state.info["command"] = command
             rews.append(
                 {k: v for k, v in state.metrics.items() if k.startswith("reward/")}
             )
+            total_reward += state.reward
             rollout.append(state)
             swing_peak.append(state.info["swing_peak"])
             rewards.append(
@@ -462,16 +450,13 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
         for i, frame in enumerate(rendered_frames):
             plt.imsave(f"frames_ppoTacos_Fixed/frame_{i:04d}.png", frame, cmap) 
         """
-        total_reward = float(sum(
-            v for reward_dict in rewards for v in reward_dict.values()
-        ))
         action_steps = list(range(len(time_predictions)))
         plt.figure(figsize=(10, 6))
         plt.plot(action_steps, time_predictions, marker='o', linestyle='-', color='b')
         plt.xlabel('Control step')
         plt.ylabel('Time Prediction')
         plt.title('Hold predictions')
-        wandb.log({'Results/Total reward over episode ': total_reward})
+        wandb.log({'Results/Total reward': total_reward})
         wandb.log({'Results/Number of actions': num_steps})
         wandb.log({"Results/Time Prediction Plot": wandb.Image(plt)})
         print(f"The agent took {num_steps} actions")
@@ -479,13 +464,9 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
     else:
         # Enable perturbation in the eval env.
         env_cfg = registry.get_default_config(env_name)
-        env_cfg.pert_config.enable = True
-        env_cfg.pert_config.velocity_kick = [3.0, 6.0]
-        env_cfg.pert_config.kick_wait_times = [5.0, 15.0]
+        env_cfg.pert_config.enable = False
         env_cfg.command_config.a = [1.5, 0.8, 2 * jnp.pi]
         eval_env = registry.load(env_name, config=env_cfg)
-        velocity_kick_range = [0.0, 0.0]  # Disable velocity kick.
-        kick_duration_range = [0.05, 0.2]
 
         jit_reset = jax.jit(eval_env.reset)
         jit_step = jax.jit(eval_env.step)
@@ -495,20 +476,6 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
         x_vel = 0.0  # @param {type: "number"}
         y_vel = 0.0  # @param {type: "number"}
         yaw_vel = 3.14  # @param {type: "number"}
-
-        def sample_pert(rng):
-            rng, key1, key2 = jax.random.split(rng, 3)
-            pert_mag = jax.random.uniform(
-                key1, minval=velocity_kick_range[0], maxval=velocity_kick_range[1]
-            )
-            duration_seconds = jax.random.uniform(
-                key2, minval=kick_duration_range[0], maxval=kick_duration_range[1]
-            )
-            duration_steps = jnp.round(duration_seconds / eval_env.dt).astype(jnp.int32)
-            state.info["pert_mag"] = pert_mag
-            state.info["pert_duration"] = duration_steps
-            state.info["pert_duration_seconds"] = duration_seconds
-            return rng
 
         rng = jax.random.PRNGKey(0)
         rollout = []
@@ -525,13 +492,10 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
         command = jnp.array([x_vel, y_vel, yaw_vel])
 
         state = jit_reset(rng)
-        if state.info["steps_since_last_pert"] < state.info["steps_until_next_pert"]:
-            rng = sample_pert(rng)
         state.info["command"] = command
         num_steps = 0
+        total_reward = 0
         while num_steps < env_cfg.episode_length:
-            if state.info["steps_since_last_pert"] < state.info["steps_until_next_pert"]:
-                rng = sample_pert(rng)
             act_rng, rng = jax.random.split(rng)
             ctrl, _ = jit_inference_fn(state.obs, act_rng)
             state = jit_step(state, ctrl)
@@ -545,6 +509,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             rewards.append(
                 {k[7:]: v for k, v in state.metrics.items() if k.startswith("reward/")}
             )
+            total_reward += state.reward
             linvel.append(env.get_global_linvel(state.data))
             angvel.append(env.get_gyro(state.data))
             track.append(
@@ -596,11 +561,8 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             modify_scene_fns=mod_fns,
         )
         """
-        total_reward = float(sum(
-            v for reward_dict in rewards for v in reward_dict.values()
-        ))
-        wandb.log({'Total reward ': total_reward})
-        wandb.log({'Number of actions': num_steps})
+        wandb.log({'Results/Total reward ': total_reward})
+        wandb.log({'Results/Number of actions': num_steps})
         print(f"Agent got {total_reward} reward")
     wandb.finish()
 
