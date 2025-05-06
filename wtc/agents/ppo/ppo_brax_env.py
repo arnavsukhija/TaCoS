@@ -85,6 +85,7 @@ class PPO:
                  environment: envs.Env,
                  num_timesteps: int,
                  episode_length: int,
+                 eval_environment: envs.Env = None,
                  action_repeat: int = 1,
                  num_envs: int = 1,
                  num_eval_envs: int = 128,
@@ -159,9 +160,8 @@ class PPO:
                                    key_env=key_dr, randomization_fn=randomization_fn)
         # Only one local device for evaluation
         key_dr, key_dreval = jr.split(key_dr)
-        self.eval_env = _maybe_wrap_env(environment, wrap_env=True, num_envs=self.num_eval_envs, episode_length=self.episode_length, action_repeat=self.action_repeat,
+        self.eval_env = _maybe_wrap_env(eval_environment if eval_environment is not None else environment, wrap_env=True, num_envs=self.num_eval_envs, episode_length=self.episode_length, action_repeat=self.action_repeat,
                                         local_device_count=1, key_env=key_dreval, randomization_fn=randomization_fn)
-
         self.x_dim = self.env.observation_size
         self.u_dim = self.env.action_size
 

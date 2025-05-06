@@ -1,6 +1,7 @@
+import functools
 from abc import abstractmethod
 from functools import partial
-from typing import NamedTuple, Callable, Tuple, Mapping
+from typing import NamedTuple, Callable, Tuple, Mapping, Optional
 
 import chex
 from jax import jit
@@ -9,10 +10,8 @@ import jax
 import jax.numpy as jnp
 from jax.lax import while_loop
 import jax.tree_util as jtu
-from mujoco import mjx
 from mujoco_playground._src import mjx_env
 from mujoco_playground._src.wrapper import Wrapper
-
 EPS = 1e-10
 class AugmentedPipelineState(NamedTuple):
     pipeline_state: mjx_env.State
@@ -49,14 +48,13 @@ class IHSwitchCostWrapper(Wrapper):
                  discounting: float = 0.99,
                  time_as_part_of_state: bool = False,
                  sim_dt: float = 1,
-                 env_randomization_fn: Callable[[mjx.Model, jax.Array], Tuple[mjx.Model, mjx.Model]] = None,
                  ):
         super().__init__(env)
         self.episode_steps = episode_steps
         self.num_integrator_steps = episode_steps * env.dt / sim_dt
         self.switch_cost = switch_cost
-        self.min_time_between_switches = 1
-        assert min_time_between_switches >= env.dt, \
+        self.min_time_between_switches = min_time_between_switches
+        assert min_time_between_switches >= 1, \
             'Min time between switches must be at least 1 ' #otherwise the integration term makes no sense at all
         self.time_horizon = self.env.dt * episode_steps  #this corresponds to the T from the paper, should be
         if max_time_between_switches is None:
@@ -65,11 +63,6 @@ class IHSwitchCostWrapper(Wrapper):
         self.discounting = discounting
         self.time_as_part_of_state = time_as_part_of_state #this includes the state definition, for interaction cost time is part of the state
         self.jitted_step_fn = jit(self.env.step)
-        self.env_randomization_fn = env_randomization_fn
-
-    def randomize(self, model: mjx.Model, rng: jax.Array) -> Tuple[mjx.Model, mjx.Model]:
-        new_model, in_axes = self.env_randomization_fn(model, rng)
-        return new_model, in_axes
 
     def _add_time_to_obs(self, state: mjx_env.State, time: jax.Array) -> Mapping[str, jnp.ndarray]:
         reshaped_time = time.reshape(1)
@@ -112,6 +105,9 @@ class IHSwitchCostWrapper(Wrapper):
         time_for_action = ((t_upper - t_lower) / 2 * pseudo_time + (t_upper + t_lower) / 2) #pseudo time for action is between [-1,1], we map it to tmin, tmax
         return jnp.floor(time_for_action)
 
+    def compute_steps(self, pseudo_time: chex.Array) -> chex.Array:
+        func = functools.partial(self.compute_time, t_lower=self.min_time_between_switches, t_upper=self.max_time_between_switches)
+        return func(pseudo_time)
     def _get_time_and_obs(self, state: mjx_env.State) -> Tuple[jax.Array, jax.Array, jax.Array]:
         obs, time = state.obs['state'][:-1], state.obs['state'][-1]
         obs_size = obs.size
@@ -143,9 +139,9 @@ class IHSwitchCostWrapper(Wrapper):
                 'state': obs,
                 'privileged_state': privileged_state_obs
             }
-            state = state.replace(obs=old_obs)
+            integration_state = state.replace(obs=old_obs)
         else:
-            state = state.replace(pipeline_state=env_pipeline_state)
+            integration_state = state.replace(pipeline_state=env_pipeline_state)
 
         def body_integration_step(val):
             s, r, i = val
@@ -158,7 +154,7 @@ class IHSwitchCostWrapper(Wrapper):
             # We continue if index is smaller that num_steps ant we are not done
             return jnp.bitwise_and(i < num_steps, jnp.bitwise_not(s.done.astype(bool)))
 
-        init_val = (state, jnp.array(0.0), jnp.array(0))
+        init_val = (integration_state, jnp.array(0.0), jnp.array(0))
         final_val = while_loop(cond_integration_step, body_integration_step, init_val)
         next_state, total_reward, index = final_val
         next_done = 1 - (1 - next_state.done) * (1 - done)

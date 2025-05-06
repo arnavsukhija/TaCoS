@@ -7,7 +7,6 @@ from brax.training import types
 from flax import linen as nn
 from flax import struct
 
-
 @struct.dataclass
 class PPONetworks:
     policy_network: networks.FeedForwardNetwork

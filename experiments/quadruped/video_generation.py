@@ -5,7 +5,7 @@ import os
 
 # Path to your frames
 frame_dir = os.path.join(os.getcwd(), 'videoFrames')
-frames_path = os.path.join(frame_dir, os.path.join('frames_ppo_vel', 'frames_ppo_vel'))
+frames_path = os.path.join(frame_dir, os.path.join('ppo', 'frames_ppo_fixObs'))
 # Get list of frames in order
 frame_files = sorted(glob.glob(os.path.join(frames_path, "frame_*.png")))
 
@@ -20,4 +20,4 @@ for f in frame_files:
 print(f"Number of frames: {len(frames)}")
 
 # Create a video from the image sequence
-media.write_video("ppo_velocity.mp4", frames, fps=25)
+media.write_video("ppo_fixObs.mp4", frames, fps=25)
