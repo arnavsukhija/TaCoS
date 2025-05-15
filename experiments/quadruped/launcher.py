@@ -6,20 +6,20 @@ from experiments.util import generate_run_commands, generate_base_command, dict_
 ################################################
 go1_switch_cost = {'env_name': ['Go1JoystickFlatTerrain', ],
                      'backend': ['generalized', ],
-                     'project_name': ["TaCoSGo1JoystickFlatTerrain_braxPPO"],
+                     'project_name': ["TaCoSGo1JoystickFlatTerrain_1.0TacosDiscount"],
                      'seed': list(range(5)),
-                     'switch_cost': [0,],
-                     'max_time_repeat': [3,4,5],
+                     'switch_cost': [0.005, 0.01],
+                     'max_time_repeat': [3,4,5,10],
                      'min_time_repeat': [1,],
                      'time_as_part_of_state': [1, ],
                      'num_final_evals': [1, ],
                       'perturb' : [0, ],
+                     'discounting': [0, ]
                      }
 
 go1_no_switch_cost_ppo = {'env_name': ['Go1JoystickFlatTerrain', ],
                      'backend': ['generalized', ],
                      'project_name': ["PPOGo1JoystickFlatTerrain_fixObs"],
-                     'seed': list(range(5)),
                      'switch_cost': [0, ],
                      'time_as_part_of_state': [0, ],
                      'num_final_evals': [1, ],

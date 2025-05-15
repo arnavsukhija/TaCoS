@@ -13,7 +13,7 @@ class PPONetworks:
     value_network: networks.FeedForwardNetwork
     parametric_action_distribution: distribution.ParametricDistribution
 
-"""This is an adapted version from the mbpo """
+"""This is an adapted version from the mbpo repository with support for asymmetric observation setup"""
 class PPONetworksModel:
     def __init__(self,
                  x_dim: types.ObservationSize,

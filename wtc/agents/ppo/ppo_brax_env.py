@@ -13,7 +13,6 @@ import jax.tree_util as jtu
 import optax
 import wandb
 from brax import envs, base
-from mujoco import mjx
 from brax.training import acting
 from brax.training import networks
 from brax.training import types
@@ -47,38 +46,40 @@ class TrainingState:
     def get_policy_params(self):
         return self.normalizer_params, self.params.policy
 
+
 def _maybe_wrap_env(
-    env: envs.Env,
-    wrap_env: bool,
-    num_envs: int,
-    episode_length: Optional[int],
-    action_repeat: int,
-    local_device_count: int,
-    key_env: jr.PRNGKey,
-    randomization_fn: Optional[
-        Callable[[base.System, jnp.ndarray], Tuple[base.System, base.System]]
-    ] = None,
+        env: envs.Env,
+        wrap_env: bool,
+        num_envs: int,
+        episode_length: Optional[int],
+        action_repeat: int,
+        local_device_count: int,
+        key_env: jr.PRNGKey,
+        randomization_fn: Optional[
+            Callable[[base.System, jnp.ndarray], Tuple[base.System, base.System]]
+        ] = None,
 ):
-  """Wraps the environment for training/eval if wrap_env is True."""
-  if not wrap_env:
+    """Wraps the environment for training/eval if wrap_env is True."""
+    if not wrap_env:
+        return env
+    if episode_length is None:
+        raise ValueError('episode_length must be specified')
+    v_randomization_fn = None
+    if randomization_fn is not None:
+        randomization_batch_size = num_envs // local_device_count
+        # all devices gets the same randomization rng
+        randomization_rng = jax.random.split(key_env, randomization_batch_size)
+        v_randomization_fn = functools.partial(
+            randomization_fn, rng=randomization_rng
+        )
+    env = wrap_for_training(
+        env,
+        episode_length=episode_length,
+        action_repeat=action_repeat,
+        randomization_fn=v_randomization_fn,
+    )  # pytype: disable=wrong-keyword-args
     return env
-  if episode_length is None:
-    raise ValueError('episode_length must be specified')
-  v_randomization_fn = None
-  if randomization_fn is not None:
-    randomization_batch_size = num_envs // local_device_count
-    # all devices gets the same randomization rng
-    randomization_rng = jax.random.split(key_env, randomization_batch_size)
-    v_randomization_fn = functools.partial(
-        randomization_fn, rng=randomization_rng
-    )
-  env = wrap_for_training(
-      env,
-      episode_length=episode_length,
-      action_repeat=action_repeat,
-      randomization_fn=v_randomization_fn,
-  )  # pytype: disable=wrong-keyword-args
-  return env
+
 
 class PPO:
     def __init__(self,
@@ -101,6 +102,7 @@ class PPO:
                  num_updates_per_batch: int = 2,
                  num_evals: int = 1,
                  normalize_observations: bool = False,
+                 non_equidistant_time: bool = False,
                  reward_scaling: float = 1.,
                  clipping_epsilon: float = .3,
                  gae_lambda: float = .95,
@@ -115,7 +117,6 @@ class PPO:
                  continuous_discounting: float = 0,
                  min_time_between_switches: float = 0,
                  max_time_between_switches: float = 0,
-                 env_dt: float = 0,
                  policy_obs_key: str = 'state',
                  value_obs_key: str = 'state',
                  randomization_fn: Optional[
@@ -142,6 +143,7 @@ class PPO:
         self.entropy_cost = entropy_cost
         self.num_eval_envs = num_eval_envs
         self.num_envs = num_envs
+        self.non_equidistant_time = non_equidistant_time
         self.randomization_fn = randomization_fn
         # Set this to None unless you want to use parallelism across multiple devices.
         self._PMAP_AXIS_NAME = None
@@ -156,11 +158,14 @@ class PPO:
         self.key = jr.PRNGKey(seed)
         self.key, key_dr = jr.split(self.key)
         self.env = _maybe_wrap_env(environment, wrap_env=True,
-                                   num_envs=self.num_envs, episode_length=self.episode_length, action_repeat=self.action_repeat, local_device_count=jax.local_device_count(),
+                                   num_envs=self.num_envs, episode_length=self.episode_length,
+                                   action_repeat=self.action_repeat, local_device_count=jax.local_device_count(),
                                    key_env=key_dr, randomization_fn=randomization_fn)
         # Only one local device for evaluation
         key_dr, key_dreval = jr.split(key_dr)
-        self.eval_env = _maybe_wrap_env(eval_environment if eval_environment is not None else environment, wrap_env=True, num_envs=self.num_eval_envs, episode_length=self.episode_length, action_repeat=self.action_repeat,
+        self.eval_env = _maybe_wrap_env(eval_environment if eval_environment is not None else environment,
+                                        wrap_env=True, num_envs=self.num_eval_envs, episode_length=self.episode_length,
+                                        action_repeat=self.action_repeat,
                                         local_device_count=1, key_env=key_dreval, randomization_fn=randomization_fn)
         self.x_dim = self.env.observation_size
         self.u_dim = self.env.action_size
@@ -180,7 +185,7 @@ class PPO:
             value_hidden_layer_sizes=critic_hidden_layer_sizes,
             value_activation=critic_activation,
             policy_obs_key=policy_obs_key,
-            value_obs_key=value_obs_key,)
+            value_obs_key=value_obs_key, )
 
         self.make_policy = make_inference_fn(self.ppo_networks_model.get_ppo_networks())
 
@@ -199,7 +204,7 @@ class PPO:
                                 continuous_discounting=continuous_discounting,
                                 min_time_between_switches=min_time_between_switches,
                                 max_time_between_switches=max_time_between_switches,
-                                env_dt=env_dt,
+                                non_equidistant_time=self.non_equidistant_time,
                                 )
 
         self.ppo_update = gradient_update_fn(self.ppo_loss.loss, self.optimizer, pmap_axis_name=self._PMAP_AXIS_NAME,
@@ -329,7 +334,7 @@ class PPO:
         }
         return training_state, env_state, metrics
 
-    def init_training_state(self,key: chex.PRNGKey) -> TrainingState:
+    def init_training_state(self, key: chex.PRNGKey) -> TrainingState:
         keys = jr.split(key)
         init_params = PPONetworkParams(
             policy=self.ppo_networks_model.get_policy_network().init(keys[0]),

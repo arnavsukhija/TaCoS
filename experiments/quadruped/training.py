@@ -10,15 +10,11 @@ import jax.numpy as jnp
 import jax.random as jr
 import matplotlib.pyplot as plt
 import numpy as np
-from IPython.core.display_functions import display, clear_output
-from mujoco_playground import wrapper
 import wandb
 
 from jax.nn import swish
 
 from wtc.agents.ppo.ppo_brax_env import PPO
-from brax.training.agents.ppo import networks as ppo_networks
-from brax.training.agents.ppo import train as ppo
 from wtc.wrappers.ih_switching_cost_mjx import ConstantSwitchCost, IHSwitchCostWrapper
 
 from mujoco_playground import registry
@@ -90,6 +86,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
                time_as_part_of_state: bool = True,
                num_final_evals: int = 10,
                perturb: bool = False,
+               discounting: float = 0.0,
                ):
     # we load the env from the playground and read out the params
     env_cfg = registry.get_default_config(env_name)
@@ -100,7 +97,10 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
     ppo_config = dict(ppo_params)
     action_repeat = ppo_config['action_repeat']
     batch_size = ppo_config['batch_size']
-    discounting = ppo_config['discounting']
+    if discounting > 0.0:
+        discount_factor = discounting
+    else:
+        discount_factor = ppo_config['discounting']
     entropy_cost = ppo_config['entropy_cost']
     episode_length = ppo_config['episode_length']
     learning_rate = ppo_config['learning_rate']
@@ -114,7 +114,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
     num_evals = ppo_config['num_evals']
     num_minibatches = ppo_config['num_minibatches']
     num_resets_per_eval = ppo_config['num_resets_per_eval']
-    num_timesteps = ppo_config['num_timesteps']
+    num_timesteps = ppo_config['num_timesteps']*2 ## train longer for 400mil time steps
     num_updates_per_batch = ppo_config['num_updates_per_batch']
     reward_scaling = ppo_config['reward_scaling']
     unroll_length = ppo_config['unroll_length']
@@ -132,7 +132,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
                                   # Hardcoded to be at least the integration step
                                   max_time_between_switches=max_time_repeat,
                                   switch_cost=ConstantSwitchCost(value=jnp.array(switch_cost)),
-                                  discounting=discounting,
+                                  discounting=discount_factor,
                                   time_as_part_of_state=time_as_part_of_state,
                                   sim_dt = sim_dt,
                                   )
@@ -142,7 +142,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
                                   # Hardcoded to be at least the integration step
                                   max_time_between_switches=max_time_repeat,
                                   switch_cost=ConstantSwitchCost(value=jnp.array(0.0)),
-                                  discounting=discounting,
+                                  discounting=1.0,
                                   time_as_part_of_state=time_as_part_of_state,
                                   sim_dt = sim_dt,
                                   )
@@ -150,11 +150,11 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
     config = dict(env_name=env_name,
                   backend=backend,
                   num_timesteps=num_timesteps,
-                  episode_time=episode_length * env.dt,
+                  episode_time=episode_length * go1_env.dt,
                   sim_dt=sim_dt, ##this corresponds to integration dt which is the sim dt,
                   control_dt=ctrl_dt,
                   new_episode_steps=episode_length,
-                  base_discount_factor=discounting,
+                  base_discount_factor=discount_factor,
                   seed=seed,
                   num_envs=num_envs,
                   num_eval_envs=num_eval_envs,
@@ -195,53 +195,8 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             dir='/cluster/scratch/' + ENTITY,
             config=config,
         )
-    x_data, y_data, y_dataerr = [], [], []
     times = [datetime.now()]
 
-    def progress(num_steps, metrics):
-        clear_output(wait=True)
-
-        times.append(datetime.now())
-        x_data.append(num_steps)
-        y_data.append(metrics["eval/episode_reward"])
-        y_dataerr.append(metrics["eval/episode_reward_std"])
-
-        plt.xlim([0, ppo_params["num_timesteps"] * 1.25])
-        plt.xlabel("# environment steps")
-        plt.ylabel("reward per episode")
-        plt.title(f"y={y_data[-1]:.3f}")
-        plt.errorbar(x_data, y_data, yerr=y_dataerr, color="blue")
-
-        display(plt.gcf())
-        wandb.log({
-            "step": num_steps,
-            "eval/episode_reward": metrics["eval/episode_reward"],
-            "eval/episode_reward_std": metrics["eval/episode_reward_std"],
-        })
-
-    """We try the brax optimizer"""
-    if switch_cost_wrapper:
-        randomizer = registry.get_domain_randomizer(env_name)
-        ppo_training_params = dict(ppo_params)
-        network_factory = ppo_networks.make_ppo_networks
-        if "network_factory" in ppo_params:
-            del ppo_training_params["network_factory"]
-            network_factory = functools.partial(
-                ppo_networks.make_ppo_networks,
-                **ppo_params.network_factory
-            )
-        train_fn = functools.partial(
-            ppo.train, **dict(ppo_training_params),
-            network_factory=network_factory,
-            randomization_fn=randomizer,
-            progress_fn=progress
-        )
-        make_inference_fn, params, metrics = train_fn(
-            environment=env,
-            eval_env=eval_env,
-            wrap_env_fn=wrapper.wrap_for_brax_training,
-        )
-    """ This is the mbpo optimizer
     if switch_cost_wrapper: #using the interaction cost TaCoS in this case, since we have wrapped the environment using the switch cost wrapper (augmented state, reward, steps)
         optimizer = PPO(
             environment=env, #passing switch cost env
@@ -255,7 +210,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             wd=0.,
             entropy_cost=entropy_cost,
             unroll_length=unroll_length,
-            discounting=discounting,
+            discounting=discount_factor,
             batch_size=batch_size,
             num_minibatches=num_minibatches,
             num_updates_per_batch=num_updates_per_batch,
@@ -273,9 +228,10 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             normalize_advantage=True,
             wandb_logging=True,
             return_best_model=True,
+            non_equidistant_time = True,
             min_time_between_switches=min_time_repeat,
             max_time_between_switches=max_time_repeat,
-            randomization_fn=env.randomize,
+            randomization_fn=randomization_fn,
             policy_obs_key=policy_obs_key,
             value_obs_key=value_obs_key,
             seed = seed,
@@ -292,7 +248,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             wd=0.,
             entropy_cost=entropy_cost,
             unroll_length=unroll_length,
-            discounting=discounting,
+            discounting=discount_factor,
             batch_size=batch_size,
             num_minibatches=num_minibatches,
             num_updates_per_batch=num_updates_per_batch,
@@ -314,10 +270,8 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             value_obs_key=value_obs_key,
             seed = seed,
         )
-
     xdata, ydata = [], []
     times = [datetime.now()]
-
     def progress(num_steps, metrics):
         times.append(datetime.now())
         xdata.append(num_steps)
@@ -330,8 +284,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
     print('Before inference')
     policy_params, metrics = optimizer.run_training(key=jr.PRNGKey(seed), progress_fn=progress)
     print('After inference')
-    """
-    save_policy(params)
+    save_policy(policy_params)
     print("Policy saved to wandb!")
 
     ########################## Evaluation ##########################
@@ -348,12 +301,12 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
                                   min_time_between_switches=min_time_repeat,
                                   max_time_between_switches=max_time_repeat,
                                   switch_cost=ConstantSwitchCost(value=jnp.array(0.0)),
-                                  discounting=discounting,
+                                  discounting=1.0,
                                   time_as_part_of_state=time_as_part_of_state,
                                   sim_dt = env_cfg.sim_dt)
         jit_reset = jax.jit(eval_env.reset)
         jit_step = jax.jit(eval_env.step)
-        jit_inference_fn = jax.jit(make_inference_fn(params, deterministic=True))
+        jit_inference_fn = jax.jit(optimizer.make_policy(policy_params, deterministic=True))
 
         from mujoco_playground._src.gait import draw_joystick_command
 
@@ -430,45 +383,6 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
                         / env_cfg.command_config.a[0],
                 )
             )
-        """ Rendering
-        render_every = 2
-        desired_dt = eval_env.dt * render_every # this corresponds to the ideal rendering dt for frame capturing
-        current_time = 0.0
-        last_render_time = 0.0
-        
-        fps = 1.0 / desired_dt
-        
-        scene_option = mujoco.MjvOption()
-        scene_option.geomgroup[2] = True
-        scene_option.geomgroup[3] = False
-        scene_option.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = True
-        scene_option.flags[mujoco.mjtVisFlag.mjVIS_TRANSPARENT] = False
-        scene_option.flags[mujoco.mjtVisFlag.mjVIS_PERTFORCE] = True
-        
-        frames = []
-        mod_fns_to_use = []
-        
-        for state, mod_fn in zip(rollout, modify_scene_fns):
-            current_time += float(state.obs['state'][-1] * eval_env.dt)
-            
-            if current_time - last_render_time >=desired_dt:
-                frames.append(state)
-                mod_fns_to_use.append(mod_fn)
-                last_render_time = current_time
-    
-        rendered_frames = eval_env.env.render(
-            frames,
-            camera="track",
-            scene_option=scene_option,
-            width=640,
-            height=480,
-            modify_scene_fns=mod_fns_to_use,
-        )
-        
-        os.makedirs("frames_ppoTacos_Fixed", exist_ok=True)
-        for i, frame in enumerate(rendered_frames):
-            plt.imsave(f"frames_ppoTacos_Fixed/frame_{i:04d}.png", frame, cmap) 
-        """
         action_steps = list(range(len(time_predictions)))
         plt.figure(figsize=(10, 6))
         plt.plot(action_steps, time_predictions, marker='o', linestyle='-', color='b')
@@ -558,28 +472,6 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
                         / env_cfg.command_config.a[0],
                 )
             )
-        """Rendering
-        render_every = 2
-        fps = 1.0 / eval_env.dt / render_every
-        traj = rollout[::render_every]
-        mod_fns = modify_scene_fns[::render_every]
-
-        scene_option = mujoco.MjvOption()
-        scene_option.geomgroup[2] = True
-        scene_option.geomgroup[3] = False
-        scene_option.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = True
-        scene_option.flags[mujoco.mjtVisFlag.mjVIS_TRANSPARENT] = False
-        scene_option.flags[mujoco.mjtVisFlag.mjVIS_PERTFORCE] = True
-
-        frames = eval_env.render(
-            traj,
-            camera="track",
-            scene_option=scene_option,
-            width=640,
-            height=480,
-            modify_scene_fns=mod_fns,
-        )
-        """
         wandb.log({'Results/Total reward ': total_reward})
         wandb.log({'Results/Number of actions': num_steps})
         print(f"Agent got {total_reward} reward")
@@ -615,5 +507,6 @@ if __name__ == '__main__':
     parser.add_argument('--time_as_part_of_state', type=int, default=1)
     parser.add_argument('--num_final_evals', type=int, default=10)
     parser.add_argument('--perturb', type=int, default=0)
+    parser.add_argument('--discounting', type=float, default=0.0)
     args = parser.parse_args()
     main(args)
