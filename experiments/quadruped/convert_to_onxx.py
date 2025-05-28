@@ -1,68 +1,243 @@
+# ruff: noqa
+# type: ignore
+# https://github.com/google-deepmind/mujoco_playground/blob/609168a02cc068193f0fdb4379c2030b388b073e/mujoco_playground/experimental/brax_network_to_onnx.ipynb#L364
+import os
+
+os.environ["MUJOCO_GL"] = "egl"
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+
+import functools
 import cloudpickle
+
 import wandb
-from jax._src.nn.functions import swish
-from mujoco_playground._src import registry
-import ast
-from wtc.agents.ppo.ppo_brax_env import PPO
-# Setup WandB API
-api = wandb.Api()
+import jax
+import jax.numpy as jp
+import jax.nn as jnn
+import matplotlib.pyplot as plt
+import numpy as np
+import onnxruntime as rt
+import tensorflow as tf
+import tf2onnx
+from brax.training.acme import running_statistics
+from brax.training.agents.ppo import networks as ppo_networks
+from mujoco_playground import locomotion
+from mujoco_playground.config import locomotion_params
+from brax.training.acme import running_statistics
+from tensorflow.keras import layers  # type: ignore
 
-# Replace with your actual project and run ID
-run_path = "arnavsukhija-eth-zurich/PPOGo1JoystickFlatTerrain_fixObs/171bw71n"
-run = wandb.init(project="arnavsukhija-eth-zurich/PPOGo1JoystickFlatTerrain_fixObs", id="171bw71n")
-# Load config as a dictionary
-config = dict(run.config)
-
-# Optional: print out to verify
-print("Loaded config from W&B run:", config)
-
-# Load the policy parameters
-with open('Policies/Policies/policy_params_171bw71n.pkl', 'rb') as f:
+from wtc.wrappers.ih_switching_cost_mjx import IHSwitchCostWrapper, ConstantSwitchCost
+env_name = "Go1JoystickFlatTerrain"
+ppo_params = locomotion_params.brax_ppo_config(env_name)
+ppo_config = dict(ppo_params)
+with open('../tacos3-0cost_brax/tacos3_0cost_brax.pkl', 'rb') as f:
     policy_params = cloudpickle.load(f)
 
-wandb.save(policy_params)
+env_cfg = locomotion.get_default_config(env_name)
+env = locomotion.load(env_name, config=env_cfg)
+env = IHSwitchCostWrapper(env=env,
+                          episode_steps=1000,
+                          min_time_between_switches=1,
+                          # Hardcoded to be at least the integration step
+                          max_time_between_switches=3,
+                          switch_cost=ConstantSwitchCost(value=jp.array(0.0)),
+                          discounting=ppo_params['discounting'],
+                          time_as_part_of_state=True,
+                          sim_dt = env_cfg.sim_dt,
+                          )
+obs_size = env.observation_size
+act_size = env.action_size
+print(obs_size, act_size)
 
-def parse_config(config):
-    return {k: ast.literal_eval(v) if isinstance(v, str) else v for k, v in config.items()}
-
-env_name = "Go1JoystickFlatTerrain"
-env = registry.load(env_name)
-env_cfg = registry.get_default_config(env_name)
-
-config = parse_config(config)
-randomization_fn = registry.get_domain_randomizer(env_name)
-# Create the optimizer using W&B config
-optimizer = PPO(
-    environment=env,
-    num_timesteps=config["num_timesteps"],
-    episode_length=config["episode_length"],
-    action_repeat=config["action_repeat"],
-    num_envs=config["num_envs"],
-    num_eval_envs=config["num_eval_envs"],
-    lr=config["learning_rate"],
-    wd=0.0,
-    entropy_cost=config["entropy_cost"],
-    unroll_length=config["unroll_length"],
-    discounting=config["discounting"],
-    batch_size=config["batch_size"],
-    num_minibatches=config["num_minibatches"],
-    num_updates_per_batch=config["num_updates_per_batch"],
-    num_evals=config["num_evals"],
-    normalize_observations=True,
-    reward_scaling=config["reward_scaling"],
-    max_grad_norm=config["max_grad_norm"],
-    clipping_epsilon=0.3,
-    gae_lambda=0.95,
-    policy_hidden_layer_sizes=config["policy_hidden_layer_sizes"],
-    policy_activation=swish,  # If custom, make sure to define it
-    critic_hidden_layer_sizes=config["critic_hidden_layer_sizes"],
-    critic_activation=swish,  # Same here
-    deterministic_eval=False,
-    normalize_advantage=True,
-    wandb_logging=True,
-    randomization_fn=randomization_fn,  # If applicable
-    policy_obs_key=config["policy_obs_key"],
-    value_obs_key=config["value_obs_key"],
-    seed=config["seed"]
+normalize = running_statistics.normalize
+ppo_network = ppo_networks.make_ppo_networks(
+    observation_size=env.observation_size,
+    action_size=env.action_size,
+    value_hidden_layer_sizes=ppo_config['network_factory']['value_hidden_layer_sizes'],
+    policy_hidden_layer_sizes=ppo_config['network_factory']['policy_hidden_layer_sizes'],
+    value_obs_key=ppo_config['network_factory']['value_obs_key'],
+    policy_obs_key=ppo_config['network_factory']['policy_obs_key'],
+    preprocess_observations_fn=normalize,
 )
-policy = optimizer.make_policy(policy_params, deterministic=True)
+make_policy = ppo_networks.make_inference_fn(ppo_network)
+policy = make_policy(policy_params)
+class MLP(tf.keras.Model):
+    def __init__(
+        self,
+        layer_sizes,
+        activation=tf.nn.relu,
+        kernel_init="lecun_uniform",
+        activate_final=False,
+        bias=True,
+        layer_norm=False,
+        mean_std=None,
+    ):
+        super().__init__()
+
+        self.layer_sizes = layer_sizes
+        self.activation = activation
+        self.kernel_init = kernel_init
+        self.activate_final = activate_final
+        self.bias = bias
+        self.layer_norm = layer_norm
+
+        if mean_std is not None:
+            self.mean = tf.Variable(mean_std[0], trainable=False, dtype=tf.float32)
+            self.std = tf.Variable(mean_std[1], trainable=False, dtype=tf.float32)
+        else:
+            self.mean = None
+            self.std = None
+
+        self.mlp_block = tf.keras.Sequential(name="MLP_0")
+        for i, size in enumerate(self.layer_sizes):
+            dense_layer = layers.Dense(
+                size,
+                activation=self.activation,
+                kernel_initializer=self.kernel_init,
+                name=f"hidden_{i}",
+                use_bias=self.bias,
+            )
+            self.mlp_block.add(dense_layer)
+            if self.layer_norm:
+                self.mlp_block.add(layers.LayerNormalization(name=f"layer_norm_{i}"))
+        if not self.activate_final and self.mlp_block.layers:
+            if (
+                hasattr(self.mlp_block.layers[-1], "activation")
+                and self.mlp_block.layers[-1].activation is not None
+            ):
+                self.mlp_block.layers[-1].activation = None
+
+        self.submodules = [self.mlp_block]
+
+    def call(self, inputs):
+        if isinstance(inputs, list):
+            inputs = inputs[0]
+        if self.mean is not None and self.std is not None:
+            print(self.mean.shape, self.std.shape)
+            inputs = (inputs - self.mean) / self.std
+        logits = self.mlp_block(inputs)
+        loc, _ = tf.split(logits, 2, axis=-1)
+        return tf.tanh(loc)
+
+
+def make_policy_network(
+    param_size,
+    mean_std,
+    hidden_layer_sizes=[256, 256],
+    activation=tf.nn.relu,
+    kernel_init="lecun_uniform",
+    layer_norm=False,
+):
+    return MLP(
+        layer_sizes=list(hidden_layer_sizes) + [param_size],
+        activation=activation,
+        kernel_init=kernel_init,
+        layer_norm=layer_norm,
+        mean_std=mean_std,
+    )
+
+
+# %%
+inference_fn, params= make_policy, policy_params
+mean = params[0].mean["state"]
+std = params[0].std["state"]
+mean_std = (tf.convert_to_tensor(mean), tf.convert_to_tensor(std))
+tf_policy_network = make_policy_network(
+    param_size=act_size * 2,
+    mean_std=mean_std,
+    hidden_layer_sizes=ppo_config['network_factory']['policy_hidden_layer_sizes'],
+    activation=tf.nn.swish,
+)
+
+
+with tf.device("/GPU:0"):  # Or "/CPU:0" if you don't have a GPU
+    mean_std = (tf.convert_to_tensor(mean), tf.convert_to_tensor(std))
+    tf_policy_network = make_policy_network(
+        param_size=act_size * 2,
+        mean_std=mean_std,
+        hidden_layer_sizes=ppo_config['network_factory']['policy_hidden_layer_sizes'],
+        activation=tf.nn.swish,
+    )
+
+    # Example input MUST match the shape of the environment observation.
+    example_input = tf.zeros((1, obs_size["state"][0]))
+    print(f"TF input shape: {example_input.shape}")
+    example_output = tf_policy_network(example_input)
+    print(example_output.shape)
+
+
+def transfer_weights(jax_params, tf_model):
+    """
+    Transfer weights from a JAX parameter dictionary to the TensorFlow model.
+
+    Parameters:
+    - jax_params: dict
+      Nested dictionary with structure {block_name: {layer_name: {params}}}.
+      For example:
+      {
+        'CNN_0': {
+          'Conv_0': {'kernel': np.ndarray},
+          'Conv_1': {'kernel': np.ndarray},
+          'Conv_2': {'kernel': np.ndarray},
+        },
+        'MLP_0': {
+          'hidden_0': {'kernel': np.ndarray, 'bias': np.ndarray},
+          'hidden_1': {'kernel': np.ndarray, 'bias': np.ndarray},
+          'hidden_2': {'kernel': np.ndarray, 'bias': np.ndarray},
+        }
+      }
+
+    - tf_model: tf.keras.Model
+      An instance of the adapted VisionMLP model containing named submodules and layers.
+    """
+    for layer_name, layer_params in jax_params.items():
+        try:
+            tf_layer = tf_model.get_layer("MLP_0").get_layer(name=layer_name)
+        except ValueError:
+            print(f"Layer {layer_name} not found in TensorFlow model.")
+            continue
+        if isinstance(tf_layer, tf.keras.layers.Dense):
+            kernel = np.array(layer_params["kernel"])
+            bias = np.array(layer_params["bias"])
+            print(
+                f"Transferring Dense layer {layer_name}, kernel shape {kernel.shape}, bias shape {bias.shape}"
+            )
+            tf_layer.set_weights([kernel, bias])
+        else:
+            print(f"Unhandled layer type in {layer_name}: {type(tf_layer)}")
+    print("Weights transferred successfully.")
+
+
+transfer_weights(params[1]["params"], tf_policy_network)
+
+# %%
+test_input = [np.ones((1, obs_size["state"][0]), dtype=np.float32)]
+tensorflow_pred = tf_policy_network(test_input)[0]
+print(f"Tensorflow prediction: {tensorflow_pred}")
+
+output_path = f"Tacos30SwitchCost_brax.onnx"
+tf_policy_network.output_names = ["continuous_actions"]
+model_proto, _ = tf2onnx.convert.from_keras(
+    tf_policy_network,
+    input_signature=[
+        tf.TensorSpec(shape=(1, obs_size["state"][0]), dtype=tf.float32, name="obs")
+    ],
+    opset=11,
+    output_path=output_path,
+)
+
+output_names = ["continuous_actions"]
+providers = ["CPUExecutionProvider"]
+m = rt.InferenceSession(output_path, providers=providers)
+onxx_input = {"obs": np.ones((1, obs_size["state"][0]), dtype=np.float32)}
+onxx_pred = m.run(output_names, onxx_input)[0][0]
+print("ONNX prediction:", onxx_pred)
+
+
+test_input = {
+    "state": jp.ones(obs_size["state"]),
+    "privileged_state": jp.zeros(obs_size["privileged_state"]),
+}
+jax_pred = inference_fn(test_input, jax.random.PRNGKey(0))
+print("JAX prediction:", jax_pred)
+
+# %%

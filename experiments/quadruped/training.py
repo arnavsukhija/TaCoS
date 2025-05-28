@@ -86,7 +86,6 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
                time_as_part_of_state: bool = True,
                num_final_evals: int = 10,
                perturb: bool = False,
-               discounting: float = 0.0,
                ):
     # we load the env from the playground and read out the params
     env_cfg = registry.get_default_config(env_name)
@@ -97,10 +96,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
     ppo_config = dict(ppo_params)
     action_repeat = ppo_config['action_repeat']
     batch_size = ppo_config['batch_size']
-    if discounting > 0.0:
-        discount_factor = discounting
-    else:
-        discount_factor = ppo_config['discounting']
+    discount_factor = ppo_config['discounting']
     entropy_cost = ppo_config['entropy_cost']
     episode_length = ppo_config['episode_length']
     learning_rate = ppo_config['learning_rate']
@@ -136,7 +132,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
                                   time_as_part_of_state=time_as_part_of_state,
                                   sim_dt = sim_dt,
                                   )
-        eval_env = IHSwitchCostWrapper(env=go1_env,
+        eval_env = IHSwitchCostWrapper(env=registry.load(env_name, env_cfg),
                                   episode_steps=episode_length,
                                   min_time_between_switches=min_time_repeat,
                                   # Hardcoded to be at least the integration step
@@ -224,10 +220,10 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             policy_activation=swish,
             critic_hidden_layer_sizes=critic_hidden_layer_sizes,
             critic_activation=swish,
-            deterministic_eval=False,
+            deterministic_eval=True,
             normalize_advantage=True,
             wandb_logging=True,
-            return_best_model=True,
+            return_best_model=False,
             non_equidistant_time = True,
             min_time_between_switches=min_time_repeat,
             max_time_between_switches=max_time_repeat,
@@ -253,7 +249,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
             num_minibatches=num_minibatches,
             num_updates_per_batch=num_updates_per_batch,
             num_evals=num_evals,
-            normalize_observations=True,
+            normalize_observations=normalize_observations,
             reward_scaling=reward_scaling,
             max_grad_norm=max_grad_norm,
             clipping_epsilon=0.3,
@@ -293,7 +289,7 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
     print(f'Starting with evaluation')
     if switch_cost_wrapper:
         env_cfg = registry.get_default_config(env_name)
-        env_cfg.pert_config.enable = False
+        env_cfg.pert_config.enable = perturb
         env_cfg.command_config.a = [1.5, 0.8, 2 * jnp.pi]
         eval_env = registry.load(env_name, config=env_cfg)
         eval_env = IHSwitchCostWrapper(env=eval_env,
@@ -314,93 +310,95 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
         y_vel = 0.0  # @param {type: "number"}
         yaw_vel = 3.14  # @param {type: "number"}
 
+        seeds = [42,43,44]
+        for i in seeds:
 
-        rng = jax.random.PRNGKey(0)
-        rollout = []
-        modify_scene_fns = []
+            rng = jax.random.PRNGKey(i)
+            rollout = []
+            modify_scene_fns = []
 
-        swing_peak = []
-        rewards = []
-        linvel = []
-        angvel = []
-        track = []
-        foot_vel = []
-        rews = []
-        contact = []
-        command = jnp.array([x_vel, y_vel, yaw_vel])
-        num_steps = 0
-        time_predictions = []
+            swing_peak = []
+            rewards = []
+            linvel = []
+            angvel = []
+            track = []
+            foot_vel = []
+            rews = []
+            contact = []
+            command = jnp.array([x_vel, y_vel, yaw_vel])
+            num_steps = 0
+            time_predictions = []
 
-        state = jit_reset(rng)
-        state.info["command"] = command
-        env_steps = 0
-        total_reward = 0.0
-        while env_steps < env_cfg.episode_length:
-            act_rng, rng = jax.random.split(rng)
-            ctrl, _ = jit_inference_fn(state.obs, act_rng)
-            time_predictions.append(ctrl[-1])
-            state= jit_step(state, ctrl)
-            num_steps += 1
-            predicted_time = env.compute_steps(pseudo_time=ctrl[-1])
-            time_predictions.append(predicted_time)
-            env_steps += predicted_time
+            state = jit_reset(rng)
             state.info["command"] = command
-            rews.append(
-                {k: v for k, v in state.metrics.items() if k.startswith("reward/")}
-            )
-            total_reward += state.reward
-            rollout.append(state)
-            swing_peak.append(state.info["swing_peak"])
-            rewards.append(
-                {k[7:]: v for k, v in state.metrics.items() if k.startswith("reward/")}
-            )
-            linvel.append(env.env.get_global_linvel(state.data))
-            angvel.append(env.env.get_gyro(state.data))
-            track.append(
-                env.env._reward_tracking_lin_vel(
-                    state.info["command"], env.env.get_local_linvel(state.data)
+            env_steps = 0
+            total_reward = 0.0
+            while env_steps < env_cfg.episode_length:
+                act_rng, rng = jax.random.split(rng)
+                ctrl, _ = jit_inference_fn(state.obs, act_rng)
+                time_predictions.append(ctrl[-1])
+                state= jit_step(state, ctrl)
+                num_steps += 1
+                predicted_time = env.compute_steps(pseudo_time=ctrl[-1])
+                time_predictions.append(predicted_time)
+                env_steps += predicted_time
+                state.info["command"] = command
+                rews.append(
+                    {k: v for k, v in state.metrics.items() if k.startswith("reward/")}
                 )
-            )
-
-            feet_vel = state.data.sensordata[env.env._foot_linvel_sensor_adr]
-            vel_xy = feet_vel[..., :2]
-            vel_norm = jnp.sqrt(jnp.linalg.norm(vel_xy, axis=-1))
-            foot_vel.append(vel_norm)
-
-            contact.append(state.info["last_contact"])
-
-            xyz = np.array(state.data.xpos[env.env._torso_body_id])
-            xyz += np.array([0, 0, 0.2])
-            x_axis = state.data.xmat[env.env._torso_body_id, 0]
-            yaw = -np.arctan2(x_axis[1], x_axis[0])
-            modify_scene_fns.append(
-                functools.partial(
-                    draw_joystick_command,
-                    cmd=state.info["command"],
-                    xyz=xyz,
-                    theta=yaw,
-                    scl=abs(state.info["command"][0])
-                        / env_cfg.command_config.a[0],
+                total_reward += state.reward
+                rollout.append(state)
+                swing_peak.append(state.info["swing_peak"])
+                rewards.append(
+                    {k[7:]: v for k, v in state.metrics.items() if k.startswith("reward/")}
                 )
-            )
-        action_steps = list(range(len(time_predictions)))
-        plt.figure(figsize=(10, 6))
-        plt.plot(action_steps, time_predictions, marker='o', linestyle='-', color='b')
-        plt.xlabel('Control step')
-        plt.ylabel('Time Prediction')
-        plt.title('Hold predictions')
-        wandb.log({'Results/Total reward': total_reward})
-        wandb.log({'Results/Number of actions': num_steps})
-        wandb.log({"Results/Time Prediction Plot": wandb.Image(plt)})
-        print(f"The agent took {num_steps} actions")
-        print(f"Agent got {total_reward} reward")
+                linvel.append(env.env.get_global_linvel(state.data))
+                angvel.append(env.env.get_gyro(state.data))
+                track.append(
+                    env.env._reward_tracking_lin_vel(
+                        state.info["command"], env.env.get_local_linvel(state.data)
+                    )
+                )
+
+                feet_vel = state.data.sensordata[env.env._foot_linvel_sensor_adr]
+                vel_xy = feet_vel[..., :2]
+                vel_norm = jnp.sqrt(jnp.linalg.norm(vel_xy, axis=-1))
+                foot_vel.append(vel_norm)
+
+                contact.append(state.info["last_contact"])
+
+                xyz = np.array(state.data.xpos[env.env._torso_body_id])
+                xyz += np.array([0, 0, 0.2])
+                x_axis = state.data.xmat[env.env._torso_body_id, 0]
+                yaw = -np.arctan2(x_axis[1], x_axis[0])
+                modify_scene_fns.append(
+                    functools.partial(
+                        draw_joystick_command,
+                        cmd=state.info["command"],
+                        xyz=xyz,
+                        theta=yaw,
+                        scl=abs(state.info["command"][0])
+                            / env_cfg.command_config.a[0],
+                    )
+                )
+            action_steps = list(range(len(time_predictions)))
+            plt.figure(figsize=(10, 6))
+            plt.plot(action_steps, time_predictions, marker='o', linestyle='-', color='b')
+            plt.xlabel('Control step')
+            plt.ylabel('Time Prediction')
+            plt.title('Hold predictions')
+            wandb.log({f'Results_{i}/Total reward': total_reward})
+            wandb.log({f'Results_{i}/Number of actions': num_steps})
+            wandb.log({f"Results_{i}/Time Prediction Plot": wandb.Image(plt)})
+            print(f"The agent took {num_steps} actions")
+            print(f"Agent got {total_reward} reward")
     else:
         # Enable perturbation in the eval env.
         env_cfg = registry.get_default_config(env_name)
-        env_cfg.pert_config.enable = False
+        env_cfg.pert_config.enable = perturb
         env_cfg.command_config.a = [1.5, 0.8, 2 * jnp.pi]
         eval_env = registry.load(env_name, config=env_cfg)
-
+        env = go1_env
         jit_reset = jax.jit(eval_env.reset)
         jit_step = jax.jit(eval_env.step)
         jit_inference_fn = jax.jit(optimizer.make_policy(policy_params, deterministic=True))
@@ -410,71 +408,74 @@ def experiment(env_name: str = 'Go1JoystickFlatTerrain',
         y_vel = 0.0  # @param {type: "number"}
         yaw_vel = 3.14  # @param {type: "number"}
 
-        rng = jax.random.PRNGKey(0)
-        rollout = []
-        modify_scene_fns = []
+        seeds = [42,43,44]
+        for i in seeds:
+            rng = jax.random.PRNGKey(i)
+            rollout = []
+            modify_scene_fns = []
 
-        swing_peak = []
-        rewards = []
-        linvel = []
-        angvel = []
-        track = []
-        foot_vel = []
-        rews = []
-        contact = []
-        command = jnp.array([x_vel, y_vel, yaw_vel])
+            swing_peak = []
+            rewards = []
+            linvel = []
+            angvel = []
+            track = []
+            foot_vel = []
+            rews = []
+            contact = []
+            command = jnp.array([x_vel, y_vel, yaw_vel])
 
-        state = jit_reset(rng)
-        state.info["command"] = command
-        num_steps = 0
-        total_reward = 0
-        while num_steps < env_cfg.episode_length:
-            act_rng, rng = jax.random.split(rng)
-            ctrl, _ = jit_inference_fn(state.obs, act_rng)
-            state = jit_step(state, ctrl)
-            num_steps += 1
+            state = jit_reset(rng)
             state.info["command"] = command
-            rews.append(
-                {k: v for k, v in state.metrics.items() if k.startswith("reward/")}
-            )
-            rollout.append(state)
-            swing_peak.append(state.info["swing_peak"])
-            rewards.append(
-                {k[7:]: v for k, v in state.metrics.items() if k.startswith("reward/")}
-            )
-            total_reward += state.reward
-            linvel.append(env.get_global_linvel(state.data))
-            angvel.append(env.get_gyro(state.data))
-            track.append(
-                env._reward_tracking_lin_vel(
-                    state.info["command"], env.get_local_linvel(state.data)
+            num_steps = 0
+            total_reward = 0
+            while num_steps < env_cfg.episode_length:
+                act_rng, rng = jax.random.split(rng)
+                ctrl, _ = jit_inference_fn(state.obs, act_rng)
+                state = jit_step(state, ctrl)
+                num_steps += 1
+                state.info["command"] = command
+                rews.append(
+                    {k: v for k, v in state.metrics.items() if k.startswith("reward/")}
                 )
-            )
-
-            feet_vel = state.data.sensordata[env._foot_linvel_sensor_adr]
-            vel_xy = feet_vel[..., :2]
-            vel_norm = jnp.sqrt(jnp.linalg.norm(vel_xy, axis=-1))
-            foot_vel.append(vel_norm)
-
-            contact.append(state.info["last_contact"])
-
-            xyz = np.array(state.data.xpos[env._torso_body_id])
-            xyz += np.array([0, 0, 0.2])
-            x_axis = state.data.xmat[env._torso_body_id, 0]
-            yaw = -np.arctan2(x_axis[1], x_axis[0])
-            modify_scene_fns.append(
-                functools.partial(
-                    draw_joystick_command,
-                    cmd=state.info["command"],
-                    xyz=xyz,
-                    theta=yaw,
-                    scl=abs(state.info["command"][0])
-                        / env_cfg.command_config.a[0],
+                rollout.append(state)
+                swing_peak.append(state.info["swing_peak"])
+                rewards.append(
+                    {k[7:]: v for k, v in state.metrics.items() if k.startswith("reward/")}
                 )
-            )
-        wandb.log({'Results/Total reward ': total_reward})
-        wandb.log({'Results/Number of actions': num_steps})
-        print(f"Agent got {total_reward} reward")
+                total_reward += state.reward
+                linvel.append(env.get_global_linvel(state.data))
+                angvel.append(env.get_gyro(state.data))
+                track.append(
+                    env._reward_tracking_lin_vel(
+                        state.info["command"], env.get_local_linvel(state.data)
+                    )
+                )
+
+                feet_vel = state.data.sensordata[env._foot_linvel_sensor_adr]
+                vel_xy = feet_vel[..., :2]
+                vel_norm = jnp.sqrt(jnp.linalg.norm(vel_xy, axis=-1))
+                foot_vel.append(vel_norm)
+
+                contact.append(state.info["last_contact"])
+
+                xyz = np.array(state.data.xpos[env._torso_body_id])
+                xyz += np.array([0, 0, 0.2])
+                x_axis = state.data.xmat[env._torso_body_id, 0]
+                yaw = -np.arctan2(x_axis[1], x_axis[0])
+                modify_scene_fns.append(
+                    functools.partial(
+                        draw_joystick_command,
+                        cmd=state.info["command"],
+                        xyz=xyz,
+                        theta=yaw,
+                        scl=abs(state.info["command"][0])
+                            / env_cfg.command_config.a[0],
+                    )
+                )
+            wandb.log({f'Results_{i}/Total reward ': total_reward})
+            wandb.log({f'Results_{i}/Number of actions': num_steps})
+            print(f"Agent got {total_reward} reward")
+
     wandb.finish()
 
 
@@ -507,6 +508,5 @@ if __name__ == '__main__':
     parser.add_argument('--time_as_part_of_state', type=int, default=1)
     parser.add_argument('--num_final_evals', type=int, default=10)
     parser.add_argument('--perturb', type=int, default=0)
-    parser.add_argument('--discounting', type=float, default=0.0)
     args = parser.parse_args()
     main(args)

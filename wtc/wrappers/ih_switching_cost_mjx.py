@@ -40,6 +40,9 @@ class ConstantSwitchCost(SwitchCost):
         return self.value
 
 
+"""An adapted version of the SwitchCostWrapper for Mujoco Environments. Here, the state is augmented by a discrete time step.
+Requires the optimizer to support time-dependent discounting based on discrete time steps, not continuous time periods. 
+"""
 class IHSwitchCostWrapper(mjx_env.MjxEnv):
     def __init__(self,
                  env: mjx_env,
@@ -108,8 +111,8 @@ class IHSwitchCostWrapper(mjx_env.MjxEnv):
                      t_lower: chex.Array,  # pass this as time now
                      t_upper: chex.Array,  # pass this as time now
                      ) -> chex.Array:
-        time_for_action = ((t_upper - t_lower) / 2 * pseudo_time + (
-                    t_upper + t_lower) / 2)  #pseudo time for action is between [-1,1], we map it to tmin, tmax
+        time_for_action = ((t_upper - t_lower) / 2.0 * pseudo_time + (
+                    t_upper + t_lower) / 2.0)  #pseudo time for action is between [-1,1], we map it to tmin, tmax
         return jnp.floor(time_for_action)
 
     def compute_steps(self, pseudo_time: chex.Array) -> chex.Array:
